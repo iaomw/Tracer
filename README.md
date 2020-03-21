@@ -3,7 +3,7 @@ This is simply a repository for any **Ray Tracing** code written by me. Currentl
 
 *256 Ray 1024x1024*  | *256 Ray 512x512*
 :---:|:---:
-![](Captures/capture_a.PNG) | ![](Captures/capture_b.PNG)
+![](Captures/capture_a.png) | ![](Captures/capture_b.png)
 
 
 ### Why do I use Swift for Ray Tracing?
