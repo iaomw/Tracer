@@ -1,5 +1,5 @@
 # Tracer
-This is simply a repository for any **Ray Tracing** code written by me. Currently, it only contains **Swift** code for the 3 Ray Tracing mini books. Many people don't do the third book, because the concept of Monte Carlo method is well explained in the mini book. I am going to read PBRT after doing some Metal GPU coding. 
+This is simply a repository for any **Ray Tracing** code written by me. Currently, it only contains **Swift** code for the three mini books on **Ray Tracing**. Many people don't do the third book, because the concept of Monte Carlo method is not well explained it. As the follow up, I am going to read PBRT after doing some Metal GPU coding. 
 
 256 *`SPP`* 1024x1024 *`Basic`*  | 512 *`SPP`* 1024x1024 *`Monte Carlo`*
 :---:|:---:
@@ -16,8 +16,8 @@ This is simply a repository for any **Ray Tracing** code written by me. Currentl
 - [x] [Ray Tracing: The Rest of Your Life](https://raytracing.github.io/books/RayTracingTheRestOfYourLife.html)
 - [ ] [Metal API](https://developer.apple.com/documentation/metal)
 - [ ] [**Physically Based Rendering** __*third edition*__](http://www.pbr-book.org/)
-    - [ ] [Volume Rendering]
-    - [ ] [Metropolis Light Transport]
+    - [ ] Volume Rendering
+    - [ ] Metropolis Light Transport
    
 - [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)
 - [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
