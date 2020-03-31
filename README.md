@@ -1,20 +1,24 @@
 # Tracer
-This is simply a repository for any **Ray Tracing** code written by me. Currently, it only contains **Swift** code for the *first* and *second* Ray Tracing mini books. I don't know why so many people don't do the third book, maybe they got better resource respecting to the topics of third mini book, the mini book do really ignored alot things when describing the topics.
+This is simply a repository for any **Ray Tracing** code written by me. Currently, it only contains **Swift** code for the 3 Ray Tracing mini books. Many people don't do the third book, because the concept of Monte Carlo method is well explained in the mini book. I am going to read PBRT after doing some Metal GPU coding. 
 
-*256 Ray 1024x1024*  | *256 Ray 512x512*
+256 *`SPP`* 1024x1024 *`Basic`*  | 512 *`SPP`* 1024x1024 *`Monte Carlo`*
 :---:|:---:
-![](Captures/capture_a.png) | ![](Captures/capture_b.png)
+![](Captures/capture_c.png) | ![](Captures/capture_d.png)
 
 
 ### Why do I use Swift for Ray Tracing?
-If I write the same C++ code from the books, I may forgot the concepts and logics very quickly. Using a different language will push my brain to work, and I will remember longer. 
-
+- If I write the same C++ code from the books, I may forgot the concepts and logics very quickly. Using a different language will push my brain to work, and I will remember longer. 
+- I am considering switching to C++ & Objective-C, because most Swift types cannot been used in metal shader directly. If you want to use both Swift & Metal, there will be alot redundant work rewriting the code. That will be a nigtmare if I am doing a GPU version of PBRT.
 
 ### Bigger things to-do:
 - [x] [Ray Tracing: In One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 - [x] [Ray Tracing: The Next Week](https://raytracing.github.io/books/RayTracingTheNextWeek.html)
-- [ ] [Ray Tracing: The Rest of Your Life](https://raytracing.github.io/books/RayTracingTheRestOfYourLife.html)
+- [x] [Ray Tracing: The Rest of Your Life](https://raytracing.github.io/books/RayTracingTheRestOfYourLife.html)
 - [ ] [Metal API](https://developer.apple.com/documentation/metal)
+- [ ] [**Physically Based Rendering** __*third edition*__](http://www.pbr-book.org/)
+    - [ ] [Volume Rendering]
+    - [ ] [Metropolis Light Transport]
+   
 - [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)
 - [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
 
