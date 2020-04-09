@@ -1,81 +1,117 @@
 
+
+#include "Random.hh"
 #include <metal_stdlib>
+
 using namespace metal;
 
-static float random1(float x)
+//static pcg32_random_t pcg32_global = PCG32_INITIALIZER;
+
+// pcg32_srandom(initstate, initseq)
+// pcg32_srandom_r(rng, initstate, initseq):
+//     Seed the rng.  Specified in two parts, state initializer and a
+//     sequence selection constant (a.k.a. stream id)
+
+void pcg32_srandom_r(thread pcg32_random_t* rng, uint64_t initstate, uint64_t initseq)
 {
-    float y = fract(sin(x)*100000.0);
-    return y;
+    rng->state = 0U;
+    rng->inc = (initseq << 1u) | 1u;
+    pcg32_random_r(rng);
+    rng->state += initstate;
+    pcg32_random_r(rng);
 }
 
-static float2 random2(float2 st){
-    st = float2( dot(st,float2(127.1,311.7)),
-              dot(st,float2(269.5,183.3)) );
-    return -1.0 + 2.0*fract(sin(st)*43758.5453123);
-}
+//void pcg32_srandom(uint64_t seed, uint64_t seq)
+//{
+//    pcg32_srandom_r(&pcg32_global, seed, seq);
+//}
 
-static float randFromF2(float2 co)
+// pcg32_random()
+// pcg32_random_r(rng)
+//     Generate a uniformly distributed 32-bit random number
+
+uint32_t pcg32_random_r(thread pcg32_random_t* rng)
 {
-    float a = 12.9898;
-    float b = 78.233;
-    float c = 43758.5453;
-    float dt= dot(co.xy ,float2(a,b));
-    
-    float sn= fmod(dt, 3.14);
-    return fract(sin(sn) * c);
+    uint64_t oldstate = rng->state;
+    rng->state = oldstate * 6364136223846793005ULL + rng->inc;
+    uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
+    uint32_t rot = oldstate >> 59u;
+    return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
 }
 
-static uint32_t RNG(thread uint32_t& state)
+//uint32_t pcg32_random()
+//{
+//    return pcg32_random_r(&pcg32_global);
+//}
+
+
+// pcg32_boundedrand(bound):
+// pcg32_boundedrand_r(rng, bound):
+//     Generate a uniformly distributed number, r, where 0 <= r < bound
+
+uint32_t pcg32_boundedrand_r(thread pcg32_random_t* rng, uint32_t bound)
 {
-    uint32_t x = state;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 15;
-    state = x;
-    return x;
+    // To avoid bias, we need to make the range of the RNG a multiple of
+    // bound, which we do by dropping output less than a threshold.
+    // A naive scheme to calculate the threshold would be to do
+    //
+    //     uint32_t threshold = 0x100000000ull % bound;
+    //
+    // but 64-bit div/mod is slower than 32-bit div/mod (especially on
+    // 32-bit platforms).  In essence, we do
+    //
+    //     uint32_t threshold = (0x100000000ull-bound) % bound;
+    //
+    // because this version will calculate the same modulus, but the LHS
+    // value is less than 2^32.
+
+    uint32_t threshold = -bound % bound;
+
+    // Uniformity guarantees that this loop will terminate.  In practice, it
+    // should usually terminate quickly; on average (assuming all bounds are
+    // equally likely), 82.25% of the time, we can expect it to require just
+    // one iteration.  In the worst case, someone passes a bound of 2^31 + 1
+    // (i.e., 2147483649), which invalidates almost 50% of the range.  In
+    // practice, bounds are typically small and only a tiny amount of the range
+    // is eliminated.
+    for (;;) {
+        uint32_t r = pcg32_random_r(rng);
+        if (r >= threshold)
+            return r % bound;
+    }
 }
 
-static float RandomRNG(thread uint32_t& state)
+
+//uint32_t pcg32_boundedrand(uint32_t bound)
+//{
+//    return pcg32_boundedrand_r(&pcg32_global, bound);
+//}
+
+float randomF(thread pcg32_random_t* rng)
 {
-    return (RNG(state) & 0xFFFFFF) / 16777216.0f;
+    //return pcg32_random_r(rng)/float(UINT_MAX);
+    return ldexp(float(pcg32_random_r(rng)), -32);
 }
 
-static float randomF() {
-    return float(0);
+float randomF(float mini, float maxi, thread pcg32_random_t* rng) {
+    return mini + (maxi-mini)*randomF(rng);
 }
 
-static float randomF(float mini, float maxi) {
-    return mini + (maxi-mini)*randomF();
-}
-
-static float3 randomUnitFFF() {
-    auto a = randomF(0, 2*M_PI_F);
-    auto z = randomF(-1, 1);
-    auto r = sqrt(1 - z*z);
-    return float3(r*cos(a), r*sin(a), z);
-}
-
-static float2 randomInUnitDiskFF() {
+float2 randomInUnitDiskFF(thread pcg32_random_t* rng) {
     float2 p;
     do {
-        p = 2.0 * float2(randomF(), randomF()) - float2(1);
-    } while (dot(p, p) >= 1.0);
+        p = 2.0 * float2(randomF(rng), randomF(rng)) - float2(1);
+    } while (dot(p, p)<=1.0);
     return p;
 }
 
-static float3 randomInUnitSphereFFF() {
+float3 randomInUnitSphereFFF(thread pcg32_random_t* rng) {
     float3 p;
     do {
-        auto x = randomF();
-        auto y = randomF();
-        auto z = randomF();
+        auto x = randomF(rng);
+        auto y = randomF(rng);
+        auto z = randomF(rng);
         p = 2.0 * float3(x, y, z) - float3(1);
-    } while (dot(p, p)>=1.0);
+    } while (dot(p, p)<=1.0);
     return p;
-}
-
-static float schlick(float cosine, float ref_idx) {
-    auto r0 = (1-ref_idx) / (1+ref_idx);
-    r0 = r0*r0;
-    return r0 + (1-r0)*pow((1 - cosine),5);
 }

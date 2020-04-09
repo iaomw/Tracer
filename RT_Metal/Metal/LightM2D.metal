@@ -1,15 +1,13 @@
 
 #include <metal_stdlib>
-#include "Random.h"
+#include "Random.hh"
 
 #define N 256
 #define MAX_STEP 64
 #define MAX_DISTANCE 5.0f
-
-#define BIAS 1e-4f
 #define EPSILON 1e-6f
-
-#define MAX_DEPTH 3
+#define BIAS 1e-4f
+#define MAX_DEPTH 5
 
 using namespace metal;
 
@@ -53,11 +51,12 @@ static ResultM2D complementOp(ResultM2D a) {
 static bool refractM2D(float ix, float iy,
                        float nx, float ny,
                        float eta,
-                       thread float* rx, thread float* ry) {
+                       thread float* rx, thread float* ry)
+{
     float idotn = ix * nx + iy * ny;
     float k = 1.0f - eta * eta * (1.0f - idotn * idotn);
     if (k < 0.0f)
-        return false; // 全内反射
+        return false;
     float a = eta * idotn + sqrt(k);
     *rx = eta * ix - a * nx;
     *ry = eta * iy - a * ny;
@@ -115,7 +114,8 @@ static float boxSDF(float x, float y, float cx, float cy, float theta, float sx,
 static float triangleSDF(float x, float y,
                   float ax, float ay,
                   float bx, float by,
-                  float cx, float cy) {
+                  float cx, float cy)
+{
     
   auto d = min(min(
     segmentSDF(x, y, ax, ay, bx, by),
@@ -151,15 +151,15 @@ static float ngonSDF(float x, float y, float cx, float cy, float r, float n) {
 static ResultM2D scene(float x, float y) {
     
     ResultM2D a = { circleSDF(x, y, 0.5f, -0.2f, 0.1f),
-                    0.0f, 0.0f, float3(0), float3(0) };
-    ResultM2D b = {  ngonSDF(x, y, 0.5f, 0.5f, 0.25f, 5.0f),
+                    0.0f, 0.0f, float3(10), float3(0) };
+    ResultM2D b = { ngonSDF(x, y, 0.5f, 0.5f, 0.25f, 5.0f),
                     0.0f, 1.5f, float3(0), float3(4.0f, 4.0f, 1.0f) };
     return unionOp(a, b);
     
-    //ResultM2D a = { circleSDF(x, y, -0.2f, -0.2f, 0.1f), 10.0f, 0.0f, 0.0f, 0.0f };
-    //ResultM2D b = { boxSDF(x, y, 0.5f, 0.5f, 0.0f, 0.3, 0.2f), 0.0f, 0.2f, 1.5f, 4.0f };
-    
-    //return unionOp(a, b);
+//    ResultM2D a = { circleSDF(x, y, -0.2f, -0.2f, 0.1f), 10.0f, 0.0f, 0.0f, 0.0f };
+//    ResultM2D b = { boxSDF(x, y, 0.5f, 0.5f, 0.0f, 0.3, 0.2f), 0.0f, 0.2f, 1.5f, 4.0f };
+//
+//    return unionOp(a, b);
 //    ResultM2D c = { circleSDF(x, y, 0.5f, -0.5f, 0.05f), 20.0f, 0.0f, 0.0f };
 //    ResultM2D d = { circleSDF(x, y, 0.5f, 0.2f, 0.35f), 0.0f, 0.2f, 1.5f };
 //    ResultM2D e = { circleSDF(x, y, 0.5f, 0.8f, 0.35f), 0.0f, 0.2f, 1.5f };
@@ -241,13 +241,12 @@ static TraceResult traceM2D(float ox, float oy,
     TraceResult traceResult;
     traceResult.depth = depth;
     traceResult.has_color = false;
-    traceResult.reflect_ratio = base_ratio;
     traceResult.refract_ratio = base_ratio;
+    traceResult.reflect_ratio = base_ratio;
     //if (depth>=MAX_DEPTH) {return traceResult;}
     
     float t = 1e-3f;
     float sign;
-    
     if(scene(ox, oy).sd > 0) {
         sign = 1;
     } else {
@@ -260,18 +259,20 @@ static TraceResult traceM2D(float ox, float oy,
         
         if (sign*r.sd < EPSILON) {
             auto bee = beerLambertM2D(r.absorption, t);
-            float3 color = float3(r.emissive);
+            float3 color = r.emissive;
             traceResult.color = color*bee;
             traceResult.has_color = true;
             
-            if(depth<MAX_DEPTH && (r.reflectivity>0.0 || r.eta>0.0)) {
+            if(depth<MAX_DEPTH && r.eta>0.0) {
                 float nx, ny;
                 gradientM2D(x, y, &nx, &ny);
+                float s = 1.0f / (nx * nx + ny * ny);
                 auto refl = r.reflectivity;
+                
+                nx *= sign*s; ny *= sign*s;
                 
                 auto eta = 1.0/r.eta;
                 if (sign<0) {
-                    nx*=-1; ny*=-1;
                     eta = r.eta;
                 }
                 
@@ -311,74 +312,75 @@ static TraceResult traceM2D(float ox, float oy,
         }
         t += sign*r.sd;
     }
+    traceResult.color = float3(0);
     return traceResult;
 }
 
-static float3 sampleM2D(float x, float y, float t) {
-    float3 color = float3(0);
-    
-    for (int i=0; i<N; i++) {
-        //float a = 2*M_PI_F*i/N;
-        float a = 2*M_PI_F*(i+randFromF2(float2(x,y)*t))/N;
-        float2 direction = float2(cos(a), sin(a));
-        
-        auto traceResult = traceM2D(x, y, direction.x, direction.y, 1, 0);
-        
-        if (traceResult.has_color) {
-            color += traceResult.color.x;
-        } else {
-            continue;
-        }
-        
-        TraceResult tmp[3];
-        tmp[0] = traceResult;
-        
-        int checkIndex = 0;
-        int storeIndex = 0;
-        
-        for (checkIndex=0; checkIndex<=storeIndex && checkIndex<3; ++checkIndex) {
-            
-            traceResult = tmp[checkIndex];
-            auto depth = 1+traceResult.depth;
-            
-            if (traceResult.has_reflect) {
-                auto _pos = traceResult.reflect_pos;
-                auto _dir = traceResult.reflect;
-
-                auto reflect_result = traceM2D(_pos.x, _pos.y,
-                                               _dir.x, _dir.y,
-                                               traceResult.reflect_ratio, depth);
-
-                if (reflect_result.has_color) {
-                    if(depth<2) {
-                        ++storeIndex;
-                        tmp[storeIndex] = reflect_result;
-                    }
-                    color += traceResult.reflect_ratio*reflect_result.color.x;
-                }
-            }
-            
-            if (traceResult.has_refract) {
-                auto _pos = traceResult.refract_pos;
-                auto _dir = traceResult.refract;
-
-                auto refract_result = traceM2D(_pos.x, _pos.y,
-                                               _dir.x, _dir.y,
-                                               traceResult.refract_ratio, depth);
-                
-                if (refract_result.has_color) {
-                    
-                    if(depth<2) {
-                        ++storeIndex;
-                        tmp[storeIndex] = refract_result;
-                    }
-                    color += traceResult.refract_ratio*refract_result.color.x;
-                }
-            }
-        }
-    }
-    
-    return min(color/N, float3(1.0));
-}
-
-
+//static float3 sampleM2D(float x, float y, float t) {
+//    float3 color = float3(0);
+//    
+//    for (int i=0; i<N; i++) {
+//        //float a = 2*M_PI_F*i/N;
+//        float a = 2*M_PI_F*(i+randomF(t*x*y))/N;
+//        float2 direction = float2(cos(a), sin(a));
+//        
+//        auto traceResult = traceM2D(x, y, direction.x, direction.y, 1, 0);
+//        
+//        if (traceResult.has_color) {
+//            color += traceResult.color;
+//        } else {
+//            continue;
+//        }
+//        
+//        TraceResult tmp[3];
+//        tmp[0] = traceResult;
+//        
+//        int checkIndex = 0;
+//        int storeIndex = 0;
+//        
+//        for (checkIndex=0; checkIndex<=storeIndex && checkIndex<3; ++checkIndex) {
+//            
+//            traceResult = tmp[checkIndex];
+//            auto depth = 1+traceResult.depth;
+//            
+//            if (traceResult.has_reflect) {
+//                auto _pos = traceResult.reflect_pos;
+//                auto _dir = traceResult.reflect;
+//
+//                auto reflect_result = traceM2D(_pos.x, _pos.y,
+//                                               _dir.x, _dir.y,
+//                                               traceResult.reflect_ratio, depth);
+//
+//                if (reflect_result.has_color) {
+//                    if(depth<2) {
+//                        ++storeIndex;
+//                        tmp[storeIndex] = reflect_result;
+//                    }
+//                    color += traceResult.reflect_ratio*reflect_result.color;
+//                }
+//            }
+//            
+//            if (traceResult.has_refract) {
+//                auto _pos = traceResult.refract_pos;
+//                auto _dir = traceResult.refract;
+//
+//                auto refract_result = traceM2D(_pos.x, _pos.y,
+//                                               _dir.x, _dir.y,
+//                                               traceResult.refract_ratio, depth);
+//                
+//                if (refract_result.has_color) {
+//                    
+//                    if(depth<2) {
+//                        ++storeIndex;
+//                        tmp[storeIndex] = refract_result;
+//                    }
+//                    color += traceResult.refract_ratio*refract_result.color;
+//                }
+//            }
+//        }
+//    }
+//    
+//    return color/N; //min(color/N, float3(1.0));
+//}
+//
+//

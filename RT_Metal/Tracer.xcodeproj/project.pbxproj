@@ -1,0 +1,388 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		571C09602439267700DA0BAC /* Tracer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571C095F2439267700DA0BAC /* Tracer.mm */; };
+		573DD1022432938300B09B0A /* MetalRender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1012432938300B09B0A /* MetalRender.swift */; };
+		573DD1092432B9D900B09B0A /* Render.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1082432B9D900B09B0A /* Render.metal */; };
+		573DD1122433AA9900B09B0A /* Random.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1112433AA9900B09B0A /* Random.metal */; };
+		5749BCA32435005B002B60E4 /* Tracer.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5749BCA22435005B002B60E4 /* Tracer.metal */; };
+		5749BCA524354963002B60E4 /* LightM2D.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5749BCA424354963002B60E4 /* LightM2D.metal */; };
+		575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 575F7DBA242469C300DA5F33 /* TracerWindowController.swift */; };
+		57DD356A241EEC110094632B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD3569241EEC110094632B /* AppDelegate.swift */; };
+		57DD356C241EEC110094632B /* TracerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD356B241EEC110094632B /* TracerViewController.swift */; };
+		57DD356E241EEC140094632B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356D241EEC140094632B /* Assets.xcassets */; };
+		57DD3571241EEC140094632B /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356F241EEC140094632B /* Main.storyboard */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		571C095F2439267700DA0BAC /* Tracer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Tracer.mm; sourceTree = "<group>"; };
+		571C09612439269400DA0BAC /* Tracer.hh */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; lineEnding = 0; path = Tracer.hh; sourceTree = "<group>"; };
+		573DD1012432938300B09B0A /* MetalRender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRender.swift; sourceTree = "<group>"; };
+		573DD1082432B9D900B09B0A /* Render.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Render.metal; sourceTree = "<group>"; };
+		573DD10A24335D6D00B09B0A /* Render.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Render.hh; sourceTree = "<group>"; };
+		573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Tracer-Bridging-Header.h"; sourceTree = "<group>"; };
+		573DD1112433AA9900B09B0A /* Random.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Random.metal; sourceTree = "<group>"; };
+		5749BCA22435005B002B60E4 /* Tracer.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Tracer.metal; sourceTree = "<group>"; };
+		5749BCA424354963002B60E4 /* LightM2D.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = LightM2D.metal; sourceTree = "<group>"; };
+		5749BCA624362BDE002B60E4 /* Random.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Random.hh; sourceTree = "<group>"; };
+		575F7DBA242469C300DA5F33 /* TracerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TracerWindowController.swift; sourceTree = "<group>"; };
+		57DD3566241EEC110094632B /* Tracer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tracer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		57DD3569241EEC110094632B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		57DD356B241EEC110094632B /* TracerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TracerViewController.swift; sourceTree = "<group>"; };
+		57DD356D241EEC140094632B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		57DD3570241EEC140094632B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		57DD3572241EEC140094632B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		57DD3573241EEC140094632B /* Tracer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Tracer.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		57DD3563241EEC110094632B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		573DD1072432961400B09B0A /* Metal */ = {
+			isa = PBXGroup;
+			children = (
+				573DD10A24335D6D00B09B0A /* Render.hh */,
+				573DD1082432B9D900B09B0A /* Render.metal */,
+				571C09612439269400DA0BAC /* Tracer.hh */,
+				571C095F2439267700DA0BAC /* Tracer.mm */,
+				5749BCA22435005B002B60E4 /* Tracer.metal */,
+				5749BCA624362BDE002B60E4 /* Random.hh */,
+				573DD1112433AA9900B09B0A /* Random.metal */,
+				5749BCA424354963002B60E4 /* LightM2D.metal */,
+				573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */,
+			);
+			path = Metal;
+			sourceTree = "<group>";
+		};
+		57DD355D241EEC110094632B = {
+			isa = PBXGroup;
+			children = (
+				573DD1072432961400B09B0A /* Metal */,
+				57DD3568241EEC110094632B /* Tracer */,
+				57DD3567241EEC110094632B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		57DD3567241EEC110094632B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				57DD3566241EEC110094632B /* Tracer.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		57DD3568241EEC110094632B /* Tracer */ = {
+			isa = PBXGroup;
+			children = (
+				573DD1012432938300B09B0A /* MetalRender.swift */,
+				57DD3569241EEC110094632B /* AppDelegate.swift */,
+				57DD356B241EEC110094632B /* TracerViewController.swift */,
+				575F7DBA242469C300DA5F33 /* TracerWindowController.swift */,
+				57DD3572241EEC140094632B /* Info.plist */,
+				57DD356D241EEC140094632B /* Assets.xcassets */,
+				57DD356F241EEC140094632B /* Main.storyboard */,
+				57DD3573241EEC140094632B /* Tracer.entitlements */,
+			);
+			path = Tracer;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		57DD3565241EEC110094632B /* Tracer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 57DD3576241EEC140094632B /* Build configuration list for PBXNativeTarget "Tracer" */;
+			buildPhases = (
+				57DD3562241EEC110094632B /* Sources */,
+				57DD3563241EEC110094632B /* Frameworks */,
+				57DD3564241EEC110094632B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Tracer;
+			productName = Tracer;
+			productReference = 57DD3566241EEC110094632B /* Tracer.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		57DD355E241EEC110094632B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1130;
+				LastUpgradeCheck = 1140;
+				ORGANIZATIONNAME = iaomw;
+				TargetAttributes = {
+					57DD3565241EEC110094632B = {
+						CreatedOnToolsVersion = 11.3.1;
+						LastSwiftMigration = 1140;
+					};
+				};
+			};
+			buildConfigurationList = 57DD3561241EEC110094632B /* Build configuration list for PBXProject "Tracer" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 57DD355D241EEC110094632B;
+			productRefGroup = 57DD3567241EEC110094632B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				57DD3565241EEC110094632B /* Tracer */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		57DD3564241EEC110094632B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57DD356E241EEC140094632B /* Assets.xcassets in Resources */,
+				57DD3571241EEC140094632B /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		57DD3562241EEC110094632B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				573DD1022432938300B09B0A /* MetalRender.swift in Sources */,
+				573DD1092432B9D900B09B0A /* Render.metal in Sources */,
+				575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */,
+				573DD1122433AA9900B09B0A /* Random.metal in Sources */,
+				5749BCA524354963002B60E4 /* LightM2D.metal in Sources */,
+				571C09602439267700DA0BAC /* Tracer.mm in Sources */,
+				5749BCA32435005B002B60E4 /* Tracer.metal in Sources */,
+				57DD356C241EEC110094632B /* TracerViewController.swift in Sources */,
+				57DD356A241EEC110094632B /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		57DD356F241EEC140094632B /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				57DD3570241EEC140094632B /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		57DD3574241EEC140094632B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		57DD3575241EEC140094632B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		57DD3577241EEC140094632B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Tracer/Tracer.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = Tracer/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				PRODUCT_BUNDLE_IDENTIFIER = IA.Tracer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "Metal/Tracer-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		57DD3578241EEC140094632B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Tracer/Tracer.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = Tracer/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				PRODUCT_BUNDLE_IDENTIFIER = IA.Tracer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "Metal/Tracer-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		57DD3561241EEC110094632B /* Build configuration list for PBXProject "Tracer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				57DD3574241EEC140094632B /* Debug */,
+				57DD3575241EEC140094632B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		57DD3576241EEC140094632B /* Build configuration list for PBXNativeTarget "Tracer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				57DD3577241EEC140094632B /* Debug */,
+				57DD3578241EEC140094632B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 57DD355E241EEC110094632B /* Project object */;
+}
