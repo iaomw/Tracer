@@ -28,6 +28,7 @@ struct Camera {
 enum struct TextureType { Constant, Checker, Noise, Image };
 struct Texture {
     enum TextureType type;
+    uint textureIndex;
 };
 
 enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic };
@@ -78,7 +79,8 @@ struct Sphere {
 
 @interface Tracer : NSObject
 + (float*)system_time;
-+ (struct Square*)cornellBOX;
++ (struct Cube*)cube_list;
++ (struct Square*)cornell_box;
 + (struct Camera*)camera:(float2)viewSize;
 @end
 

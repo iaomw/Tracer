@@ -47,8 +47,10 @@ static Ray castRay(constant Camera* camera, float s, float t, thread pcg32_rando
 enum struct TextureType { Constant, Checker, Noise, Image };
 struct Texture {
     enum TextureType type;
+    uint textureIndex;
     
-    float3 value(float2 uv, float3 p) {
+    float3 value(texture2d<half, access::sample> outTexture,
+                 float2 uv, float3 p) {
         return float3(0);
     }
 };
@@ -78,9 +80,18 @@ struct HitRecord {
     
     Material material;
     
-    void checkFace(Ray ray) {
+    float3 normal() {
+        if (front) {
+            return n;
+        } else {
+            return -n;
+        }
+    }
+    
+    void checkFace(thread Ray& ray) {
         if( dot(ray.direction, n) < 0 ){
             front = false;
+            n = -n;
         } else {
             front = true;
         }
@@ -161,8 +172,6 @@ struct Square {
         return true;
     }
 };
-
-
 
 struct Cube {
     float3 a;
@@ -268,17 +277,11 @@ static bool scatter(thread Ray& ray,
                     thread pcg32_random_t* seed)
 {
     auto material = hitRecord.material;
+    
     switch(material.type) {
         case MaterialType::Lambert: {
             
-            float3 normal;
-            if (hitRecord.front) {
-                normal = hitRecord.n;
-            } else {
-                normal = -hitRecord.n;
-            }
-            
-            auto scatter_direction = normal + randomInUnitSphereFFF(seed);
+            auto scatter_direction = hitRecord.normal() + randomInUnitSphereFFF(seed);
             auto scattered = MakeRay(hitRecord.p, scatter_direction);
             //auto attenuation = material.texture.value(hitRecord.uv, hitRecord.p);
             scatterRecord.specularRay = scattered;
@@ -286,24 +289,26 @@ static bool scatter(thread Ray& ray,
             return true;
         }
         case MaterialType::Metal: {
+            
             auto fuzz = 0.4;
-            auto reflected = reflect(normalize(ray.direction), hitRecord.n);
+            auto reflected = reflect(normalize(ray.direction), hitRecord.normal());
             auto scattered = MakeRay(hitRecord.p, reflected + fuzz*randomInUnitSphereFFF(seed));
             auto attenuation = material.albedo;
             scatterRecord.specularRay = scattered;
             scatterRecord.attenuation = attenuation;
-            return (dot(scattered.direction, hitRecord.n) > 0);
+            return (dot(scattered.direction, hitRecord.normal()) > 0);
         }
         case MaterialType::Dielectric: {
+            
             auto attenuation = float3(1);
             auto etai_over_etat = hitRecord.front? (1.0/material.refractive):material.refractive;
             
             auto unit_direction = normalize(ray.direction);
-            auto cos_theta = min(dot(-unit_direction, hitRecord.n), 1.0);
+            auto cos_theta = min(dot(-unit_direction, hitRecord.normal()), 1.0);
             auto sin_theta = sqrt(1.0 - cos_theta*cos_theta);
             
             if (etai_over_etat * sin_theta > 1.0 ) {
-                auto reflected = reflect(unit_direction, hitRecord.n);
+                auto reflected = reflect(unit_direction, hitRecord.normal());
                 auto scattered = MakeRay(hitRecord.p, reflected);
                 scatterRecord.specularRay = scattered;
                 scatterRecord.attenuation = attenuation;
@@ -312,14 +317,14 @@ static bool scatter(thread Ray& ray,
 
             auto reflect_prob = schlick(cos_theta, etai_over_etat);
             if (randomF(seed) < reflect_prob) {
-                auto reflected = reflect(unit_direction, hitRecord.n);
+                auto reflected = reflect(unit_direction, hitRecord.normal());
                 auto scattered = MakeRay(hitRecord.p, reflected);
                 scatterRecord.specularRay = scattered;
                 scatterRecord.attenuation = attenuation;
                 return true;
             }
 
-            auto refracted = refract(unit_direction, hitRecord.n, etai_over_etat);
+            auto refracted = refract(unit_direction, hitRecord.normal(), etai_over_etat);
             auto scattered = MakeRay(hitRecord.p, refracted);
             scatterRecord.specularRay = scattered;
             scatterRecord.attenuation = attenuation;
@@ -331,9 +336,9 @@ static bool scatter(thread Ray& ray,
         }
         case MaterialType::Isotropic: {
             auto scattered = MakeRay(hitRecord.p, randomInUnitSphereFFF(seed));
-            auto attenuation = material.texture.value(hitRecord.uv, hitRecord.p);
+            //auto attenuation = material.texture.value(hitRecord.uv, hitRecord.p);
             scatterRecord.specularRay = scattered;
-            scatterRecord.attenuation = attenuation;
+            scatterRecord.attenuation = hitRecord.material.albedo; //attenuation;
             return true;
         }
         default: {}

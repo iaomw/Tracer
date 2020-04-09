@@ -99,7 +99,7 @@ static Square MakeSquare(uint8_t axis_i, float2 rang_i, uint8_t axis_j, float2 r
     return r;
 }
     
-Cube MakeCube(float3 a, float3 b) {
+Cube MakeCube(float3 a, float3 b, Material material) {
     
     Cube r; r.a = a; r.b = b; //r.boundingBOX = MakeAABB(a, b);
     
@@ -111,6 +111,10 @@ Cube MakeCube(float3 a, float3 b) {
     
     r.rectList[4] = MakeSquare(2, simd_make_float2(a.z, b.z), 0, simd_make_float2(a.x, b.x), 1, a.y);
     r.rectList[5] = MakeSquare(2, simd_make_float2(a.z, b.z), 0, simd_make_float2(a.x, b.x), 1, b.y);
+    
+    for (auto item : r.rectList) {
+        item.material = material;
+    }
     
     return r;
 };
@@ -171,7 +175,20 @@ static struct Square* cornell_box() {
     return &f;
 }
 
-+ (struct Square*)cornellBOX {
++ (struct Cube*)cube_list; {
+    
+    Material white; white.type = MaterialType::Lambert; white.albedo = simd_make_float3(0.73, 0.73, 0.73);
+    
+    auto bigger = MakeCube(simd_make_float3(0,0,0),
+                           simd_make_float3(165, 330, 165), white);
+    auto smaller = MakeCube(simd_make_float3(0,0,0),
+                            simd_make_float3(165, 165, 165), white);
+    
+    static Cube result[] = {bigger, smaller};
+    return result;
+}
+
++ (struct Square*)cornell_box {
     return cornell_box();
 }
 

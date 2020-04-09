@@ -40,7 +40,9 @@ class MetalRender: NSObject, MTKViewDelegate {
     let vertexBuffer: MTLBuffer
     let commandQueue: MTLCommandQueue
     
-    let cbBuffer: MTLBuffer
+    let cube_list_buffer: MTLBuffer
+    let cornell_box_buffer: MTLBuffer
+    
     let sceneMetaBuffer: MTLBuffer
     private var sceneMeta = SceneMeta()
     let launch_time = Date().timeIntervalSince1970
@@ -106,11 +108,15 @@ class MetalRender: NSObject, MTKViewDelegate {
                                                        options: .storageModeShared) else {throw NSError()}
         self.sceneMetaBuffer = sceneMetaBuffer
         
-        guard let cb = Tracer.cornellBOX() else { throw NSError() };
+        guard let cube_list = Tracer.cube_list() else {throw NSError()}
+        let cube_list_length = MemoryLayout<Cube>.stride*2
+        guard let cube_list_buffer = device.makeBuffer(bytes: cube_list, length: cube_list_length, options: .storageModeShared) else {throw NSError()}
+        self.cube_list_buffer = cube_list_buffer;
         
+        guard let cb = Tracer.cornell_box() else { throw NSError() };
         let cb_size = MemoryLayout<Square>.stride*6
         guard let cb_buffer = device.makeBuffer(bytes: cb, length: cb_size, options: .storageModeShared) else { throw NSError()}
-        self.cbBuffer = cb_buffer
+        self.cornell_box_buffer = cb_buffer
         
         guard let camera = Tracer.camera(self.sceneMeta.view_size) else {
             throw NSError();
@@ -211,7 +217,9 @@ class MetalRender: NSObject, MTKViewDelegate {
         let length_camera = MemoryLayout<Camera>.stride
         self.cameraBuffer.contents().copyMemory(from: camera, byteCount: length_camera)
         computeEncoder.setBuffer(self.cameraBuffer, offset: 0, index: 1)
-        computeEncoder.setBuffer(self.cbBuffer, offset: 0, index: 3)
+        
+        computeEncoder.setBuffer(self.cornell_box_buffer, offset: 0, index: 3)
+        computeEncoder.setBuffer(self.cube_list_buffer, offset: 0, index: 4)
         
         self.threadGroupSize = MTLSize(width: 16, height: 16, depth: 1)
         let gridX = (textureA.width + threadGroupSize.width - 1)/threadGroupSize.width

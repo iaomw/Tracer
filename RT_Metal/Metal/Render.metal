@@ -28,6 +28,7 @@ static float3 traceColor(Ray ray,
                          thread float3& background,
                          constant Sphere* sphere_list,
                          constant Square* square_list,
+                         constant Cube* cube_list,
                          thread pcg32_random_t* seed)
 {
     HitRecord hitRecord;
@@ -48,6 +49,16 @@ static float3 traceColor(Ray ray,
         for (int i=0; i<6; i++) {
             auto square = square_list[i];
             if(square.hit(testRay, range_t, testHitRecord)) {
+                if (testHitRecord.t < nearst_t) {
+                    nearst_t = testHitRecord.t;
+                    hitRecord = testHitRecord;
+                }
+            }
+        }
+        
+        for (int i=0; i<2; i++) {
+            auto cube = cube_list[i];
+            if(cube.hit(testRay, range_t, testHitRecord)) {
                 if (testHitRecord.t < nearst_t) {
                     nearst_t = testHitRecord.t;
                     hitRecord = testHitRecord;
@@ -154,7 +165,8 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     auto n = 4;
     for (int i=0; i<n; i++) {
         auto ray = castRay(camera, u, v, &rng);
-        auto color = traceColor(ray, 50, background, sphere_list, square_list, &rng);
+        auto color = traceColor(ray, 50, background,
+                                sphere_list, square_list, cube_list, &rng);
         result.rgb += color;
     }
     
