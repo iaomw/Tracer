@@ -6,6 +6,7 @@
 
 #define M_PI_F M_PI
 
+typedef simd_float4x4 float4x4;
 typedef simd_float3x3 float3x3;
 typedef simd_float3 float3;
 typedef simd_float2 float2;
@@ -54,7 +55,10 @@ struct Square {
     uint8_t axis_k;
     float value_k;
     
-    float3x3 matrix;
+    float4x4 model_matrix;
+    float4x4 normal_matrix;
+    float4x4 inverse_matrix;
+    
     struct AABB boundingBOX;
     struct Material material;
 };
@@ -63,7 +67,10 @@ struct Cube {
     float3 a;
     float3 b;
     
-    float3x3 matrix;
+    float4x4 model_matrix;
+    float4x4 normal_matrix;
+    float4x4 inverse_matrix;
+    
     struct AABB boundingBOX;
     struct Square rectList[6];
 };
@@ -72,7 +79,10 @@ struct Sphere {
     float radius;
     float3 center;
     
-    float3x3 matrix;
+    float4x4 model_matrix;
+    float4x4 normal_matrix;
+    float4x4 inverse_matrix;
+    
     struct AABB boundingBOX;
     struct Material material;
 };

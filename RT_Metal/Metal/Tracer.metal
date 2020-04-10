@@ -144,7 +144,10 @@ struct Square {
     uint8_t axis_k;
     float value_k;
     
-    float3x3 matrix;
+    float4x4 model_matrix;
+    float4x4 normal_matrix;
+    float4x4 inverse_matrix;
+    
     AABB boundingBOX;
     Material material;
     
@@ -177,20 +180,32 @@ struct Cube {
     float3 a;
     float3 b;
     
-    float3x3 matrix;
+    float4x4 model_matrix;
+    float4x4 normal_matrix;
+    float4x4 inverse_matrix;
+    
     AABB boundingBOX;
     
     struct Square rectList[6];
     
-    bool hit(Ray ray, float2 rang_t, thread HitRecord& hitRecord) {
+    bool hit(thread Ray& ray, float2 rang_t, thread HitRecord& hitRecord) {
+        
+        Ray transformedRay = ray;
+        
+        transformedRay.origin = (inverse_matrix * float4(transformedRay.origin, 1.0)).xyz;
+        transformedRay.direction = normalize((inverse_matrix * float4(transformedRay.direction, 0.0)).xyz);
+        
         auto nearest = FLT_MAX;
         HitRecord hitResult;
         for (auto rect : rectList) {
-            if (!rect.hit(ray, rang_t, hitResult)) {continue;}
+            if (!rect.hit(transformedRay, rang_t, hitResult)) {continue;}
             if (hitRecord.t >= nearest) {continue;}
             hitRecord = hitResult;
             nearest = hitResult.t;
         }
+        hitRecord.p = (model_matrix * float4(hitRecord.p, 1.0)).xyz;
+        hitRecord.n = normalize((normal_matrix * float4(hitRecord.n, 0.0)).xyz);
+        hitRecord.checkFace(ray);
         return nearest < FLT_MAX;
     }
 };
@@ -206,7 +221,10 @@ struct Sphere {
     float radius;
     float3 center;
     
-    float3x3 matrix;
+    float4x4 model_matrix;
+    float4x4 normal_matrix;
+    float4x4 inverse_matrix;
+    
     AABB boundingBOX;
     Material material;
     
