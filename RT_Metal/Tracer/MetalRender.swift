@@ -97,6 +97,7 @@ class MetalRender: NSObject, MTKViewDelegate {
         
         var vertexList = MetalRender.vertex
         let memorySize = MemoryLayout<VertexUV>.stride(ofValue: vertexList[0])*vertexList.count
+        
         let vertexPointer = UnsafePointer(&vertexList)
         guard let vertexBuffer = device.makeBuffer(bytes: vertexPointer,
                                                    length: memorySize,
@@ -141,8 +142,8 @@ class MetalRender: NSObject, MTKViewDelegate {
         let textureDescriptor = MTLTextureDescriptor()
         textureDescriptor.textureType = MTLTextureType.type2D
         textureDescriptor.pixelFormat = MTLPixelFormat.bgra8Unorm
-        textureDescriptor.width = 800
-        textureDescriptor.height = 800
+        textureDescriptor.width = 512
+        textureDescriptor.height = 512
         
         textureDescriptor.usage = [.renderTarget, .shaderRead, .shaderWrite]
         guard let texA = device.makeTexture(descriptor: textureDescriptor) else {throw NSError()}
@@ -156,8 +157,8 @@ class MetalRender: NSObject, MTKViewDelegate {
         textureDescriptorRNG.textureType = MTLTextureType.type2D
         textureDescriptorRNG.pixelFormat = MTLPixelFormat.rgba32Uint
         textureDescriptorRNG.usage = [.renderTarget, .shaderRead, .shaderWrite]
-        textureDescriptorRNG.width = 800
-        textureDescriptorRNG.height = 800
+        textureDescriptorRNG.width = 512
+        textureDescriptorRNG.height = 512
         guard let texARNG = device.makeTexture(descriptor: textureDescriptorRNG) else {throw NSError()}
         self.textureARNG = texARNG
         guard let texBRNG = device.makeTexture(descriptor: textureDescriptorRNG) else {throw NSError()}
@@ -175,7 +176,7 @@ class MetalRender: NSObject, MTKViewDelegate {
     
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         
-        self.view.isPaused = true;
+        //self.view.isPaused = true;
         
         self.sceneMeta.sample_frame_count = 0;
         let fwidth = Float(size.width)
@@ -283,6 +284,6 @@ class MetalRender: NSObject, MTKViewDelegate {
         commandBuffer.present(drawable)
         commandBuffer.commit()
         
-        //view.isPaused = true
+        view.isPaused = true
     }
 }

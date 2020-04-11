@@ -44,13 +44,14 @@ static float3 traceColor(Ray ray,
     do {
         hasNewRay = false;
         HitRecord testHitRecord;
-        float nearst_t = FLT_MAX;
+        //float nearst_t = FLT_MAX;
+        range_t.y = FLT_MAX;
         
         for (int i=0; i<6; i++) {
             auto square = square_list[i];
             if(square.hit(testRay, range_t, testHitRecord)) {
-                if (testHitRecord.t < nearst_t) {
-                    nearst_t = testHitRecord.t;
+                if (testHitRecord.t < range_t.y) {
+                    range_t.y = testHitRecord.t;
                     hitRecord = testHitRecord;
                 }
             }
@@ -59,14 +60,14 @@ static float3 traceColor(Ray ray,
         for (int i=0; i<2; i++) {
             auto cube = cube_list[i];
             if(cube.hit(testRay, range_t, testHitRecord)) {
-                if (testHitRecord.t < nearst_t) {
-                    nearst_t = testHitRecord.t;
+                if (testHitRecord.t < range_t.y) {
+                    range_t.y = testHitRecord.t;
                     hitRecord = testHitRecord;
                 }
             }
         }
         
-        if (nearst_t == FLT_MAX) {
+        if (range_t.y == FLT_MAX) {
             color += ratio * background;
             break;
         }
@@ -157,9 +158,9 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     uint64_t rng_state = (uint64_t(rr) << 32) | gg;
     uint64_t rng_inc = (uint64_t(bb) << 32) | aa;
     
-    auto previous_color = float3(inTexture.read(pos_grid).rgb);
+    auto cached_color = float3(inTexture.read(pos_grid).rgb);
     //auto float_time = float(sceneMeta->running_time);
-    auto int_time = uint32_t(sceneMeta->running_time*1000);
+    auto int_time = uint32_t(1000 * sceneMeta->running_time);
     auto frame_count = float(sceneMeta->sample_frame_count);
     //auto pixelPisition = input.texCoord*float2(sceneMeta->view_size);
     
@@ -174,13 +175,14 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
         pcg32_random_r(&rng);
     } else {
         rng = { 0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL };
-        pcg32_srandom_r(&rng, pos_grid.x*int_time, pos_grid.y*int_time);
+        pcg32_srandom_r(&rng, pos_grid.x, pos_grid.y);
+        pcg32_random_r(&rng);
     }
     
     auto background = float3(0.0, 0.0, 0.0);
     auto result = float3(0.0, 0.0, 0.0);
     
-    auto n = 2;
+    auto n = 128;
     for (int i=0; i<n; i++) {
         auto ray = castRay(camera, u, v, &rng);
         auto color = traceColor(ray, 50, background,
@@ -190,9 +192,8 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
         result.rgb += color;
     }
 
-    result.rgb = (previous_color.rgb*frame_count + result.rgb) / (frame_count + n);
-    //result.rgb = (previous_color.rgb + result.rgb) / (1 + n);
-
+    result.rgb = (cached_color.rgb*frame_count + result.rgb) / (frame_count + n);
+    
     auto hhhh = half4(1.0);
     hhhh.rgb = half3(result);
 

@@ -100,8 +100,8 @@ float randomF(float mini, float maxi, thread pcg32_random_t* rng) {
 float2 randomInUnitDiskFF(thread pcg32_random_t* rng) {
     float2 p;
     do {
-        p = 2.0 * float2(randomF(rng), randomF(rng)) - float2(1);
-    } while (dot(p, p)<=1.0);
+        p = 2.0 * float2(randomF(rng), randomF(rng)) - float2(1,1);
+    } while (dot(p, p)>=1.0);
     return p;
 }
 
@@ -111,7 +111,7 @@ float3 randomInUnitSphereFFF(thread pcg32_random_t* rng) {
         auto x = randomF(rng);
         auto y = randomF(rng);
         auto z = randomF(rng);
-        p = 2.0 * float3(x, y, z) - float3(1);
-    } while (dot(p, p)<=1.0);
+        p = 2.0 * float3(x, y, z) - float3(1,1,1);
+    } while (dot(p, p)>=1.0);
     return p;
 }

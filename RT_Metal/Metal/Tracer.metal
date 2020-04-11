@@ -35,7 +35,7 @@ struct Camera {
 };
 
 static Ray castRay(constant Camera* camera, float s, float t, thread pcg32_random_t* seed) {
-    auto rd = camera->lenRadius*randomInUnitDiskFF(seed);
+    auto rd = camera->lenRadius * randomInUnitDiskFF(seed);
     auto offset = camera->u*rd.x + camera->v*rd.y;
     auto origin = camera->lookFrom + offset;
     auto sample = camera->cornerLowLeft + camera->horizontal*s + camera->vertical*t;
@@ -89,11 +89,10 @@ struct HitRecord {
     }
     
     void checkFace(thread Ray& ray) {
-        if( dot(ray.direction, n) < 0 ){
-            front = false;
-            n = -n;
-        } else {
+        if(dot(ray.direction, n) < 0){
             front = true;
+        } else {
+            front = false;
         }
     }
 };
@@ -151,11 +150,11 @@ struct Square {
     AABB boundingBOX;
     Material material;
     
-    bool hit(thread Ray& ray, float2 rang_t, thread HitRecord& hitRecord) {
+    bool hit(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
         
         auto t = (value_k-ray.origin[axis_k]) / ray.direction[axis_k];
         
-        if (t<rang_t.x || t>rang_t.y) {return false;}
+        if (t<range_t.x || t>range_t.y) {return false;}
         
         auto a = ray.origin[axis_i] + t*ray.direction[axis_i];
         auto b = ray.origin[axis_j] + t*ray.direction[axis_j];
@@ -168,10 +167,10 @@ struct Square {
         hitRecord.t = t;
         auto normal = float3(0); normal[axis_k]=1;
         hitRecord.n = normal;
+        hitRecord.checkFace(ray);
         hitRecord.material = material;
         hitRecord.p = ray.pointAt(t);
         
-        hitRecord.front = (dot(ray.direction, normal)<0);
         return true;
     }
 };
@@ -188,25 +187,29 @@ struct Cube {
     
     struct Square rectList[6];
     
-    bool hit(thread Ray& ray, float2 rang_t, thread HitRecord& hitRecord) {
+    bool hit(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
         
         Ray transformedRay = ray;
         
-        transformedRay.origin = (inverse_matrix * float4(transformedRay.origin, 1.0)).xyz;
-        transformedRay.direction = normalize((inverse_matrix * float4(transformedRay.direction, 0.0)).xyz);
+        transformedRay.origin = ((inverse_matrix) * float4(transformedRay.origin, 1.0)).xyz;
+        transformedRay.direction = normalize(((inverse_matrix) * float4(transformedRay.direction, 0.0)).xyz);
         
-        auto nearest = FLT_MAX;
-        HitRecord hitResult;
+        auto nearest = range_t.y;
+        HitRecord testHitResult;
         for (auto rect : rectList) {
-            if (!rect.hit(transformedRay, rang_t, hitResult)) {continue;}
-            if (hitRecord.t >= nearest) {continue;}
-            hitRecord = hitResult;
-            nearest = hitResult.t;
+            if (!rect.hit(transformedRay, range_t, testHitResult)) {continue;}
+            if (testHitResult.t >= nearest) {continue;}
+            hitRecord = testHitResult;
+            nearest = testHitResult.t;
         }
-        hitRecord.p = (model_matrix * float4(hitRecord.p, 1.0)).xyz;
-        hitRecord.n = normalize((normal_matrix * float4(hitRecord.n, 0.0)).xyz);
-        hitRecord.checkFace(ray);
-        return nearest < FLT_MAX;
+        hitRecord.checkFace(transformedRay);
+        //hitRecord.p = (model_matrix * float4(hitRecord.p, 1.0)).xyz;
+        //hitRecord.p = (float4(hitRecord.p, 1.0) * model_matrix).xyz;
+        //hitRecord.p = ray.pointAt(hitRecord.t);
+        hitRecord.n = normalize((normal_matrix * float4(hitRecord.normal(), 0.0)).xyz);
+        //hitRecord.n = normalize((float4(hitRecord.normal(), 0.0) * normal_matrix).xyz);
+        
+        return nearest < range_t.y;
     }
 };
 
