@@ -210,24 +210,27 @@ static struct Square* cornell_box() {
 
 + (struct Cube*)cube_list; {
     
-    Material white; white.type = MaterialType::Lambert;
-    white.albedo = simd_make_float3(0.73, 0.73, 0.73);
+    Material metal; metal.type = MaterialType::Metal;
+    metal.albedo = simd_make_float3(0.8, 0.85, 0.88);
     
     auto bigger = MakeCube(simd_make_float3(0, 0, 0),
-                           simd_make_float3(165, 330, 165), white);
+                           simd_make_float3(165, 330, 165), metal);
     
     auto translate = matrix4x4_translation(265, 0, 295);
-    auto rotate = matrix4x4_rotation(0.4, simd_make_float3(0, 1, 0));
+    auto rotate = matrix4x4_rotation(M_PI*15/180, simd_make_float3(0, 1, 0));
     
     bigger.model_matrix = simd_mul(translate, rotate);
     bigger.inverse_matrix = simd_inverse(bigger.model_matrix);
     bigger.normal_matrix = simd_transpose(bigger.inverse_matrix);
     
+    Material white; white.type = MaterialType::Lambert;
+    white.albedo = simd_make_float3(0.73, 0.73, 0.73);
+    
     auto smaller = MakeCube(simd_make_float3(0, 0, 0),
                             simd_make_float3(165, 165, 165), white);
     
     translate = matrix4x4_translation(130, 0, 65);
-    rotate = matrix4x4_rotation(-0.3, simd_make_float3(0, 1, 0));
+    rotate = matrix4x4_rotation(-0.1*M_PI, simd_make_float3(0, 1, 0));
     
     smaller.model_matrix = simd_mul(translate, rotate);
     smaller.inverse_matrix = simd_inverse(smaller.model_matrix);

@@ -20,7 +20,7 @@ struct VertexUV {
 struct SceneMeta {
     var view_size = float2(1, 1)
     var running_time = Float(0)
-    var sample_frame_count = UInt(0)
+    var sample_frame_count = UInt32(0)
 }
 
 enum VertexInput: Int {
@@ -142,8 +142,8 @@ class MetalRender: NSObject, MTKViewDelegate {
         let textureDescriptor = MTLTextureDescriptor()
         textureDescriptor.textureType = MTLTextureType.type2D
         textureDescriptor.pixelFormat = MTLPixelFormat.bgra8Unorm
-        textureDescriptor.width = 512
-        textureDescriptor.height = 512
+        textureDescriptor.width = 1024
+        textureDescriptor.height = 1024
         
         textureDescriptor.usage = [.renderTarget, .shaderRead, .shaderWrite]
         guard let texA = device.makeTexture(descriptor: textureDescriptor) else {throw NSError()}
@@ -157,8 +157,8 @@ class MetalRender: NSObject, MTKViewDelegate {
         textureDescriptorRNG.textureType = MTLTextureType.type2D
         textureDescriptorRNG.pixelFormat = MTLPixelFormat.rgba32Uint
         textureDescriptorRNG.usage = [.renderTarget, .shaderRead, .shaderWrite]
-        textureDescriptorRNG.width = 512
-        textureDescriptorRNG.height = 512
+        textureDescriptorRNG.width = 1024
+        textureDescriptorRNG.height = 1024
         guard let texARNG = device.makeTexture(descriptor: textureDescriptorRNG) else {throw NSError()}
         self.textureARNG = texARNG
         guard let texBRNG = device.makeTexture(descriptor: textureDescriptorRNG) else {throw NSError()}
@@ -183,38 +183,38 @@ class MetalRender: NSObject, MTKViewDelegate {
         let fheight = Float(size.height)
         self.sceneMeta.view_size = float2(fwidth, fheight)
         
-        self.textureA.setPurgeableState(MTLPurgeableState.empty)
-        self.textureB.setPurgeableState(MTLPurgeableState.empty)
-        
-        let textureDescriptor = MTLTextureDescriptor()
-        textureDescriptor.textureType = MTLTextureType.type2D
-        textureDescriptor.pixelFormat = MTLPixelFormat.bgra8Unorm
-        textureDescriptor.width = Int(size.width)
-        textureDescriptor.height = Int(size.height)
-        
-        textureDescriptor.usage = [.renderTarget, .shaderRead, .shaderWrite]
-        guard let texA = device.makeTexture(descriptor: textureDescriptor) else {return}
-        self.textureA = texA
-        
-        textureDescriptor.usage = [.renderTarget, .shaderRead, .shaderWrite]
-        guard let texB = device.makeTexture(descriptor: textureDescriptor) else {return}
-        self.textureB = texB
-        
-        self.textureARNG.setPurgeableState(MTLPurgeableState.empty)
-        self.textureBRNG.setPurgeableState(MTLPurgeableState.empty)
-        
-        let textureDescriptorRNG = MTLTextureDescriptor()
-        textureDescriptorRNG.textureType = MTLTextureType.type2D
-        textureDescriptorRNG.pixelFormat = MTLPixelFormat.rgba32Uint
-        textureDescriptorRNG.usage = [.renderTarget, .shaderRead, .shaderWrite]
-        textureDescriptorRNG.width = Int(size.width)
-        textureDescriptorRNG.height = Int(size.height)
-        guard let texARNG = device.makeTexture(descriptor: textureDescriptorRNG) else {return}
-        self.textureARNG = texARNG
-        guard let texBRNG = device.makeTexture(descriptor: textureDescriptorRNG) else {return}
-        self.textureBRNG = texBRNG
-        
-        self.view.isPaused = false;
+//        self.textureA.setPurgeableState(MTLPurgeableState.empty)
+//        self.textureB.setPurgeableState(MTLPurgeableState.empty)
+//
+//        let textureDescriptor = MTLTextureDescriptor()
+//        textureDescriptor.textureType = MTLTextureType.type2D
+//        textureDescriptor.pixelFormat = MTLPixelFormat.bgra8Unorm
+//        textureDescriptor.width = Int(size.width)
+//        textureDescriptor.height = Int(size.height)
+//
+//        textureDescriptor.usage = [.renderTarget, .shaderRead, .shaderWrite]
+//        guard let texA = device.makeTexture(descriptor: textureDescriptor) else {return}
+//        self.textureA = texA
+//
+//        textureDescriptor.usage = [.renderTarget, .shaderRead, .shaderWrite]
+//        guard let texB = device.makeTexture(descriptor: textureDescriptor) else {return}
+//        self.textureB = texB
+//
+//        self.textureARNG.setPurgeableState(MTLPurgeableState.empty)
+//        self.textureBRNG.setPurgeableState(MTLPurgeableState.empty)
+//
+//        let textureDescriptorRNG = MTLTextureDescriptor()
+//        textureDescriptorRNG.textureType = MTLTextureType.type2D
+//        textureDescriptorRNG.pixelFormat = MTLPixelFormat.rgba32Uint
+//        textureDescriptorRNG.usage = [.renderTarget, .shaderRead, .shaderWrite]
+//        textureDescriptorRNG.width = Int(size.width)
+//        textureDescriptorRNG.height = Int(size.height)
+//        guard let texARNG = device.makeTexture(descriptor: textureDescriptorRNG) else {return}
+//        self.textureARNG = texARNG
+//        guard let texBRNG = device.makeTexture(descriptor: textureDescriptorRNG) else {return}
+//        self.textureBRNG = texBRNG
+//
+//        self.view.isPaused = false;
     }
     
     func draw(in view: MTKView) {
@@ -227,8 +227,9 @@ class MetalRender: NSObject, MTKViewDelegate {
         commandBuffer.label = ""
         
         commandBuffer.addCompletedHandler { (buffer) in
-            //view.isPaused = false
+            
             self.sceneMeta.sample_frame_count += 1;
+            view.isPaused = (self.sceneMeta.sample_frame_count >= 1024)
         }
         
         guard let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {return}

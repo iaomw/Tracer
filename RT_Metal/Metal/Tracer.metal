@@ -21,7 +21,7 @@ static Ray MakeRay(float3 origin, float3 direction) {
 
 struct Camera {
     
-   float3 lookFrom, lookAt, viewUp;
+    float3 lookFrom, lookAt, viewUp;
     
     float vfov;
     float aspect, aperture;
@@ -168,8 +168,8 @@ struct Square {
         auto normal = float3(0); normal[axis_k]=1;
         hitRecord.n = normal;
         hitRecord.checkFace(ray);
-        hitRecord.material = material;
         hitRecord.p = ray.pointAt(t);
+        hitRecord.material = material;
         
         return true;
     }
@@ -185,7 +185,7 @@ struct Cube {
     
     AABB boundingBOX;
     
-    struct Square rectList[6];
+    Square rectList[6];
     
     bool hit(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
         
@@ -202,10 +202,11 @@ struct Cube {
             hitRecord = testHitResult;
             nearest = testHitResult.t;
         }
+        
         hitRecord.checkFace(transformedRay);
+        hitRecord.p = ray.pointAt(hitRecord.t);
         //hitRecord.p = (model_matrix * float4(hitRecord.p, 1.0)).xyz;
         //hitRecord.p = (float4(hitRecord.p, 1.0) * model_matrix).xyz;
-        //hitRecord.p = ray.pointAt(hitRecord.t);
         hitRecord.n = normalize((normal_matrix * float4(hitRecord.normal(), 0.0)).xyz);
         //hitRecord.n = normalize((float4(hitRecord.normal(), 0.0) * normal_matrix).xyz);
         
@@ -276,20 +277,17 @@ struct Sphere {
 static float3 emit(thread HitRecord& hitRecord) {
     
     switch(hitRecord.material.type) {
-        case MaterialType::Lambert: {
-            return float3(0);
-        }
-        case MaterialType::Metal: {}
-        case MaterialType::Dielectric: {}
         case MaterialType::Diffuse: {
             return hitRecord.material.albedo;
         }
-        case MaterialType::Isotropic: {}
+        case MaterialType::Metal:
+        case MaterialType::Lambert:
+        case MaterialType::Isotropic:
+        case MaterialType::Dielectric:
         default:{
             return float3(0);
         }
     }
-    return float3(0);
 }
     
 static bool scatter(thread Ray& ray,
@@ -310,14 +308,13 @@ static bool scatter(thread Ray& ray,
             return true;
         }
         case MaterialType::Metal: {
-            
-            auto fuzz = 0.4;
+            auto fuzz = 0.000;
             auto reflected = reflect(normalize(ray.direction), hitRecord.normal());
             auto scattered = MakeRay(hitRecord.p, reflected + fuzz*randomInUnitSphereFFF(seed));
             auto attenuation = material.albedo;
             scatterRecord.specularRay = scattered;
             scatterRecord.attenuation = attenuation;
-            return (dot(scattered.direction, hitRecord.normal()) > 0);
+            return true;//(dot(scattered.direction, hitRecord.normal()) > 0);
         }
         case MaterialType::Dielectric: {
             
@@ -362,7 +359,6 @@ static bool scatter(thread Ray& ray,
             scatterRecord.attenuation = hitRecord.material.albedo; //attenuation;
             return true;
         }
-        default: {}
+        default: {return false;}
     }
-    return false;
 }

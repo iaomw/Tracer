@@ -9,7 +9,7 @@ using namespace metal;
 typedef struct  {
     float2 view_size;
     float running_time;
-    uint sample_frame_count;
+    uint32_t sample_frame_count;
     
 } SceneMeta;
 
@@ -160,8 +160,8 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     
     auto cached_color = float3(inTexture.read(pos_grid).rgb);
     //auto float_time = float(sceneMeta->running_time);
-    auto int_time = uint32_t(1000 * sceneMeta->running_time);
-    auto frame_count = float(sceneMeta->sample_frame_count);
+    auto int_time = uint32_t(1000*sceneMeta->running_time);
+    auto frame_count = sceneMeta->sample_frame_count;
     //auto pixelPisition = input.texCoord*float2(sceneMeta->view_size);
     
     auto u = float(pos_grid.x)/outTexture.get_width();
@@ -172,18 +172,19 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     if (frame_count>0) {
         rng.inc = rng_inc;
         rng.state = rng_state;
-        pcg32_random_r(&rng);
+        //pcg32_random_r(&rng);
     } else {
         rng = { 0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL };
         pcg32_srandom_r(&rng, pos_grid.x, pos_grid.y);
-        pcg32_random_r(&rng);
+        //pcg32_random_r(&rng);
     }
     
     auto background = float3(0.0, 0.0, 0.0);
     auto result = float3(0.0, 0.0, 0.0);
     
-    auto n = 128;
+    auto n = 1;
     for (int i=0; i<n; i++) {
+        
         auto ray = castRay(camera, u, v, &rng);
         auto color = traceColor(ray, 50, background,
                                 sphere_list,
@@ -192,11 +193,12 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
         result.rgb += color;
     }
 
-    result.rgb = (cached_color.rgb*frame_count + result.rgb) / (frame_count + n);
+    result.rgb = (cached_color.rgb * frame_count + result.rgb) / (frame_count + n);
+    //result.rgb = (cached_color.rgb + result.rgb) / (1 + n);
     
     auto hhhh = half4(1.0);
     hhhh.rgb = half3(result);
-
+    
     outTexture.write(hhhh, pos_grid);
     
     gg = rng.state;
