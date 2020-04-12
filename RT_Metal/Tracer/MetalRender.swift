@@ -164,6 +164,15 @@ class MetalRender: NSObject, MTKViewDelegate {
         guard let texBRNG = device.makeTexture(descriptor: textureDescriptorRNG) else {throw NSError()}
         self.textureBRNG = texBRNG
         
+        let seedSize = 1024*1024*4;
+        let randomSeed = (0..<seedSize).map { _ in arc4random() }
+
+        self.textureARNG.replace(region: MTLRegion(origin: MTLOrigin(x: 0, y: 0, z: 0),
+                                                size: MTLSize(width: 1024, height: 1024, depth: 1)),
+                              mipmapLevel: 0,
+                              withBytes: UnsafePointer(randomSeed),
+                              bytesPerRow: MemoryLayout<UInt32>.stride*4*1024)
+        
         self.threadGroupSize = MTLSize(width: 16, height: 16, depth: 1)
         let gridX = (textureA.width + threadGroupSize.width - 1)/threadGroupSize.width
         let gridY = (textureA.height + threadGroupSize.height - 1)/threadGroupSize.height

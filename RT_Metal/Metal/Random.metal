@@ -113,5 +113,5 @@ float3 randomInUnitSphereFFF(thread pcg32_random_t* rng) {
         auto z = randomF(rng);
         p = 2.0 * float3(x, y, z) - float3(1,1,1);
     } while (dot(p, p)>=1.0);
-    return p;
+    return normalize(p);
 }

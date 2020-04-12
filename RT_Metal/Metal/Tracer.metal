@@ -13,9 +13,8 @@ struct Ray {
 };
 
 static Ray MakeRay(float3 origin, float3 direction) {
-    Ray r;
-    r.origin = origin;
-    r.direction = direction;
+    Ray r; r.origin = origin;
+    r.direction = normalize(direction);
     return r;
 }
 
@@ -39,7 +38,7 @@ static Ray castRay(constant Camera* camera, float s, float t, thread pcg32_rando
     auto offset = camera->u*rd.x + camera->v*rd.y;
     auto origin = camera->lookFrom + offset;
     auto sample = camera->cornerLowLeft + camera->horizontal*s + camera->vertical*t;
-    auto direction = simd::normalize(sample-origin);
+    auto direction = sample - origin;
     Ray ray = MakeRay(origin, direction);
     return ray;
 }
@@ -193,7 +192,7 @@ struct Cube {
         
         transformedRay.origin = ((inverse_matrix) * float4(transformedRay.origin, 1.0)).xyz;
         transformedRay.direction = normalize(((inverse_matrix) * float4(transformedRay.direction, 0.0)).xyz);
-        
+    
         auto nearest = range_t.y;
         HitRecord testHitResult;
         for (auto rect : rectList) {
@@ -308,9 +307,9 @@ static bool scatter(thread Ray& ray,
             return true;
         }
         case MaterialType::Metal: {
-            auto fuzz = 0.000;
-            auto reflected = reflect(normalize(ray.direction), hitRecord.normal());
-            auto scattered = MakeRay(hitRecord.p, reflected + fuzz*randomInUnitSphereFFF(seed));
+            auto fuzz = 0.001 * randomInUnitSphereFFF(seed);
+            auto reflected = reflect(ray.direction, hitRecord.normal());
+            auto scattered = MakeRay(hitRecord.p, reflected + fuzz);
             auto attenuation = material.albedo;
             scatterRecord.specularRay = scattered;
             scatterRecord.attenuation = attenuation;

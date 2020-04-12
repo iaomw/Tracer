@@ -74,7 +74,7 @@ static Camera MakeCamera(float3 lookFrom,
     camera.vertical = vertical;
     camera.horizontal = horizontal;
     
-    camera.cornerLowLeft = lookFrom - vertical/2 - horizontal/2 -focus_dist*w;
+    camera.cornerLowLeft = lookFrom - vertical/2 - horizontal/2 - focus_dist*w;
     
     return camera;
 }
@@ -174,10 +174,13 @@ static struct Square* cornell_box() {
     Material green; green.type = MaterialType::Lambert; green.albedo = simd_make_float3(0.12, 0.45, 0.15);
     Material white; white.type = MaterialType::Lambert; white.albedo = simd_make_float3(0.73, 0.73, 0.73);
     
+    Material metal; metal.type = MaterialType::Metal;
+    metal.albedo = simd_make_float3(0.8, 0.85, 0.88);
+    
     //Material material_list[] = {light, red, green, white};
     
-    auto lightSource = MakeSquare(0, simd_make_float2(213, 343), 2, simd_make_float2(227, 332), 1, 554);
-    //auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
+    //auto lightSource = MakeSquare(0, simd_make_float2(213, 343), 2, simd_make_float2(227, 332), 1, 554);
+    auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
     lightSource.material = light;
 
     auto right = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 555); //flip

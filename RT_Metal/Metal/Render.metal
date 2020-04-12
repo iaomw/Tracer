@@ -23,7 +23,7 @@ typedef struct {
     vector_float2 textureCoordinate;
 } VertexWithUV;
 
-static float3 traceColor(Ray ray,
+static float3 traceColor(thread Ray& ray,
                          float depth,
                          thread float3& background,
                          constant Sphere* sphere_list,
@@ -169,35 +169,28 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     
     pcg32_random_t rng;
     
-    if (frame_count>0) {
-        rng.inc = rng_inc;
-        rng.state = rng_state;
-        //pcg32_random_r(&rng);
-    } else {
-        rng = { 0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL };
-        pcg32_srandom_r(&rng, pos_grid.x, pos_grid.y);
-        //pcg32_random_r(&rng);
-    }
+    rng.inc = rng_inc;
+    rng.state = rng_state;
+//        rng = { 0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL };
+//        pcg32_srandom_r(&rng, pos_grid.x * int_time, pos_grid.y * int_time);
+//        pcg32_random_r(&rng);
     
-    auto background = float3(0.0, 0.0, 0.0);
-    auto result = float3(0.0, 0.0, 0.0);
+    auto background = float3(0.0);
+    auto result = float3(0.0);
     
-    auto n = 1;
-    for (int i=0; i<n; i++) {
-        
-        auto ray = castRay(camera, u, v, &rng);
-        auto color = traceColor(ray, 50, background,
-                                sphere_list,
-                                square_list,
-                                cube_list, &rng);
-        result.rgb += color;
-    }
+    auto ray = castRay(camera, u, v, &rng);
+    //ray.direction.x *= -1;
+    auto color = traceColor(ray, 50,
+                            background,
+                            sphere_list,
+                            square_list,
+                            cube_list, &rng);
 
-    result.rgb = (cached_color.rgb * frame_count + result.rgb) / (frame_count + n);
-    //result.rgb = (cached_color.rgb + result.rgb) / (1 + n);
+    result.rgb = (cached_color.rgb * frame_count + color) / (frame_count + 1);
     
     auto hhhh = half4(1.0);
     hhhh.rgb = half3(result);
+    //hhhh.rgb = half3(ray.direction * 0.5 +0.5);
     
     outTexture.write(hhhh, pos_grid);
     
