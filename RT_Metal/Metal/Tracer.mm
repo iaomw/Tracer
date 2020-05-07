@@ -166,7 +166,7 @@ Sphere MakeSphere(float r, float3 c) {
     return s;
 }
 
-static struct Square* cornell_box() {
+void prepareCornellBox(struct Square* pointer) {
     
     Material light; light.type= MaterialType::Diffuse; light.albedo = simd_make_float3(15, 15, 15);
     
@@ -198,20 +198,17 @@ static struct Square* cornell_box() {
     auto back =  MakeSquare(0, simd_make_float2(0, 555), 1, simd_make_float2(0, 555), 2, 555);
     back.material = white;
 
-    static Square result[] = { right, left, top, bottom, back, lightSource };
-
-    return result;
-}
+    //static Square result[] = { right, left, top, bottom, back, lightSource };
     
-@implementation Tracer : NSObject
-
-+ (float*)system_time {
-    static float f;
-    f = [[[NSDate alloc] init] timeIntervalSince1970];
-    return &f;
+    pointer[0] = right;
+    pointer[1] = left;
+    pointer[2] = top;
+    pointer[3] = bottom;
+    pointer[4] = back;
+    pointer[5] = lightSource;
 }
 
-+ (struct Cube*)cube_list; {
+void prepareCubeList(struct Cube* pointer) {
     
     Material metal; metal.type = MaterialType::Metal;
     metal.albedo = simd_make_float3(0.8, 0.85, 0.88);
@@ -239,15 +236,12 @@ static struct Square* cornell_box() {
     smaller.inverse_matrix = simd_inverse(smaller.model_matrix);
     smaller.normal_matrix = simd_transpose(smaller.inverse_matrix);
      
-    static Cube result[] = {bigger, smaller};
-    return result;
+    //static Cube result[] = {bigger, smaller};
+    pointer[0] = bigger;
+    pointer[1] = smaller;
 }
 
-+ (struct Square*)cornell_box {
-    return cornell_box();
-}
-
-+ (struct Camera*)camera:(float2)viewSize {
+void prepareCamera(struct Camera* pointer, float2 viewSize) {
     
     static Camera camera;
     auto aspect = viewSize.x/viewSize.y;
@@ -259,8 +253,5 @@ static struct Square* cornell_box() {
     auto dist_to_focus = 10;
     
     camera = MakeCamera(lookFrom, lookAt, viewUp, aperture, aspect, vfov, dist_to_focus);
-   
-    return &camera;
+    *pointer = camera;
 }
-
-@end

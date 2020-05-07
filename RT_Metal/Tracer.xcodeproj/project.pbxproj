@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		571C09602439267700DA0BAC /* Tracer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571C095F2439267700DA0BAC /* Tracer.mm */; };
-		573DD1022432938300B09B0A /* MetalRender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1012432938300B09B0A /* MetalRender.swift */; };
+		571FF88B246367E4002DDF02 /* MetalRender.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571FF88A246367E4002DDF02 /* MetalRender.mm */; };
 		573DD1092432B9D900B09B0A /* Render.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1082432B9D900B09B0A /* Render.metal */; };
 		573DD1122433AA9900B09B0A /* Random.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1112433AA9900B09B0A /* Random.metal */; };
 		5749BCA32435005B002B60E4 /* Tracer.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5749BCA22435005B002B60E4 /* Tracer.metal */; };
@@ -23,7 +23,9 @@
 /* Begin PBXFileReference section */
 		571C095F2439267700DA0BAC /* Tracer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Tracer.mm; sourceTree = "<group>"; };
 		571C09612439269400DA0BAC /* Tracer.hh */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; lineEnding = 0; path = Tracer.hh; sourceTree = "<group>"; };
-		573DD1012432938300B09B0A /* MetalRender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRender.swift; sourceTree = "<group>"; };
+		571FF88A246367E4002DDF02 /* MetalRender.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MetalRender.mm; sourceTree = "<group>"; };
+		571FF88C246367FC002DDF02 /* MetalRender.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MetalRender.h; sourceTree = "<group>"; };
+		571FF88D24639A81002DDF02 /* Common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Common.h; sourceTree = "<group>"; };
 		573DD1082432B9D900B09B0A /* Render.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Render.metal; sourceTree = "<group>"; };
 		573DD10A24335D6D00B09B0A /* Render.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Render.hh; sourceTree = "<group>"; };
 		573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Tracer-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -88,7 +90,9 @@
 		57DD3568241EEC110094632B /* Tracer */ = {
 			isa = PBXGroup;
 			children = (
-				573DD1012432938300B09B0A /* MetalRender.swift */,
+				571FF88D24639A81002DDF02 /* Common.h */,
+				571FF88C246367FC002DDF02 /* MetalRender.h */,
+				571FF88A246367E4002DDF02 /* MetalRender.mm */,
 				57DD3569241EEC110094632B /* AppDelegate.swift */,
 				57DD356B241EEC110094632B /* TracerViewController.swift */,
 				575F7DBA242469C300DA5F33 /* TracerWindowController.swift */,
@@ -171,7 +175,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				573DD1022432938300B09B0A /* MetalRender.swift in Sources */,
 				573DD1092432B9D900B09B0A /* Render.metal in Sources */,
 				575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */,
 				573DD1122433AA9900B09B0A /* Random.metal in Sources */,
@@ -180,6 +183,7 @@
 				5749BCA32435005B002B60E4 /* Tracer.metal in Sources */,
 				57DD356C241EEC110094632B /* TracerViewController.swift in Sources */,
 				57DD356A241EEC110094632B /* AppDelegate.swift in Sources */,
+				571FF88B246367E4002DDF02 /* MetalRender.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

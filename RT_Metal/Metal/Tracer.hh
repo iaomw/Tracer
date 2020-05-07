@@ -3,13 +3,7 @@
 
 #include <Foundation/Foundation.h>
 #include <simd/simd.h>
-
-#define M_PI_F M_PI
-
-typedef simd_float4x4 float4x4;
-typedef simd_float3x3 float3x3;
-typedef simd_float3 float3;
-typedef simd_float2 float2;
+#include "Common.h"
 
 struct Camera {
     
@@ -87,11 +81,8 @@ struct Sphere {
     struct Material material;
 };
 
-@interface Tracer : NSObject
-+ (float*)system_time;
-+ (struct Cube*)cube_list;
-+ (struct Square*)cornell_box;
-+ (struct Camera*)camera:(float2)viewSize;
-@end
+void prepareCubeList(struct Cube* pointer);
+void prepareCornellBox(struct Square* pointer);
+void prepareCamera(struct Camera* pointer, float2 viewSize);
 
 #endif /* Tracer_h */

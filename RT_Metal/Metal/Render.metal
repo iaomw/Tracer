@@ -6,12 +6,17 @@ using namespace metal;
 #include "Render.hh"
 #include "Tracer.metal"
 
+typedef enum  {
+    VertexInputIndexVertices = 0,
+    VertexInputIndexViewSize = 1
+} VertexInput;
+
 typedef struct  {
     float2 view_size;
     float running_time;
     uint32_t sample_frame_count;
     
-} SceneMeta;
+} SceneComplex;
 
 typedef struct {
     float4 position [[position]];
@@ -113,17 +118,28 @@ fragmentShader( RasterizerData input [[stage_in]],
                
                 float2 point_coord [[point_coord]],
 
-                constant SceneMeta* sceneMeta [[buffer(0)]],
-                constant Camera* camera [[buffer(1)]],
-
-                constant Sphere* sphere_list [[buffer(2)]],
-                constant Square* square_list [[buffer(3)]],
-                constant Cube* cube_list [[buffer(4)]] )
+                constant SceneComplex* sceneMeta [[buffer(0)]])
 
 {
     constexpr sampler textureSampler (mag_filter::linear, min_filter::linear);
+    
+    auto width = sceneMeta->view_size.x;
+    auto height = sceneMeta->view_size.y;
+    
     input.texCoord.y = 1.0 - input.texCoord.y;
-    auto colorSample = theTexture.sample(textureSampler, input.texCoord);
+    auto offset = input.texCoord - float2(0.5);
+    
+    auto ratio = width / height;
+    
+    if (ratio > 1) {
+        offset.x *= ratio;
+    } else if (ratio < 1) {
+        offset.y /= ratio;
+    }
+    
+    auto scaled = offset + float(0.5);
+    
+    auto colorSample = theTexture.sample(textureSampler, scaled);
     
     return colorSample;
 }
@@ -136,7 +152,7 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
              texture2d<uint32_t, access::write> outSeedRNG [[texture(3)]],
              
              uint2 pos_grid  [[thread_position_in_grid]],
-             constant SceneMeta* sceneMeta [[buffer(0)]],
+             constant SceneComplex* sceneMeta [[buffer(0)]],
              constant Camera* camera [[buffer(1)]],
 
              constant Sphere* sphere_list [[buffer(2)]],
@@ -160,7 +176,7 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     
     auto cached_color = float3(inTexture.read(pos_grid).rgb);
     //auto float_time = float(sceneMeta->running_time);
-    auto int_time = uint32_t(1000*sceneMeta->running_time);
+    //auto int_time = uint32_t(1000*sceneMeta->running_time);
     auto frame_count = sceneMeta->sample_frame_count;
     //auto pixelPisition = input.texCoord*float2(sceneMeta->view_size);
     
@@ -190,7 +206,7 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     
     auto hhhh = half4(1.0);
     hhhh.rgb = half3(result);
-    //hhhh.rgb = half3(ray.direction * 0.5 +0.5);
+    //hhhh.rgb = half3(ray.direction * 0.5 + 0.5);
     
     outTexture.write(hhhh, pos_grid);
     

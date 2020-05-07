@@ -26,7 +26,7 @@ class TracerWindowController: NSWindowController {
            }
     }
     
-    var metalRender: MetalRender?
+    var metalRender: AAPLRenderer?
     
     lazy var expansionButton: NSButton = {
         
@@ -54,7 +54,7 @@ class TracerWindowController: NSWindowController {
         self.expansionButton.state = .on
         
         if let vc = self.window?.contentViewController as? TracerViewController {
-            metalRender = try? MetalRender(view: vc.metalView)
+            metalRender = AAPLRenderer(metalKitView: vc.metalView)
         }
     }
     

@@ -4,3 +4,4 @@
 
 #include "Render.hh"
 #include "Tracer.hh"
+#include "MetalRender.h"
