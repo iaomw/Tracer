@@ -38,25 +38,26 @@ matrix_float4x4 matrix4x4_scale(float sx, float sy, float sz) {
     }};
 }
 
-static Camera MakeCamera(float3 lookFrom,
-                    float3 lookAt,
-                    float3 viewUp,
-                    float aperture,
-                    float aspect,
-                    float vfov,
-                    float focus_dist) {
-    Camera camera;
-    camera.lookFrom = lookFrom;
-    camera.lookAt = lookAt;
-    camera.viewUp = viewUp;
+void MakeCamera(Camera* camera,
+                float3 lookFrom,
+                float3 lookAt,
+                float3 viewUp,
+                float aperture,
+                float aspect,
+                float vfov,
+                float focus_dist) {
+    //Camera camera;
+    camera->lookFrom = lookFrom;
+    camera->lookAt = lookAt;
+    camera->viewUp = viewUp;
     
-    camera.aperture = aperture;
-    camera.aspect = aspect;
-    camera.vfov = vfov;
+    camera->aperture = aperture;
+    camera->aspect = aspect;
+    camera->vfov = vfov;
     
-    camera.focus_dist = focus_dist;
+    camera->focus_dist = focus_dist;
     
-    camera.lenRadius = aperture / 2;
+    camera->lenRadius = aperture / 2;
     auto theta = vfov * M_PI_F / 180;
     
     auto halfHeight = tan(theta/2);
@@ -66,20 +67,18 @@ static Camera MakeCamera(float3 lookFrom,
     auto t = simd_cross(viewUp, w);
     auto u = simd_normalize(t);
     auto v = simd_cross(w, u);
-    camera.u = u; camera.v = v; camera.w = w;
+    camera->u = u; camera->v = v; camera->w = w;
     
-    auto vertical = 2*halfHeight*focus_dist*camera.v;
-    auto horizontal = 2*halfWidth*focus_dist*camera.u;
+    auto vertical = 2*halfHeight*focus_dist*camera->v;
+    auto horizontal = 2*halfWidth*focus_dist*camera->u;
     
-    camera.vertical = vertical;
-    camera.horizontal = horizontal;
+    camera->vertical = vertical;
+    camera->horizontal = horizontal;
     
-    camera.cornerLowLeft = lookFrom - vertical/2 - horizontal/2 - focus_dist*w;
-    
-    return camera;
+    camera->cornerLowLeft = lookFrom - vertical/2 - horizontal/2 - focus_dist*w;
 }
     
-inline AABB MakeAABB(float3 a, float3 b) {
+inline AABB MakeAABB(float3& a, float3& b) {
 
     auto mini = simd_make_float3(fminf(a.x, b.x),
                                   fminf(a.y, b.y),
@@ -94,7 +93,7 @@ inline AABB MakeAABB(float3 a, float3 b) {
     return r;
 }
 
-inline AABB MakeAABB(AABB box_s, AABB box_e) {
+inline AABB MakeAABB(AABB& box_s, AABB& box_e) {
     
     auto small = simd_make_float3(fminf(box_s.mini.x, box_e.mini.x),
                                   fminf(box_s.mini.y, box_e.mini.y),
@@ -107,7 +106,7 @@ inline AABB MakeAABB(AABB box_s, AABB box_e) {
     return MakeAABB(small, big);
 }
     
-static Square MakeSquare(uint8_t axis_i, float2 rang_i, uint8_t axis_j, float2 rang_j, uint8_t axis_k, float k) {
+Square MakeSquare(uint8_t axis_i, float2 rang_i, uint8_t axis_j, float2 rang_j, uint8_t axis_k, float k) {
     Square r;
     
     r.axis_i = axis_i;
@@ -132,7 +131,7 @@ static Square MakeSquare(uint8_t axis_i, float2 rang_i, uint8_t axis_j, float2 r
     return r;
 }
     
-Cube MakeCube(float3 a, float3 b, Material material) {
+Cube MakeCube(float3 a, float3 b, Material& material) {
     
     Cube r; r.a = a; r.b = b; r.boundingBOX = MakeAABB(a, b);
     
@@ -162,53 +161,12 @@ void sphereUV(float3& p, float2& uv) {
 Sphere MakeSphere(float r, float3 c) {
     Sphere s; s.radius = r; s.center = c;
     auto offset = simd_make_float3(r);
-    s.boundingBOX = MakeAABB(c-offset, c+offset);
+    auto a = c-offset, b = c+offset;
+    s.boundingBOX = MakeAABB(a, b);
     return s;
 }
 
-void prepareCornellBox(struct Square* pointer) {
-    
-    Material light; light.type= MaterialType::Diffuse; light.albedo = simd_make_float3(15, 15, 15);
-    
-    Material red; red.type = MaterialType::Lambert; red.albedo = simd_make_float3(0.65, 0.05, 0.05);
-    Material green; green.type = MaterialType::Lambert; green.albedo = simd_make_float3(0.12, 0.45, 0.15);
-    Material white; white.type = MaterialType::Lambert; white.albedo = simd_make_float3(0.73, 0.73, 0.73);
-    
-    Material metal; metal.type = MaterialType::Metal;
-    metal.albedo = simd_make_float3(0.8, 0.85, 0.88);
-    
-    //Material material_list[] = {light, red, green, white};
-    
-    //auto lightSource = MakeSquare(0, simd_make_float2(213, 343), 2, simd_make_float2(227, 332), 1, 554);
-    auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
-    lightSource.material = light;
-
-    auto right = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 555); //flip
-    right.material = green;
-
-    auto left = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 0);
-    left.material = red;
-
-    auto top = MakeSquare(0, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 1, 555);
-    top.material = white;
-
-    auto bottom = MakeSquare(0, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 1, 0);
-    bottom.material = white;
-
-    auto back =  MakeSquare(0, simd_make_float2(0, 555), 1, simd_make_float2(0, 555), 2, 555);
-    back.material = white;
-
-    //static Square result[] = { right, left, top, bottom, back, lightSource };
-    
-    pointer[0] = right;
-    pointer[1] = left;
-    pointer[2] = top;
-    pointer[3] = bottom;
-    pointer[4] = back;
-    pointer[5] = lightSource;
-}
-
-void prepareCubeList(struct Cube* pointer) {
+void prepareCubeList(std::vector<Cube>& list) {
     
     Material metal; metal.type = MaterialType::Metal;
     metal.albedo = simd_make_float3(0.8, 0.85, 0.88);
@@ -235,15 +193,68 @@ void prepareCubeList(struct Cube* pointer) {
     smaller.model_matrix = simd_mul(translate, rotate);
     smaller.inverse_matrix = simd_inverse(smaller.model_matrix);
     smaller.normal_matrix = simd_transpose(smaller.inverse_matrix);
-     
-    //static Cube result[] = {bigger, smaller};
-    pointer[0] = bigger;
-    pointer[1] = smaller;
+
+    list.emplace_back(bigger);
+    list.emplace_back(smaller);
 }
 
-void prepareCamera(struct Camera* pointer, float2 viewSize) {
+void prepareCornellBox(std::vector<Square>& list) {
     
-    static Camera camera;
+    Material light; light.type= MaterialType::Diffuse; light.albedo = simd_make_float3(15, 15, 15);
+    
+    Material red; red.type = MaterialType::Lambert; red.albedo = simd_make_float3(0.65, 0.05, 0.05);
+    Material green; green.type = MaterialType::Lambert; green.albedo = simd_make_float3(0.12, 0.45, 0.15);
+    Material white; white.type = MaterialType::Lambert; white.albedo = simd_make_float3(0.73, 0.73, 0.73);
+    
+    Material metal; metal.type = MaterialType::Metal;
+    metal.albedo = simd_make_float3(0.8, 0.85, 0.88);
+    
+    //Material material_list[] = {light, red, green, white};
+    
+    auto lightSource = MakeSquare(0, simd_make_float2(213, 343), 2, simd_make_float2(227, 332), 1, 554);
+    //auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
+    lightSource.material = light;
+
+    auto right = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 555); //flip
+    right.material = green;
+
+    auto left = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 0);
+    left.material = red;
+
+    auto top = MakeSquare(0, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 1, 555);
+    top.material = white;
+
+    auto bottom = MakeSquare(0, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 1, 0);
+    bottom.material = white;
+
+    auto back =  MakeSquare(0, simd_make_float2(0, 555), 1, simd_make_float2(0, 555), 2, 555);
+    back.material = white;
+
+    list.emplace_back(right);
+    list.emplace_back(left);
+    list.emplace_back(top);
+    list.emplace_back(bottom);
+    list.emplace_back(back);
+    list.emplace_back(lightSource);
+}
+
+void prepareSphereList(std::vector<Sphere>& list) {
+    
+    Material glass; glass.type = MaterialType::Dielectric;
+    glass.albedo = simd_make_float3(1.0, 1.0, 1.0);
+    glass.refractive = 1.5;
+    
+    Material isot; isot.type = MaterialType::Isotropic;
+    isot.albedo = simd_make_float3(0.73, 0.73, 0.73);
+    
+    auto sphere = MakeSphere(64, simd_make_float3(200, 400, 300));
+    sphere.material = glass;
+    
+    list.emplace_back(sphere);
+}
+
+void prepareCamera(struct Camera* camera, float2 viewSize) {
+    
     auto aspect = viewSize.x/viewSize.y;
     
     auto lookFrom = simd_make_float3(278, 278, -800);
@@ -252,6 +263,5 @@ void prepareCamera(struct Camera* pointer, float2 viewSize) {
     auto vfov = 40; auto aperture = 0.0;
     auto dist_to_focus = 10;
     
-    camera = MakeCamera(lookFrom, lookAt, viewUp, aperture, aspect, vfov, dist_to_focus);
-    *pointer = camera;
+    MakeCamera(camera, lookFrom, lookAt, viewUp, aperture, aspect, vfov, dist_to_focus);
 }

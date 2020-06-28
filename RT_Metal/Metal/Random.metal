@@ -1,16 +1,6 @@
-
-
 #include "Random.hh"
-#include <metal_stdlib>
-
-using namespace metal;
 
 //static pcg32_random_t pcg32_global = PCG32_INITIALIZER;
-
-// pcg32_srandom(initstate, initseq)
-// pcg32_srandom_r(rng, initstate, initseq):
-//     Seed the rng.  Specified in two parts, state initializer and a
-//     sequence selection constant (a.k.a. stream id)
 
 void pcg32_srandom_r(thread pcg32_random_t* rng, uint64_t initstate, uint64_t initseq)
 {
@@ -26,10 +16,6 @@ void pcg32_srandom_r(thread pcg32_random_t* rng, uint64_t initstate, uint64_t in
 //    pcg32_srandom_r(&pcg32_global, seed, seq);
 //}
 
-// pcg32_random()
-// pcg32_random_r(rng)
-//     Generate a uniformly distributed 32-bit random number
-
 uint32_t pcg32_random_r(thread pcg32_random_t* rng)
 {
     uint64_t oldstate = rng->state;
@@ -39,61 +25,23 @@ uint32_t pcg32_random_r(thread pcg32_random_t* rng)
     return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
 }
 
-//uint32_t pcg32_random()
-//{
-//    return pcg32_random_r(&pcg32_global);
-//}
-
-
-// pcg32_boundedrand(bound):
-// pcg32_boundedrand_r(rng, bound):
-//     Generate a uniformly distributed number, r, where 0 <= r < bound
-
-uint32_t pcg32_boundedrand_r(thread pcg32_random_t* rng, uint32_t bound)
-{
-    // To avoid bias, we need to make the range of the RNG a multiple of
-    // bound, which we do by dropping output less than a threshold.
-    // A naive scheme to calculate the threshold would be to do
-    //
-    //     uint32_t threshold = 0x100000000ull % bound;
-    //
-    // but 64-bit div/mod is slower than 32-bit div/mod (especially on
-    // 32-bit platforms).  In essence, we do
-    //
-    //     uint32_t threshold = (0x100000000ull-bound) % bound;
-    //
-    // because this version will calculate the same modulus, but the LHS
-    // value is less than 2^32.
-
-    uint32_t threshold = -bound % bound;
-
-    // Uniformity guarantees that this loop will terminate.  In practice, it
-    // should usually terminate quickly; on average (assuming all bounds are
-    // equally likely), 82.25% of the time, we can expect it to require just
-    // one iteration.  In the worst case, someone passes a bound of 2^31 + 1
-    // (i.e., 2147483649), which invalidates almost 50% of the range.  In
-    // practice, bounds are typically small and only a tiny amount of the range
-    // is eliminated.
-    for (;;) {
-        uint32_t r = pcg32_random_r(rng);
-        if (r >= threshold)
-            return r % bound;
-    }
-}
-
-//uint32_t pcg32_boundedrand(uint32_t bound)
-//{
-//    return pcg32_boundedrand_r(&pcg32_global, bound);
-//}
-
 float randomF(thread pcg32_random_t* rng)
 {
     //return pcg32_random_r(rng)/float(UINT_MAX);
-    return ldexp(float(pcg32_random_r(rng)), -32);
+    
+    auto i = pcg32_random_r(rng);
+    return ldexp(float(i), -32);
 }
 
 float randomF(float mini, float maxi, thread pcg32_random_t* rng) {
     return mini + (maxi-mini)*randomF(rng);
+}
+
+float3 randomUnit(thread pcg32_random_t* rng) {
+    auto a = randomF(rng);
+    auto z = randomF(rng);
+    auto r = sqrt(1-z*z);
+    return float3(r*cos(a), r*sin(a), z);
 }
 
 float2 randomInUnitDiskFF(thread pcg32_random_t* rng) {
@@ -101,7 +49,7 @@ float2 randomInUnitDiskFF(thread pcg32_random_t* rng) {
     do {
         p = 2.0 * float2(randomF(rng), randomF(rng)) - float2(1,1);
     } while (dot(p, p)>=1.0);
-    return p;
+    return normalize(p);
 }
 
 float3 randomInUnitSphereFFF(thread pcg32_random_t* rng) {
@@ -110,7 +58,16 @@ float3 randomInUnitSphereFFF(thread pcg32_random_t* rng) {
         auto x = randomF(rng);
         auto y = randomF(rng);
         auto z = randomF(rng);
-        p = 2.0 * float3(x, y, z) - float3(1,1,1);
+        p = 2.0 * float3(x, y, z) - float3(1);
     } while (dot(p, p)>=1.0);
     return normalize(p);
+}
+
+float3 randomInHemisphere(const thread float3& normal, thread pcg32_random_t* rng) {
+    float3 direction = randomInUnitSphereFFF(rng);
+    if (dot(normal, direction) > 0) {
+        return direction;
+    } else {
+        return -direction;
+    }
 }

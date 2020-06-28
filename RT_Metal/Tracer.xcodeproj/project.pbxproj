@@ -12,7 +12,6 @@
 		573DD1092432B9D900B09B0A /* Render.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1082432B9D900B09B0A /* Render.metal */; };
 		573DD1122433AA9900B09B0A /* Random.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1112433AA9900B09B0A /* Random.metal */; };
 		5749BCA32435005B002B60E4 /* Tracer.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5749BCA22435005B002B60E4 /* Tracer.metal */; };
-		5749BCA524354963002B60E4 /* LightM2D.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5749BCA424354963002B60E4 /* LightM2D.metal */; };
 		575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 575F7DBA242469C300DA5F33 /* TracerWindowController.swift */; };
 		57DD356A241EEC110094632B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD3569241EEC110094632B /* AppDelegate.swift */; };
 		57DD356C241EEC110094632B /* TracerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD356B241EEC110094632B /* TracerViewController.swift */; };
@@ -24,14 +23,13 @@
 		571C095F2439267700DA0BAC /* Tracer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Tracer.mm; sourceTree = "<group>"; };
 		571C09612439269400DA0BAC /* Tracer.hh */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; lineEnding = 0; path = Tracer.hh; sourceTree = "<group>"; };
 		571FF88A246367E4002DDF02 /* MetalRender.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MetalRender.mm; sourceTree = "<group>"; };
-		571FF88C246367FC002DDF02 /* MetalRender.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MetalRender.h; sourceTree = "<group>"; };
+		571FF88C246367FC002DDF02 /* MetalRender.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MetalRender.hh; sourceTree = "<group>"; };
 		571FF88D24639A81002DDF02 /* Common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Common.h; sourceTree = "<group>"; };
 		573DD1082432B9D900B09B0A /* Render.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Render.metal; sourceTree = "<group>"; };
 		573DD10A24335D6D00B09B0A /* Render.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Render.hh; sourceTree = "<group>"; };
 		573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Tracer-Bridging-Header.h"; sourceTree = "<group>"; };
 		573DD1112433AA9900B09B0A /* Random.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Random.metal; sourceTree = "<group>"; };
 		5749BCA22435005B002B60E4 /* Tracer.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Tracer.metal; sourceTree = "<group>"; };
-		5749BCA424354963002B60E4 /* LightM2D.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = LightM2D.metal; sourceTree = "<group>"; };
 		5749BCA624362BDE002B60E4 /* Random.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Random.hh; sourceTree = "<group>"; };
 		575F7DBA242469C300DA5F33 /* TracerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TracerWindowController.swift; sourceTree = "<group>"; };
 		57DD3566241EEC110094632B /* Tracer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tracer.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -57,14 +55,11 @@
 		573DD1072432961400B09B0A /* Metal */ = {
 			isa = PBXGroup;
 			children = (
+				5749BCA22435005B002B60E4 /* Tracer.metal */,
 				573DD10A24335D6D00B09B0A /* Render.hh */,
 				573DD1082432B9D900B09B0A /* Render.metal */,
-				571C09612439269400DA0BAC /* Tracer.hh */,
-				571C095F2439267700DA0BAC /* Tracer.mm */,
-				5749BCA22435005B002B60E4 /* Tracer.metal */,
 				5749BCA624362BDE002B60E4 /* Random.hh */,
 				573DD1112433AA9900B09B0A /* Random.metal */,
-				5749BCA424354963002B60E4 /* LightM2D.metal */,
 				573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */,
 			);
 			path = Metal;
@@ -91,7 +86,9 @@
 			isa = PBXGroup;
 			children = (
 				571FF88D24639A81002DDF02 /* Common.h */,
-				571FF88C246367FC002DDF02 /* MetalRender.h */,
+				571C09612439269400DA0BAC /* Tracer.hh */,
+				571C095F2439267700DA0BAC /* Tracer.mm */,
+				571FF88C246367FC002DDF02 /* MetalRender.hh */,
 				571FF88A246367E4002DDF02 /* MetalRender.mm */,
 				57DD3569241EEC110094632B /* AppDelegate.swift */,
 				57DD356B241EEC110094632B /* TracerViewController.swift */,
@@ -131,7 +128,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1130;
-				LastUpgradeCheck = 1140;
+				LastUpgradeCheck = 1200;
 				ORGANIZATIONNAME = iaomw;
 				TargetAttributes = {
 					57DD3565241EEC110094632B = {
@@ -178,7 +175,6 @@
 				573DD1092432B9D900B09B0A /* Render.metal in Sources */,
 				575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */,
 				573DD1122433AA9900B09B0A /* Random.metal in Sources */,
-				5749BCA524354963002B60E4 /* LightM2D.metal in Sources */,
 				571C09602439267700DA0BAC /* Tracer.mm in Sources */,
 				5749BCA32435005B002B60E4 /* Tracer.metal in Sources */,
 				57DD356C241EEC110094632B /* TracerViewController.swift in Sources */,
@@ -227,6 +223,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -287,6 +284,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;

@@ -1,9 +1,10 @@
 #ifndef Tracer_h
 #define Tracer_h
 
-#include <Foundation/Foundation.h>
-#include <simd/simd.h>
 #include "Common.h"
+
+#include <stdlib.h>
+#include <vector>
 
 struct Camera {
     
@@ -81,8 +82,10 @@ struct Sphere {
     struct Material material;
 };
 
-void prepareCubeList(struct Cube* pointer);
-void prepareCornellBox(struct Square* pointer);
+void prepareCubeList(std::vector<Cube>& list);
+void prepareCornellBox(std::vector<Square>& list);
+void prepareSphereList(std::vector<Sphere>& list);
+
 void prepareCamera(struct Camera* pointer, float2 viewSize);
 
 #endif /* Tracer_h */

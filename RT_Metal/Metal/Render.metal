@@ -1,9 +1,5 @@
-
-#include <metal_stdlib>
-using namespace metal;
-
-#include "Random.hh"
 #include "Render.hh"
+#include "Random.hh"
 #include "Tracer.metal"
 
 typedef enum  {
@@ -12,9 +8,10 @@ typedef enum  {
 } VertexInput;
 
 typedef struct  {
+    
     float2 view_size;
     float running_time;
-    uint32_t sample_frame_count;
+    uint32_t frame_count;
     
 } SceneComplex;
 
@@ -28,9 +25,9 @@ typedef struct {
     vector_float2 textureCoordinate;
 } VertexWithUV;
 
-static float3 traceColor(thread Ray& ray,
-                         float depth,
-                         thread float3& background,
+static float3 traceColor(float depth,
+                         thread Ray& ray,
+                         thread float3& ambient,
                          constant Sphere* sphere_list,
                          constant Square* square_list,
                          constant Cube* cube_list,
@@ -41,56 +38,73 @@ static float3 traceColor(thread Ray& ray,
     
     float3 color = float3(0.0);
     float3 ratio = float3(1.0);
-    float2 range_t = float2(0.000001, FLT_MAX);
+    float2 range_t = float2(0.001, FLT_MAX);
     
-    Ray testRay = ray;
-    bool hasNewRay = false;
+    Ray test_ray = ray;
+    bool has_ray = false;
     
     do {
-        hasNewRay = false;
-        HitRecord testHitRecord;
-        //float nearst_t = FLT_MAX;
-        range_t.y = FLT_MAX;
+        has_ray = false;
+        HitRecord hit_re;
+        range_t = float2(0.01, FLT_MAX);
+        
+        bool hitted = false;
+        
+        for (int i=0; i<1; i++) {
+            auto sphere = sphere_list[i];
+            if(sphere.hit_test(test_ray, range_t, hit_re)) {
+                if (hit_re.t < range_t.y) {
+                    range_t.y = hit_re.t;
+                    hitRecord = hit_re;
+                    hitted = true;
+                }
+            }
+        }
         
         for (int i=0; i<6; i++) {
             auto square = square_list[i];
-            if(square.hit(testRay, range_t, testHitRecord)) {
-                if (testHitRecord.t < range_t.y) {
-                    range_t.y = testHitRecord.t;
-                    hitRecord = testHitRecord;
+            if(square.hit_test(test_ray, range_t, hit_re)) {
+                if (hit_re.t < range_t.y) {
+                    range_t.y = hit_re.t;
+                    hitRecord = hit_re;
+                    hitted = true;
                 }
             }
         }
         
         for (int i=0; i<2; i++) {
             auto cube = cube_list[i];
-            if(cube.hit(testRay, range_t, testHitRecord)) {
-                if (testHitRecord.t < range_t.y) {
-                    range_t.y = testHitRecord.t;
-                    hitRecord = testHitRecord;
+            if(cube.hit_test(test_ray, range_t, hit_re)) {
+                if (hit_re.t < range_t.y) {
+                    range_t.y = hit_re.t;
+                    hitRecord = hit_re;
+                    hitted = true;
                 }
             }
         }
         
-        if (range_t.y == FLT_MAX) {
-            color += ratio * background;
+        if (!hitted) {
+            color += ratio * ambient;
             break;
         }
         
-        auto emitted = emit(hitRecord);
-        color += ratio * emitted;
-        
-        if(!scatter(testRay, hitRecord, scatterRecord, seed)) {
-            break;
+        float3 emit_color;
+        auto emitted = emit_test(hitRecord, emit_color);
+        if (emitted) {
+            color += ratio * emit_color;
+            return color;
         }
+        
+        has_ray = scatter(test_ray, hitRecord, scatterRecord, seed);
+        
+        if(!has_ray) { break; }
         
         ratio = ratio * scatterRecord.attenuation;
-        testRay = scatterRecord.specularRay;
+        test_ray = scatterRecord.specular;
         
-        hasNewRay = true;
         depth -= 1;
         
-    } while(hasNewRay && depth > 0);
+    } while(has_ray && depth > 0);
     
     return color;
 }
@@ -103,8 +117,8 @@ vertexShader(uint vertexID [[vertex_id]],
     
     float2 world_pos = vertexArray[vertexID].position.xy;
     
-    out.position = vector_float4(0, 0, 0, 1);
     out.position.xy = world_pos;
+    out.position.zw = float2(0, 1);
     
     out.texCoord = vertexArray[vertexID].textureCoordinate;
     
@@ -151,7 +165,7 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
              texture2d<uint32_t, access::read> inSeedRNG [[texture(2)]],
              texture2d<uint32_t, access::write> outSeedRNG [[texture(3)]],
              
-             uint2 pos_grid  [[thread_position_in_grid]],
+             uint2 thread_pos  [[thread_position_in_grid]],
              constant SceneComplex* sceneMeta [[buffer(0)]],
              constant Camera* camera [[buffer(1)]],
 
@@ -160,44 +174,41 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
              constant Cube* cube_list [[buffer(4)]] )
 {
     // Check if the pixel is within the bounds of the output texture
-    if((pos_grid.x >= outTexture.get_width()) || (pos_grid.y >= outTexture.get_height()))
+    if((thread_pos.x >= outTexture.get_width()) || (thread_pos.y >= outTexture.get_height()))
     {
         // Return early if the pixel is out of bounds
         return;
     }
     
-    uint32_t rr = inSeedRNG.read(pos_grid).r;
-    uint32_t gg = inSeedRNG.read(pos_grid).g;
-    uint32_t bb = inSeedRNG.read(pos_grid).b;
-    uint32_t aa = inSeedRNG.read(pos_grid).a;
+    uint32_t rr = inSeedRNG.read(thread_pos).r;
+    uint32_t gg = inSeedRNG.read(thread_pos).g;
+    uint32_t bb = inSeedRNG.read(thread_pos).b;
+    uint32_t aa = inSeedRNG.read(thread_pos).a;
     
     uint64_t rng_state = (uint64_t(rr) << 32) | gg;
     uint64_t rng_inc = (uint64_t(bb) << 32) | aa;
     
-    auto cached_color = float3(inTexture.read(pos_grid).rgb);
+    auto cached_color = float3(inTexture.read(thread_pos).rgb);
+    auto frame_count = sceneMeta->frame_count;
+    
     //auto float_time = float(sceneMeta->running_time);
     //auto int_time = uint32_t(1000*sceneMeta->running_time);
-    auto frame_count = sceneMeta->sample_frame_count;
     //auto pixelPisition = input.texCoord*float2(sceneMeta->view_size);
     
-    auto u = float(pos_grid.x)/outTexture.get_width();
-    auto v = float(pos_grid.y)/outTexture.get_height();
+    auto u = float(thread_pos.x)/outTexture.get_width();
+    auto v = float(thread_pos.y)/outTexture.get_height();
     
     pcg32_random_t rng;
     
     rng.inc = rng_inc;
     rng.state = rng_state;
-//        rng = { 0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL };
-//        pcg32_srandom_r(&rng, pos_grid.x * int_time, pos_grid.y * int_time);
-//        pcg32_random_r(&rng);
     
-    auto background = float3(0.0);
+    auto ambient = float3(0.0);
     auto result = float3(0.0);
     
     auto ray = castRay(camera, u, v, &rng);
-    //ray.direction.x *= -1;
-    auto color = traceColor(ray, 50,
-                            background,
+    auto color = traceColor(64, ray,
+                            ambient,
                             sphere_list,
                             square_list,
                             cube_list, &rng);
@@ -205,10 +216,9 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     result.rgb = (cached_color.rgb * frame_count + color) / (frame_count + 1);
     
     auto hhhh = half4(1.0);
-    hhhh.rgb = half3(result);
-    //hhhh.rgb = half3(ray.direction * 0.5 + 0.5);
+    hhhh.rgb = half3(result);    
     
-    outTexture.write(hhhh, pos_grid);
+    outTexture.write(hhhh, thread_pos);
     
     gg = rng.state;
     rr = rng.state >> 32;
@@ -222,6 +232,6 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     rng_cache.b = bb;
     rng_cache.a = aa;
     
-    outSeedRNG.write(rng_cache, pos_grid);
+    outSeedRNG.write(rng_cache, thread_pos);
 }
 

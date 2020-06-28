@@ -2,7 +2,6 @@
 #define MetalRender_h
 
 #include "Common.h"
-#include "Tracer.hh"
 
 // A platform-independent renderer class.
 @interface AAPLRenderer : NSObject<MTKViewDelegate>

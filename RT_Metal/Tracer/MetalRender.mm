@@ -1,4 +1,5 @@
-#include "MetalRender.h"
+#include "MetalRender.hh"
+#include "Tracer.hh"
 
 typedef struct {
     float x, y;
@@ -19,7 +20,7 @@ const VertexWithUV canvas[] =
 typedef struct  {
     float2 viewSize;// = simd_float2(1, 1);
     float runningTime;
-    uint32_t sample_frame_count;
+    uint32_t frame_count;
 } SceneComplex;
 
 // The main class performing the rendering.
@@ -33,7 +34,8 @@ typedef struct  {
     
     id<MTLBuffer> _cube_list_buffer;
     id<MTLBuffer> _cornell_box_buffer;
-    
+    id<MTLBuffer> _sphere_list_buffer;
+   
     SceneComplex _scene_meta;
     
     id<MTLBuffer> _camera_buffer;
@@ -75,36 +77,46 @@ typedef struct  {
         let vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
         let fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
         
-        _vertex_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options:MTLResourceStorageModeShared];
+        _vertex_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: MTLResourceStorageModeManaged];
+        
+        uint width = 1024;
+        uint height = 1024;
         
         _scene_meta.runningTime = 0;
-        _scene_meta.viewSize = {1024, 1024};
-        _scene_meta.sample_frame_count = 0;
+        _scene_meta.frame_count = 0;
+        _scene_meta.viewSize.x = width;
+        _scene_meta.viewSize.y = height;
         
-        _scene_meta_buffer = [_device newBufferWithBytes:&_scene_meta length:sizeof(SceneComplex) options:MTLResourceStorageModeShared];
+        _scene_meta_buffer = [_device newBufferWithBytes:&_scene_meta length:sizeof(SceneComplex) options: MTLResourceStorageModeManaged];
         
         struct Camera camera;
         prepareCamera(&camera, _scene_meta.viewSize);
         _camera_buffer = [_device newBufferWithBytes:&camera
                         length:sizeof(struct Camera)
-                        options:MTLResourceStorageModeShared];
+                        options: MTLResourceStorageModeManaged];
         
-        struct Cube cube_list[2];
+        std::vector<Cube> cube_list;
         prepareCubeList(cube_list);
-        _cube_list_buffer = [_device newBufferWithBytes:cube_list
-                            length:sizeof(struct Cube)*2
-                            options:MTLResourceStorageModeShared];
+        _cube_list_buffer = [_device newBufferWithBytes:cube_list.data()
+                            length:sizeof(struct Cube)*cube_list.size()
+                            options: MTLResourceStorageModeManaged];
         
-        struct Square cornell_box[6];
+        std::vector<Square> cornell_box;
         prepareCornellBox(cornell_box);
-        _cornell_box_buffer = [_device newBufferWithBytes:cornell_box
-                            length:sizeof(struct Square)*6
-                            options:MTLResourceStorageModeShared];
+        _cornell_box_buffer = [_device newBufferWithBytes:cornell_box.data()
+                            length:sizeof(struct Square)*cornell_box.size()
+                            options: MTLResourceStorageModeManaged];
+        
+        std::vector<Sphere> sphere_list;
+        prepareSphereList(sphere_list);
+        _sphere_list_buffer = [_device newBufferWithBytes:sphere_list.data()
+                            length:sizeof(struct Sphere)*sphere_list.size()
+                            options: MTLResourceStorageModeManaged];
         
         // Create a reusable pipeline state object.
         let pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
         
-        pipelineStateDescriptor.label = @"2D Canvas pipeline";
+        pipelineStateDescriptor.label = @"Canvas pipeline";
         //pipelineStateDescriptor.sampleCount = _view.sampleCount;
         
         pipelineStateDescriptor.vertexFunction = vertexFunction;
@@ -115,9 +127,10 @@ typedef struct  {
         
         let td = [[MTLTextureDescriptor alloc] init];
         td.textureType = MTLTextureType2D;
-        td.pixelFormat = MTLPixelFormatBGRA8Unorm; //MTLPixelFormatRGBA8Unorm;
-        td.width = 1024;
-        td.height = 1024;
+        td.pixelFormat = MTLPixelFormatRGBA16Unorm; //MTLPixelFormatRGBA8Unorm;
+        td.width = width;
+        td.height = height;
+        td.storageMode = MTLStorageModePrivate;
         
         td.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
         
@@ -127,26 +140,26 @@ typedef struct  {
         let tdr = [[MTLTextureDescriptor alloc] init];
         tdr.textureType = MTLTextureType2D;
         tdr.pixelFormat = MTLPixelFormatRGBA32Uint;
-        tdr.width = 1024;
-        tdr.height = 1024;
+        tdr.width = width;
+        tdr.height = height;
+        tdr.storageMode = MTLStorageModePrivate;
         
         tdr.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
         
         _textureARNG = [_device newTextureWithDescriptor:tdr];
         _textureBRNG = [_device newTextureWithDescriptor:tdr];
         
-        UInt32 count = 1024*1024*4;
+        UInt32 count = width * height * 4;
         UInt32* seeds = (UInt32*)malloc(count*sizeof(UInt32));
 
         for (int i = 0; i < count; i++) {
             seeds[i] = arc4random();
         }
-
-        MTLRegion region = { 0, 0, 0, 1024, 1024, 1};
-        [_textureARNG replaceRegion:region
-                     mipmapLevel:0
-                       withBytes:seeds
-                     bytesPerRow:sizeof(UInt32)*4*1024];
+        
+        id <MTLBuffer> _sourceBuffer;
+        _sourceBuffer = [_device newBufferWithBytes:seeds
+                                             length:sizeof(UInt32)*4*width*height
+                                            options:MTLResourceStorageModeShared];
         free(seeds);
         
         _threadGroupSize = MTLSizeMake(16, 16, 1);
@@ -158,7 +171,27 @@ typedef struct  {
         
         launchTime = [[NSDate date] timeIntervalSince1970];
         
-        _view.delegate = self;
+        // Create a command buffer for GPU work.
+        id <MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
+        // Encode a blit pass to copy data from the source buffer to the private texture.
+        id <MTLBlitCommandEncoder> blitCommandEncoder = [commandBuffer blitCommandEncoder];
+        
+        [blitCommandEncoder copyFromBuffer:_sourceBuffer
+                              sourceOffset:0
+                         sourceBytesPerRow:sizeof(UInt32)*4 * width
+                       sourceBytesPerImage:sizeof(UInt32)*4 * width * height
+                                sourceSize: { width, height, 1 }
+                                 toTexture: _textureARNG
+                          destinationSlice:0
+                          destinationLevel:0
+                         destinationOrigin: MTLOrigin()];
+        [blitCommandEncoder endEncoding];
+
+        // Add a completion handler and commit the command buffer.
+        [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> cb) {
+            self->_view.delegate = self; // Private texture is populated.
+        }];
+        [commandBuffer commit];
     }
     return self;
 }
@@ -166,7 +199,7 @@ typedef struct  {
 #pragma mark - MetalKit View Delegate
 - (void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size
 {
-    _scene_meta.sample_frame_count = 0;
+    _scene_meta.frame_count = 0;
     _scene_meta.viewSize = simd_make_float2(size.width, size.height);
 }
 
@@ -180,24 +213,25 @@ typedef struct  {
     
     //__weak AAPLRenderer *weakSelf = self;
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-        self->_scene_meta.sample_frame_count += 1;
-        self->_view.paused = (self->_scene_meta.sample_frame_count > 1024);
+        self->_scene_meta.frame_count += 1;
+        self->_view.paused = (self->_scene_meta.frame_count > 1024);
     }];
     
     let computeEncoder = [commandBuffer computeCommandEncoder];
     [computeEncoder setComputePipelineState:_computePipelineState];
     
-    [computeEncoder setTexture:_textureA atIndex:_scene_meta.sample_frame_count % 2];
-    [computeEncoder setTexture:_textureB atIndex:(1+_scene_meta.sample_frame_count) % 2];
+    [computeEncoder setTexture:_textureA atIndex:_scene_meta.frame_count % 2];
+    [computeEncoder setTexture:_textureB atIndex:(1+_scene_meta.frame_count) % 2];
     
-    [computeEncoder setTexture:_textureARNG atIndex:2 + _scene_meta.sample_frame_count % 2];
-    [computeEncoder setTexture:_textureBRNG atIndex:2 + (1+_scene_meta.sample_frame_count) % 2];
+    [computeEncoder setTexture:_textureARNG atIndex:2 + _scene_meta.frame_count % 2];
+    [computeEncoder setTexture:_textureBRNG atIndex:2 + (1+_scene_meta.frame_count) % 2];
     
     memcpy(_scene_meta_buffer.contents, &_scene_meta, sizeof(SceneComplex));
     
     [computeEncoder setBuffer:_scene_meta_buffer offset:0 atIndex:0];
     [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:1];
     
+    [computeEncoder setBuffer:_sphere_list_buffer offset:0 atIndex:2];
     [computeEncoder setBuffer:_cornell_box_buffer offset:0 atIndex:3];
     [computeEncoder setBuffer:_cube_list_buffer offset:0 atIndex:4];
     
@@ -216,15 +250,15 @@ typedef struct  {
     
     MTLViewport viewport = {0, 0,
         _scene_meta.viewSize.x, _scene_meta.viewSize.y,
-        -1.0, 1.0};
+        0, 1.0};
     [renderEncoder setViewport:viewport];
     [renderEncoder setRenderPipelineState:_renderPipelineState];
     
     [renderEncoder setVertexBuffer:_vertex_buffer offset:0 atIndex:0];
     
     [renderEncoder setFragmentBuffer:_scene_meta_buffer offset:0 atIndex:0];
-    [renderEncoder setFragmentTexture:_textureB atIndex:_scene_meta.sample_frame_count % 2];
-    [renderEncoder setFragmentTexture:_textureA atIndex:(1+_scene_meta.sample_frame_count) % 2];
+    [renderEncoder setFragmentTexture:_textureB atIndex:_scene_meta.frame_count % 2];
+    [renderEncoder setFragmentTexture:_textureA atIndex:(1+_scene_meta.frame_count) % 2];
     
     [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
     [renderEncoder endEncoding];

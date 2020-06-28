@@ -1,22 +1,55 @@
-#include <metal_stdlib>
 #include "Random.hh"
+#include <metal_relational>
 
-using namespace metal;
+static void CoordinateSystem(const thread float3& a, thread float3& b, thread float3& c) {
+    
+    if (abs(a.x) > abs(a.y))
+        b = float3(-a.z, 0, a.x) /
+              sqrt(a.x * a.x + a.z * a.z);
+    else
+        b = float3(0, a.z, -a.y) /
+              sqrt(a.y * a.y + a.z * a.z);
+    c = cross(a, b);
+}
+
+inline bool isInvalid(const thread float3& vector) {
+    auto status = isnan(vector) || isinf(vector);
+    return status.x || status.y || status.z;
+}
 
 struct Ray {
     float3 origin;
     float3 direction;
+    //Float time;
+    //const Medium *medium;
+    
+    Ray(float3 o, float3 d) {
+        origin = o;
+        direction = normalize(d);
+    }
     
     float3 pointAt(float t) {
         return origin + direction * t;
     }
+    
+    bool isInvalid() {
+        return ::isInvalid(origin) || ::isInvalid(direction);
+    }
 };
 
-static Ray MakeRay(float3 origin, float3 direction) {
-    Ray r; r.origin = origin;
-    r.direction = normalize(direction);
-    return r;
-}
+struct RayDifferential {
+    Ray ray;
+    bool hasDifferentials;
+    float3 rxOrigin, ryOrigin;
+    float3 rxDirection, ryDirection;
+    
+    void ScaleDifferentials(float s) {
+        rxOrigin = ray.origin + (rxOrigin - ray.origin) * s;
+        ryOrigin = ray.origin + (ryOrigin - ray.origin) * s;
+        rxDirection = ray.direction + (rxDirection - ray.direction) * s;
+        ryDirection = ray.direction + (ryDirection - ray.direction) * s;
+    }
+};
 
 struct Camera {
     
@@ -38,8 +71,7 @@ static Ray castRay(constant Camera* camera, float s, float t, thread pcg32_rando
     auto offset = camera->u*rd.x + camera->v*rd.y;
     auto origin = camera->lookFrom + offset;
     auto sample = camera->cornerLowLeft + camera->horizontal*s + camera->vertical*t;
-    auto direction = sample - origin;
-    Ray ray = MakeRay(origin, direction);
+    Ray ray = Ray(origin, sample - origin);
     return ray;
 }
 
@@ -72,23 +104,19 @@ static float schlick(float cosine, float ref_idx) {
 struct HitRecord {
     float t;
     float3 p;
-    float3 n;
     
-    float2 uv;
     bool front;
-    
+    float3 n;
+    float2 uv;
+        
     Material material;
     
     float3 normal() {
-        if (front) {
-            return n;
-        } else {
-            return -n;
-        }
+        return front? n:-n;
     }
     
     void checkFace(thread Ray& ray) {
-        if(dot(ray.direction, n) < 0){
+        if(dot(ray.direction, n) <= 0){
             front = true;
         } else {
             front = false;
@@ -97,7 +125,7 @@ struct HitRecord {
 };
 
 struct ScatterRecord {
-    Ray specularRay;
+    Ray specular = {float3(0), float3(0)};
     float3 attenuation;
     // pdf: PDF
 };
@@ -134,6 +162,7 @@ struct AABB {
 };
 
 struct Square {
+    
     uint8_t axis_i;
     uint8_t axis_j;
     float2 rang_i;
@@ -149,7 +178,7 @@ struct Square {
     AABB boundingBOX;
     Material material;
     
-    bool hit(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
+    bool hit_test(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
         
         auto t = (value_k-ray.origin[axis_k]) / ray.direction[axis_k];
         
@@ -159,12 +188,12 @@ struct Square {
         auto b = ray.origin[axis_j] + t*ray.direction[axis_j];
         
         if (a<rang_i.x || a>rang_i.y || b<rang_j.x || b>rang_j.y) {return false;}
-        auto uv = float2(0);
-        uv[0] = (a-rang_i.x)/(rang_i.y-rang_i.x);
-        uv[1] = (b-rang_j.x)/(rang_j.y-rang_j.x);
-        hitRecord.uv = uv;
+        
+        hitRecord.uv[0] = (a-rang_i.x)/(rang_i.y-rang_i.x);
+        hitRecord.uv[1] = (b-rang_j.x)/(rang_j.y-rang_j.x);
+        
         hitRecord.t = t;
-        auto normal = float3(0); normal[axis_k]=1;
+        auto normal = float3(0,0,0); normal[axis_k]=1;
         hitRecord.n = normal;
         hitRecord.checkFace(ray);
         hitRecord.p = ray.pointAt(t);
@@ -186,7 +215,7 @@ struct Cube {
     
     Square rectList[6];
     
-    bool hit(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
+    bool hit_test(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
         
         Ray transformedRay = ray;
         
@@ -196,7 +225,7 @@ struct Cube {
         auto nearest = range_t.y;
         HitRecord testHitResult;
         for (auto rect : rectList) {
-            if (!rect.hit(transformedRay, range_t, testHitResult)) {continue;}
+            if (!rect.hit_test(transformedRay, range_t, testHitResult)) {continue;}
             if (testHitResult.t >= nearest) {continue;}
             hitRecord = testHitResult;
             nearest = testHitResult.t;
@@ -231,7 +260,7 @@ struct Sphere {
     AABB boundingBOX;
     Material material;
     
-    bool hit(Ray ray, float2 rang_t, thread HitRecord& hitRecord) {
+    bool hit_test(thread Ray& ray, float2 rang_t, thread HitRecord& hitRecord) {
         float3 oc = ray.origin - center;
     
         auto a = length_squared(ray.direction);
@@ -239,52 +268,52 @@ struct Sphere {
         auto c = length_squared(oc) - radius*radius;
 
         auto discriminant = half_b*half_b - a*c;
+        if (discriminant <= 0) { return false; }
+        
         auto t_min = rang_t.x;
         auto t_max = rang_t.y;
-        if (discriminant > 0) {
-            auto root = sqrt(discriminant);
 
-            auto temp = (-half_b - root)/a;
-            if (temp < t_max && temp > t_min) {
-                hitRecord.t = temp;
-                hitRecord.p = ray.pointAt(hitRecord.t);
-                hitRecord.n = (hitRecord.p-center)/radius;
-                hitRecord.checkFace(ray);
-                //hitRecord.set_face_normal(ray, outward_normal);
-                sphereUV(hitRecord.n, hitRecord.uv);
-                hitRecord.material = material;
-                return true;
-            }
+        auto root = sqrt(discriminant);
 
-            temp = (-half_b + root)/a;
-            if (temp < t_max && temp > t_min) {
-                hitRecord.t = temp;
-                hitRecord.p = ray.pointAt(hitRecord.t);
-                hitRecord.n = (hitRecord.p-center)/radius;
-                hitRecord.checkFace(ray);
-                //hitRecord.set_face_normal(ray, outward_normal);
-                sphereUV(hitRecord.n, hitRecord.uv);
-                hitRecord.material = material;
-                return true;
-            }
+        auto temp = (-half_b - root)/a;
+        if (temp < t_max && temp > t_min) {
+            hitRecord.t = temp;
+            hitRecord.p = ray.pointAt(hitRecord.t);
+            hitRecord.n = (hitRecord.p-center)/radius;
+            hitRecord.checkFace(ray);
+            sphereUV(hitRecord.n, hitRecord.uv);
+            hitRecord.material = material;
+            return true;
         }
 
+        temp = (-half_b + root)/a;
+        if (temp < t_max && temp > t_min) {
+            hitRecord.t = temp;
+            hitRecord.p = ray.pointAt(hitRecord.t);
+            hitRecord.n = (hitRecord.p-center)/radius;
+            hitRecord.checkFace(ray);
+            sphereUV(hitRecord.n, hitRecord.uv);
+            hitRecord.material = material;
+            return true;
+        }
+        
         return false;
     }
 };
 
-static float3 emit(thread HitRecord& hitRecord) {
+static bool emit_test(thread HitRecord& hitRecord, thread float3& color) {
     
     switch(hitRecord.material.type) {
         case MaterialType::Diffuse: {
-            return hitRecord.material.albedo;
+            color = hitRecord.material.albedo;
+            return true;
         }
         case MaterialType::Metal:
         case MaterialType::Lambert:
         case MaterialType::Isotropic:
         case MaterialType::Dielectric:
         default:{
-            return float3(0);
+            return false;
         }
     }
 }
@@ -297,37 +326,39 @@ static bool scatter(thread Ray& ray,
     auto material = hitRecord.material;
     
     switch(material.type) {
+            
         case MaterialType::Lambert: {
             
-            auto scatter_direction = hitRecord.normal() + randomInUnitSphereFFF(seed);
-            auto scattered = MakeRay(hitRecord.p, scatter_direction);
+            auto theNormal = hitRecord.normal();
+            auto direction = theNormal + randomInHemisphere(theNormal, seed);// UnitSphereFFF(seed);
+            auto scattered = Ray(hitRecord.p, direction);
             //auto attenuation = material.texture.value(hitRecord.uv, hitRecord.p);
-            scatterRecord.specularRay = scattered;
+            scatterRecord.specular = scattered;
             scatterRecord.attenuation = material.albedo;//attenuation;
             return true;
         }
         case MaterialType::Metal: {
-            auto fuzz = 0.001 * randomInUnitSphereFFF(seed);
+            auto fuzz = 0.01 * randomInUnitSphereFFF(seed);
             auto reflected = reflect(ray.direction, hitRecord.normal());
-            auto scattered = MakeRay(hitRecord.p, reflected + fuzz);
+            auto scattered = Ray(hitRecord.p, reflected + fuzz);
             auto attenuation = material.albedo;
-            scatterRecord.specularRay = scattered;
+            scatterRecord.specular = scattered;
             scatterRecord.attenuation = attenuation;
             return true;//(dot(scattered.direction, hitRecord.normal()) > 0);
         }
         case MaterialType::Dielectric: {
             
-            auto attenuation = float3(1);
+            auto attenuation = material.albedo;
             auto etai_over_etat = hitRecord.front? (1.0/material.refractive):material.refractive;
             
-            auto unit_direction = normalize(ray.direction);
+            auto unit_direction = ray.direction;
             auto cos_theta = min(dot(-unit_direction, hitRecord.normal()), 1.0);
             auto sin_theta = sqrt(1.0 - cos_theta*cos_theta);
             
             if (etai_over_etat * sin_theta > 1.0 ) {
                 auto reflected = reflect(unit_direction, hitRecord.normal());
-                auto scattered = MakeRay(hitRecord.p, reflected);
-                scatterRecord.specularRay = scattered;
+                auto scattered = Ray(hitRecord.p, reflected);
+                scatterRecord.specular = scattered;
                 scatterRecord.attenuation = attenuation;
                 return true;
             }
@@ -335,26 +366,26 @@ static bool scatter(thread Ray& ray,
             auto reflect_prob = schlick(cos_theta, etai_over_etat);
             if (randomF(seed) < reflect_prob) {
                 auto reflected = reflect(unit_direction, hitRecord.normal());
-                auto scattered = MakeRay(hitRecord.p, reflected);
-                scatterRecord.specularRay = scattered;
+                auto scattered = Ray(hitRecord.p, reflected);
+                scatterRecord.specular = scattered;
                 scatterRecord.attenuation = attenuation;
                 return true;
             }
 
             auto refracted = refract(unit_direction, hitRecord.normal(), etai_over_etat);
-            auto scattered = MakeRay(hitRecord.p, refracted);
-            scatterRecord.specularRay = scattered;
+            auto scattered = Ray(hitRecord.p, refracted);
+            scatterRecord.specular = scattered;
             scatterRecord.attenuation = attenuation;
             return true;
-            
         }
         case MaterialType::Diffuse: {
             return false;
         }
         case MaterialType::Isotropic: {
-            auto scattered = MakeRay(hitRecord.p, randomInUnitSphereFFF(seed));
+
+            auto scattered = Ray(hitRecord.p, randomInUnitSphereFFF(seed));
             //auto attenuation = material.texture.value(hitRecord.uv, hitRecord.p);
-            scatterRecord.specularRay = scattered;
+            scatterRecord.specular = scattered;
             scatterRecord.attenuation = hitRecord.material.albedo; //attenuation;
             return true;
         }

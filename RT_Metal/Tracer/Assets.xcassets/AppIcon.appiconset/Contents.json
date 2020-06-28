@@ -1,68 +1,68 @@
 {
   "images" : [
     {
-      "size" : "16x16",
+      "filename" : "metal-bar-16.png",
       "idiom" : "mac",
-      "filename" : "DevZone_Icon_White_Ray_Tracing-16.png",
-      "scale" : "1x"
+      "scale" : "1x",
+      "size" : "16x16"
     },
     {
-      "size" : "16x16",
+      "filename" : "metal-bar-32.png",
       "idiom" : "mac",
-      "filename" : "DevZone_Icon_White_Ray_Tracing-32.png",
-      "scale" : "2x"
+      "scale" : "2x",
+      "size" : "16x16"
     },
     {
-      "size" : "32x32",
+      "filename" : "metal-bar-33.png",
       "idiom" : "mac",
-      "filename" : "DevZone_Icon_White_Ray_Tracing-33.png",
-      "scale" : "1x"
+      "scale" : "1x",
+      "size" : "32x32"
     },
     {
-      "size" : "32x32",
+      "filename" : "metal-bar-64.png",
       "idiom" : "mac",
-      "filename" : "DevZone_Icon_White_Ray_Tracing-64.png",
-      "scale" : "2x"
+      "scale" : "2x",
+      "size" : "32x32"
     },
     {
-      "size" : "128x128",
+      "filename" : "metal-bar-128.png",
       "idiom" : "mac",
-      "filename" : "DevZone_Icon_White_Ray_Tracing-128.png",
-      "scale" : "1x"
+      "scale" : "1x",
+      "size" : "128x128"
     },
     {
-      "size" : "128x128",
+      "filename" : "metal-bar-256.png",
       "idiom" : "mac",
-      "filename" : "DevZone_Icon_White_Ray_Tracing-256.png",
-      "scale" : "2x"
+      "scale" : "2x",
+      "size" : "128x128"
     },
     {
-      "size" : "256x256",
+      "filename" : "metal-bar-257.png",
       "idiom" : "mac",
-      "filename" : "DevZone_Icon_White_Ray_Tracing-257.png",
-      "scale" : "1x"
+      "scale" : "1x",
+      "size" : "256x256"
     },
     {
-      "size" : "256x256",
+      "filename" : "metal-bar-512.png",
       "idiom" : "mac",
-      "filename" : "DevZone_Icon_White_Ray_Tracing-512.png",
-      "scale" : "2x"
+      "scale" : "2x",
+      "size" : "256x256"
     },
     {
-      "size" : "512x512",
+      "filename" : "metal-bar-513.png",
       "idiom" : "mac",
-      "filename" : "DevZone_Icon_White_Ray_Tracing-513.png",
-      "scale" : "1x"
+      "scale" : "1x",
+      "size" : "512x512"
     },
     {
-      "size" : "512x512",
+      "filename" : "metal-bar-1024.png",
       "idiom" : "mac",
-      "filename" : "DevZone_Icon_White_Ray_Tracing-1024.png",
-      "scale" : "2x"
+      "scale" : "2x",
+      "size" : "512x512"
     }
   ],
   "info" : {
-    "version" : 1,
-    "author" : "xcode"
+    "author" : "xcode",
+    "version" : 1
   }
 }
