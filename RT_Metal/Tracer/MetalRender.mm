@@ -77,7 +77,7 @@ typedef struct  {
         let vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
         let fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
         
-        _vertex_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: MTLResourceStorageModeManaged];
+        _vertex_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: MTLResourceStorageModeShared];
         
         uint width = 1024;
         uint height = 1024;
@@ -87,7 +87,7 @@ typedef struct  {
         _scene_meta.viewSize.x = width;
         _scene_meta.viewSize.y = height;
         
-        _scene_meta_buffer = [_device newBufferWithBytes:&_scene_meta length:sizeof(SceneComplex) options: MTLResourceStorageModeManaged];
+        _scene_meta_buffer = [_device newBufferWithBytes:&_scene_meta length:sizeof(SceneComplex) options: MTLResourceStorageModeShared];
         
         struct Camera camera;
         prepareCamera(&camera, _scene_meta.viewSize);
@@ -127,7 +127,7 @@ typedef struct  {
         
         let td = [[MTLTextureDescriptor alloc] init];
         td.textureType = MTLTextureType2D;
-        td.pixelFormat = MTLPixelFormatRGBA16Unorm; //MTLPixelFormatRGBA8Unorm;
+        td.pixelFormat = MTLPixelFormatRGBA16Float; //MTLPixelFormatBGRA8Unorm;
         td.width = width;
         td.height = height;
         td.storageMode = MTLStorageModePrivate;
@@ -181,10 +181,10 @@ typedef struct  {
                          sourceBytesPerRow:sizeof(UInt32)*4 * width
                        sourceBytesPerImage:sizeof(UInt32)*4 * width * height
                                 sourceSize: { width, height, 1 }
-                                 toTexture: _textureARNG
+                                 toTexture:_textureARNG
                           destinationSlice:0
                           destinationLevel:0
-                         destinationOrigin: MTLOrigin()];
+                         destinationOrigin: {0,0,0}];
         [blitCommandEncoder endEncoding];
 
         // Add a completion handler and commit the command buffer.
