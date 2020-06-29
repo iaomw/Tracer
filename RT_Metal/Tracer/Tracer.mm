@@ -159,8 +159,8 @@ void sphereUV(float3& p, float2& uv) {
 }
 
 Sphere MakeSphere(float r, float3 c) {
-    Sphere s; s.radius = r; s.center = c;
-    auto offset = simd_make_float3(r);
+    Sphere s; s.radius = r+0.0001; s.center = c;
+    auto offset = simd_make_float3(r, r, r);
     auto a = c-offset, b = c+offset;
     s.boundingBOX = MakeAABB(a, b);
     return s;

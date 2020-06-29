@@ -38,7 +38,7 @@ static float3 traceColor(float depth,
     
     float3 color = float3(0.0);
     float3 ratio = float3(1.0);
-    float2 range_t = float2(0.001, FLT_MAX);
+    float2 range_t = float2(0.01, FLT_MAX);
     
     Ray test_ray = ray;
     bool has_ray = false;
@@ -46,7 +46,7 @@ static float3 traceColor(float depth,
     do {
         has_ray = false;
         HitRecord hit_re;
-        range_t = float2(0.001, FLT_MAX);
+        range_t = float2(0.01, FLT_MAX);
         
         bool hitted = false;
         

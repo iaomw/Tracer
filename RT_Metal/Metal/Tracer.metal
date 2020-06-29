@@ -137,7 +137,7 @@ struct AABB {
     float3 mini;
     float3 maxi;
     
-    bool hit(Ray ray, float2 range_t) {
+    bool hit(thread Ray& ray, float2 range_t) {
         
         for (auto i : {0, 1, 2}) {
             auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
@@ -154,7 +154,7 @@ struct AABB {
             auto tmin = metal::max(ts, range_t.x);
             auto tmax = metal::min(te, range_t.y);
             
-            return tmax > tmin;
+            if (tmax <= tmin) { return false; }
         }
         
         return true;
@@ -193,7 +193,7 @@ struct Square {
         hitRecord.uv[1] = (b-rang_j.x)/(rang_j.y-rang_j.x);
         
         hitRecord.t = t;
-        auto normal = float3(0,0,0); normal[axis_k]=1;
+        auto normal = float3(0); normal[axis_k]=1;
         hitRecord.n = normal;
         hitRecord.checkFace(ray);
         hitRecord.p = ray.pointAt(t);
@@ -217,10 +217,11 @@ struct Cube {
     
     bool hit_test(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
         
-        Ray transformedRay = ray;
+        auto origin = inverse_matrix * float4(ray.origin, 1.0);
+        auto direction = inverse_matrix * float4(ray.direction, 0.0);
+        Ray transformedRay = Ray(origin.xyz, direction.xyz);
         
-        transformedRay.origin = ((inverse_matrix) * float4(transformedRay.origin, 1.0)).xyz;
-        transformedRay.direction = normalize(((inverse_matrix) * float4(transformedRay.direction, 0.0)).xyz);
+        //if(!boundingBOX.hit(transformedRay, range_t)) {return false;}
     
         auto nearest = range_t.y;
         HitRecord testHitResult;
@@ -231,6 +232,10 @@ struct Cube {
             nearest = testHitResult.t;
         }
         
+        if (nearest >= range_t.y) {
+            return false;
+        }
+        
         hitRecord.checkFace(transformedRay);
         hitRecord.p = ray.pointAt(hitRecord.t);
         //hitRecord.p = (model_matrix * float4(hitRecord.p, 1.0)).xyz;
@@ -238,7 +243,7 @@ struct Cube {
         hitRecord.n = normalize((normal_matrix * float4(hitRecord.normal(), 0.0)).xyz);
         //hitRecord.n = normalize((float4(hitRecord.normal(), 0.0) * normal_matrix).xyz);
         
-        return nearest < range_t.y;
+        return true;
     }
 };
 
@@ -261,6 +266,9 @@ struct Sphere {
     Material material;
     
     bool hit_test(thread Ray& ray, float2 rang_t, thread HitRecord& hitRecord) {
+        
+        //if(!boundingBOX.hit(ray, rang_t)) { return false; }
+        
         float3 oc = ray.origin - center;
     
         auto a = length_squared(ray.direction);
@@ -324,13 +332,13 @@ static bool scatter(thread Ray& ray,
                     thread pcg32_random_t* seed)
 {
     auto material = hitRecord.material;
+    auto normal = hitRecord.normal();
     
     switch(material.type) {
             
         case MaterialType::Lambert: {
             
-            auto theNormal = hitRecord.normal();
-            auto direction = theNormal + randomInHemisphere(theNormal, seed);// UnitSphereFFF(seed);
+            auto direction = normal + randomInHemisphere(normal, seed);// UnitSphereFFF(seed);
             auto scattered = Ray(hitRecord.p, direction);
             //auto attenuation = material.texture.value(hitRecord.uv, hitRecord.p);
             scatterRecord.specular = scattered;
@@ -339,7 +347,7 @@ static bool scatter(thread Ray& ray,
         }
         case MaterialType::Metal: {
             auto fuzz = 0.01 * randomInUnitSphereFFF(seed);
-            auto reflected = reflect(ray.direction, hitRecord.normal());
+            auto reflected = reflect(ray.direction, normal);
             auto scattered = Ray(hitRecord.p, reflected + fuzz);
             auto attenuation = material.albedo;
             scatterRecord.specular = scattered;
@@ -352,11 +360,11 @@ static bool scatter(thread Ray& ray,
             auto etai_over_etat = hitRecord.front? (1.0/material.refractive):material.refractive;
             
             auto unit_direction = ray.direction;
-            auto cos_theta = min(dot(-unit_direction, hitRecord.normal()), 1.0);
+            auto cos_theta = min(dot(-unit_direction, normal), 1.0);
             auto sin_theta = sqrt(1.0 - cos_theta*cos_theta);
             
             if (etai_over_etat * sin_theta > 1.0 ) {
-                auto reflected = reflect(unit_direction, hitRecord.normal());
+                auto reflected = reflect(unit_direction, normal);
                 auto scattered = Ray(hitRecord.p, reflected);
                 scatterRecord.specular = scattered;
                 scatterRecord.attenuation = attenuation;
@@ -365,14 +373,14 @@ static bool scatter(thread Ray& ray,
 
             auto reflect_prob = schlick(cos_theta, etai_over_etat);
             if (randomF(seed) < reflect_prob) {
-                auto reflected = reflect(unit_direction, hitRecord.normal());
+                auto reflected = reflect(unit_direction, normal);
                 auto scattered = Ray(hitRecord.p, reflected);
                 scatterRecord.specular = scattered;
                 scatterRecord.attenuation = attenuation;
                 return true;
             }
 
-            auto refracted = refract(unit_direction, hitRecord.normal(), etai_over_etat);
+            auto refracted = refract(unit_direction, normal, etai_over_etat);
             auto scattered = Ray(hitRecord.p, refracted);
             scatterRecord.specular = scattered;
             scatterRecord.attenuation = attenuation;
