@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		570DF00924CF97F700421890 /* vulture_hide_4k.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 570DF00824CF979500421890 /* vulture_hide_4k.hdr */; };
 		571C09602439267700DA0BAC /* Tracer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571C095F2439267700DA0BAC /* Tracer.mm */; };
 		571FF88B246367E4002DDF02 /* MetalRender.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571FF88A246367E4002DDF02 /* MetalRender.mm */; };
 		573DD1092432B9D900B09B0A /* Render.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1082432B9D900B09B0A /* Render.metal */; };
@@ -20,6 +21,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		570DF00824CF979500421890 /* vulture_hide_4k.hdr */ = {isa = PBXFileReference; lastKnownFileType = file; path = vulture_hide_4k.hdr; sourceTree = "<group>"; };
 		571C095F2439267700DA0BAC /* Tracer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Tracer.mm; sourceTree = "<group>"; };
 		571C09612439269400DA0BAC /* Tracer.hh */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; lineEnding = 0; path = Tracer.hh; sourceTree = "<group>"; };
 		571FF88A246367E4002DDF02 /* MetalRender.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MetalRender.mm; sourceTree = "<group>"; };
@@ -85,6 +87,7 @@
 		57DD3568241EEC110094632B /* Tracer */ = {
 			isa = PBXGroup;
 			children = (
+				570DF00824CF979500421890 /* vulture_hide_4k.hdr */,
 				571FF88D24639A81002DDF02 /* Common.h */,
 				571C09612439269400DA0BAC /* Tracer.hh */,
 				571C095F2439267700DA0BAC /* Tracer.mm */,
@@ -160,6 +163,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				570DF00924CF97F700421890 /* vulture_hide_4k.hdr in Resources */,
 				57DD356E241EEC140094632B /* Assets.xcassets in Resources */,
 				57DD3571241EEC140094632B /* Main.storyboard in Resources */,
 			);

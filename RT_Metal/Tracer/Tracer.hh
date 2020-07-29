@@ -22,17 +22,18 @@ struct Camera {
 };
 
 enum struct TextureType { Constant, Checker, Noise, Image };
+
 struct Texture {
     enum TextureType type;
     uint textureIndex;
 };
 
-enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic };
+enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic, Specular };
 struct Material {
     enum MaterialType type;
     
     float3 albedo;
-    float refractive;
+    float parameter;
     struct Texture texture;
 };
 
@@ -82,10 +83,14 @@ struct Sphere {
     struct Material material;
 };
 
+float4x4 matrix4x4_scale(float sx, float sy, float sz);
+float4x4 matrix4x4_rotation(float radians, float3 axis);
+float4x4 matrix4x4_translation(float tx, float ty, float tz);
+
 void prepareCubeList(std::vector<Cube>& list);
 void prepareCornellBox(std::vector<Square>& list);
 void prepareSphereList(std::vector<Sphere>& list);
 
-void prepareCamera(struct Camera* pointer, float2 viewSize);
+void prepareCamera(struct Camera* pointer, float2 viewSize, float2 rotate);
 
 #endif /* Tracer_h */

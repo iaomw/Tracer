@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="15705" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="B8D-0N-5wS">
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="17140" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="B8D-0N-5wS">
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="15705"/>
+        <deployment identifier="macosx"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="17140"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -163,119 +164,11 @@
                         <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
                         <rect key="contentRect" x="196" y="240" width="480" height="270"/>
                         <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1027"/>
-                        <toolbar key="toolbar" implicitIdentifier="8DD6CA74-B6FF-4D6B-BC65-171F736D82BE" autosavesConfiguration="NO" allowsUserCustomization="NO" showsBaselineSeparator="NO" prefersToBeShown="NO" displayMode="iconAndLabel" sizeMode="regular" id="TOa-m6-Yho">
-                            <allowedToolbarItems>
-                                <toolbarItem implicitItemIdentifier="NSToolbarShowColorsItem" id="Szr-n5-aLA"/>
-                                <toolbarItem implicitItemIdentifier="NSToolbarShowFontsItem" id="0tT-Kp-Qev"/>
-                                <toolbarItem implicitItemIdentifier="NSToolbarPrintItem" id="kwZ-yC-qdI"/>
-                                <toolbarItem implicitItemIdentifier="NSToolbarSpaceItem" id="n6x-58-2qZ"/>
-                                <toolbarItem implicitItemIdentifier="NSToolbarFlexibleSpaceItem" id="Tml-ZH-phn"/>
-                                <toolbarItem implicitItemIdentifier="3B79CBA5-9652-4B52-BDFA-348C705C440D" label="Toolbar Item" paletteLabel="Toolbar Item" tag="-1" image="NSActionTemplate" sizingBehavior="auto" id="wQP-L1-yHn"/>
-                                <toolbarItem implicitItemIdentifier="0A654CF1-F164-4B16-92E5-15BCEE031136" label="Custom View" paletteLabel="Custom View" sizingBehavior="auto" id="QTQ-Dr-MmB">
-                                    <nil key="toolTip"/>
-                                    <textField key="view" horizontalHuggingPriority="251" verticalHuggingPriority="750" id="Gld-10-vzw">
-                                        <rect key="frame" x="16" y="14" width="44" height="16"/>
-                                        <autoresizingMask key="autoresizingMask"/>
-                                        <textFieldCell key="cell" lineBreakMode="clipping" title="Width" id="lgr-5s-M20">
-                                            <font key="font" usesAppearanceFont="YES"/>
-                                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                        </textFieldCell>
-                                    </textField>
-                                </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="A252E8D5-C525-40F5-9829-1CB34700F190" label="Resolution" paletteLabel="Resolution" sizingBehavior="auto" selectable="YES" id="PKP-51-yH0">
-                                    <nil key="toolTip"/>
-                                    <popUpButton key="view" verticalHuggingPriority="750" id="ZoY-MG-Ved">
-                                        <rect key="frame" x="0.0" y="14" width="100" height="25"/>
-                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                        <popUpButtonCell key="cell" type="push" title="256*256" bezelStyle="rounded" alignment="center" lineBreakMode="truncatingTail" borderStyle="border" inset="2" pullsDown="YES" id="8eU-2C-XmA">
-                                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                            <font key="font" metaFont="system"/>
-                                            <menu key="menu" id="hAO-hV-ZZn">
-                                                <items>
-                                                    <menuItem title="256*256" hidden="YES" id="2Ma-pN-CqL"/>
-                                                    <menuItem title="256*256" id="7lu-pf-jvR"/>
-                                                    <menuItem title="512*512" id="PCy-Jl-rhw"/>
-                                                    <menuItem title="1024*1024" id="jlk-vB-IC9"/>
-                                                    <menuItem title="2048*2048" id="9wp-9w-wg0"/>
-                                                    <menuItem title="1280*800" id="yn8-24-18A"/>
-                                                    <menuItem title="1440*900" id="puO-sq-QzI"/>
-                                                    <menuItem title="1920*1200" id="giG-fs-HLY"/>
-                                                    <menuItem title="2560*1600" id="LQo-2D-yfc"/>
-                                                    <menuItem title="2880*1800" id="iiz-ec-BEP"/>
-                                                </items>
-                                            </menu>
-                                        </popUpButtonCell>
-                                    </popUpButton>
-                                </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="BA2B1EF5-9DCE-467E-9FFC-ABE38865A3D5" label="Sample" paletteLabel="Sample" sizingBehavior="auto" selectable="YES" id="SPw-Ee-MKh">
-                                    <nil key="toolTip"/>
-                                    <popUpButton key="view" verticalHuggingPriority="750" id="TpA-Ci-imJ">
-                                        <rect key="frame" x="0.0" y="14" width="78" height="25"/>
-                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                        <popUpButtonCell key="cell" type="push" title="8" bezelStyle="rounded" alignment="center" lineBreakMode="truncatingTail" borderStyle="border" inset="2" pullsDown="YES" id="LaC-SP-EMV">
-                                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                            <font key="font" metaFont="system"/>
-                                            <menu key="menu" id="7av-1o-6KV">
-                                                <items>
-                                                    <menuItem title="8" hidden="YES" id="WTi-Uq-tYj"/>
-                                                    <menuItem title="8" id="THq-CG-W7u"/>
-                                                    <menuItem title="16" id="wOP-x0-kWN"/>
-                                                    <menuItem title="32" id="akL-Bh-m7p"/>
-                                                    <menuItem title="64" id="ZCc-pw-J4B"/>
-                                                    <menuItem title="128" id="MsZ-4S-GaU"/>
-                                                    <menuItem title="256" id="gwY-LN-igC"/>
-                                                    <menuItem title="512" id="BAi-Kg-51J"/>
-                                                    <menuItem title="1024" id="yGD-7w-39B"/>
-                                                    <menuItem title="2048" id="ZGu-jk-OMn"/>
-                                                </items>
-                                            </menu>
-                                        </popUpButtonCell>
-                                    </popUpButton>
-                                </toolbarItem>
-                                <toolbarItem implicitItemIdentifier="D58F09E3-D8D5-4EB1-ACCD-FED671DFD78B" label="Scene" paletteLabel="Scene" sizingBehavior="auto" selectable="YES" id="XBB-fE-pyI" userLabel="Scene">
-                                    <nil key="toolTip"/>
-                                    <popUpButton key="view" verticalHuggingPriority="750" id="gKl-BK-1Fu">
-                                        <rect key="frame" x="0.0" y="14" width="78" height="25"/>
-                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                        <popUpButtonCell key="cell" type="push" title="Motion Blur" bezelStyle="rounded" alignment="center" lineBreakMode="truncatingTail" borderStyle="border" inset="2" pullsDown="YES" id="rBe-Ur-Qpz">
-                                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                            <font key="font" metaFont="system"/>
-                                            <menu key="menu" id="5Hi-wQ-Hh6">
-                                                <items>
-                                                    <menuItem title="Motion Blur" hidden="YES" id="FIC-W6-RRl"/>
-                                                    <menuItem title="Motion Blur" id="eu8-pK-lXk"/>
-                                                    <menuItem title="Solid Texture" id="J8X-pn-csd"/>
-                                                    <menuItem title="Perlin Noise" id="NA3-qh-uty"/>
-                                                    <menuItem title="Image Texture" id="sgq-Gz-UoO"/>
-                                                    <menuItem title="Rectangles and Lights" id="nBX-KV-SZE"/>
-                                                    <menuItem title="Cornell Box" id="AOr-Fb-Xwj"/>
-                                                    <menuItem title="Cornell Smoke" id="nph-fI-AYN"/>
-                                                    <menuItem title="Cornell Glass" id="kc9-Np-Unb"/>
-                                                    <menuItem title="All New Features" id="Ru1-BB-LNE"/>
-                                                </items>
-                                            </menu>
-                                        </popUpButtonCell>
-                                    </popUpButton>
-                                </toolbarItem>
-                            </allowedToolbarItems>
-                            <defaultToolbarItems>
-                                <toolbarItem reference="Tml-ZH-phn"/>
-                                <toolbarItem reference="PKP-51-yH0"/>
-                                <toolbarItem reference="SPw-Ee-MKh"/>
-                                <toolbarItem reference="XBB-fE-pyI"/>
-                                <toolbarItem reference="Tml-ZH-phn"/>
-                            </defaultToolbarItems>
-                        </toolbar>
                         <connections>
                             <outlet property="delegate" destination="B8D-0N-5wS" id="98r-iN-zZc"/>
                         </connections>
                     </window>
                     <connections>
-                        <outlet property="resolutonList" destination="ZoY-MG-Ved" id="JD4-3S-d8p"/>
-                        <outlet property="sampleList" destination="TpA-Ci-imJ" id="zeT-sa-MLp"/>
-                        <outlet property="sceneList" destination="gKl-BK-1Fu" id="JJ2-tL-lea"/>
-                        <outlet property="toolBar" destination="TOa-m6-Yho" id="P2c-SD-vIU"/>
                         <segue destination="XfG-lQ-9wD" kind="relationship" relationship="window.shadowedContentViewController" id="cq2-FE-JQM"/>
                     </connections>
                 </windowController>
@@ -297,7 +190,4 @@
             <point key="canvasLocation" x="75" y="655"/>
         </scene>
     </scenes>
-    <resources>
-        <image name="NSActionTemplate" width="14" height="14"/>
-    </resources>
 </document>

@@ -5,23 +5,23 @@
 enum class Axis { X=0, Y=1, Z=2 };
 //const Axis AxisList[3]{Axis::X, Axis::Y, Axis::Z};
 
-matrix_float4x4 matrix4x4_translation(float tx, float ty, float tz) {
-    return (matrix_float4x4) {{
-        { 1,   0,  0,  0 },
-        { 0,   1,  0,  0 },
-        { 0,   0,  1,  0 },
-        { tx, ty, tz,  1 }
+float4x4 matrix4x4_scale(float sx, float sy, float sz) {
+    return (float4x4) {{
+        { sx,  0,  0,  0 },
+        { 0,  sy,  0,  0 },
+        { 0,   0, sz,  0 },
+        { 0,   0,  0,  1 }
     }};
 }
 
-matrix_float4x4 matrix4x4_rotation(float radians, vector_float3 axis) {
+float4x4 matrix4x4_rotation(float radians, float3 axis) {
     axis = vector_normalize(axis);
     float ct = cosf(radians);
     float st = sinf(radians);
     float ci = 1 - ct;
     float x = axis.x, y = axis.y, z = axis.z;
 
-    return (matrix_float4x4) {{
+    return (float4x4) {{
         { ct + x * x * ci,     y * x * ci + z * st, z * x * ci - y * st, 0},
         { x * y * ci - z * st,     ct + y * y * ci, z * y * ci + x * st, 0},
         { x * z * ci + y * st, y * z * ci - x * st,     ct + z * z * ci, 0},
@@ -29,12 +29,12 @@ matrix_float4x4 matrix4x4_rotation(float radians, vector_float3 axis) {
     }};
 }
 
-matrix_float4x4 matrix4x4_scale(float sx, float sy, float sz) {
-    return (matrix_float4x4) {{
-        { sx,  0,  0,  0 },
-        { 0,  sy,  0,  0 },
-        { 0,   0, sz,  0 },
-        { 0,   0,  0,  1 }
+float4x4 matrix4x4_translation(float tx, float ty, float tz) {
+    return (float4x4) {{
+        { 1,   0,  0,  0 },
+        { 0,   1,  0,  0 },
+        { 0,   0,  1,  0 },
+        { tx, ty, tz,  1 }
     }};
 }
 
@@ -58,7 +58,7 @@ void MakeCamera(Camera* camera,
     camera->focus_dist = focus_dist;
     
     camera->lenRadius = aperture / 2;
-    auto theta = vfov * M_PI_F / 180;
+    auto theta = vfov; //* M_PI_F / 180;
     
     auto halfHeight = tan(theta/2);
     auto halfWidth = aspect * halfHeight;
@@ -200,7 +200,7 @@ void prepareCubeList(std::vector<Cube>& list) {
 
 void prepareCornellBox(std::vector<Square>& list) {
     
-    Material light; light.type= MaterialType::Diffuse; light.albedo = simd_make_float3(15, 15, 15);
+    Material light; light.type= MaterialType::Diffuse; light.albedo = simd_make_float3(20, 20, 20);
     
     Material red; red.type = MaterialType::Lambert; red.albedo = simd_make_float3(0.65, 0.05, 0.05);
     Material green; green.type = MaterialType::Lambert; green.albedo = simd_make_float3(0.12, 0.45, 0.15);
@@ -211,15 +211,15 @@ void prepareCornellBox(std::vector<Square>& list) {
     
     //Material material_list[] = {light, red, green, white};
     
-    auto lightSource = MakeSquare(0, simd_make_float2(213, 343), 2, simd_make_float2(227, 332), 1, 554);
+    auto lightSource = MakeSquare(0, simd_make_float2(204, 360), 2, simd_make_float2(220, 340), 1, 554);
     //auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
     lightSource.material = light;
 
     auto right = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 555); //flip
-    right.material = green;
+    right.material = red;
 
     auto left = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 0);
-    left.material = red;
+    left.material = green;
 
     auto top = MakeSquare(0, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 1, 555);
     top.material = white;
@@ -242,26 +242,68 @@ void prepareSphereList(std::vector<Sphere>& list) {
     
     Material glass; glass.type = MaterialType::Dielectric;
     glass.albedo = simd_make_float3(1.0, 1.0, 1.0);
-    glass.refractive = 1.5;
+    glass.parameter = 1.5;
     
-    Material isot; isot.type = MaterialType::Isotropic;
-    isot.albedo = simd_make_float3(0.73, 0.73, 0.73);
-    
-    auto sphere = MakeSphere(64, simd_make_float3(200, 400, 300));
+    auto sphere = MakeSphere(64, simd_make_float3(200, 250, 200));
     sphere.material = glass;
+    
+    list.emplace_back(sphere);
+    
+    Material specu; specu.type = MaterialType::Specular;
+    specu.albedo = simd_make_float3(0.3f, 1.0f, 0.3f);
+    
+    sphere = MakeSphere(50, simd_make_float3(100, 450, 400));
+    specu.parameter = 0.0;
+    sphere.material = specu;
+    
+    list.emplace_back(sphere);
+    
+    sphere = MakeSphere(50, simd_make_float3(250, 450, 400));
+    specu.parameter = 0.25;
+    sphere.material = specu;
+    
+    list.emplace_back(sphere);
+    
+    sphere = MakeSphere(50, simd_make_float3(400, 450, 400));
+    specu.parameter = 0.5;
+    sphere.material = specu;
+    
+    list.emplace_back(sphere);
+    
+    sphere = MakeSphere(32, simd_make_float3(300, 100, 10));
+    specu.parameter = 0.75;
+    sphere.material = specu;
+    
+    list.emplace_back(sphere);
+    
+    sphere = MakeSphere(32, simd_make_float3(400, 100, 10));
+    specu.parameter = 1.00;
+    sphere.material = specu;
     
     list.emplace_back(sphere);
 }
 
-void prepareCamera(struct Camera* camera, float2 viewSize) {
+void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     
     auto aspect = viewSize.x/viewSize.y;
     
     auto lookFrom = simd_make_float3(278, 278, -800);
-    auto lookAt = simd_make_float3(278, 278, 0);
+    auto lookAt = simd_make_float3(278, 278, 278);
     auto viewUp = simd_make_float3(0, 1, 0);
-    auto vfov = 40; auto aperture = 0.0;
+    
     auto dist_to_focus = 10;
+    auto aperture = 0.0;
+    
+    auto vfov = 45 * (M_PI/180);
+    auto hfov = 2 * atan(tan(vfov * 0.5) * aspect);
+    
+    let offset = simd_make_float4(lookFrom - lookAt, 0.0f);
+    
+    let rotH = matrix4x4_rotation(rotate.x * hfov * 10, viewUp);
+    let rotV = matrix4x4_rotation(rotate.y * vfov * 10,  simd_make_float3(1, 0, 0));
+    //let rotV = matrix4x4_rotation(rotate.y * vfov * 10, simd_mul(rotH, simd_make_float4(1, 0, 0, 0)).xyz);
+    
+    lookFrom = lookAt + simd_mul(simd_mul(rotH, rotV), offset).xyz;
     
     MakeCamera(camera, lookFrom, lookAt, viewUp, aperture, aspect, vfov, dist_to_focus);
 }

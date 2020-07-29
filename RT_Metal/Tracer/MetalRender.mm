@@ -1,6 +1,8 @@
 #include "MetalRender.hh"
 #include "Tracer.hh"
 
+#import <ModelIO/ModelIO.h>
+
 typedef struct {
     float x, y;
     float u, v;
@@ -18,8 +20,9 @@ const VertexWithUV canvas[] =
 };
 
 typedef struct  {
-    float2 viewSize;// = simd_float2(1, 1);
-    float runningTime;
+    float2 tex_size;
+    float2 view_size;// = simd_float2(1, 1);
+    float running_time;
     uint32_t frame_count;
 } SceneComplex;
 
@@ -38,6 +41,7 @@ typedef struct  {
    
     SceneComplex _scene_meta;
     
+    Camera _camera;
     id<MTLBuffer> _camera_buffer;
     id<MTLBuffer> _scene_meta_buffer;
     
@@ -51,6 +55,8 @@ typedef struct  {
     id<MTLTexture> _textureB;
     id<MTLTexture> _textureARNG;
     id<MTLTexture> _textureBRNG;
+    
+    id<MTLTexture> _textureHDR;
     
     MTLSize _threadGroupSize;
     MTLSize _threadGroupGrid;
@@ -77,23 +83,28 @@ typedef struct  {
         let vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
         let fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
         
-        _vertex_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: MTLResourceStorageModeShared];
+        _vertex_buffer = [_device newBufferWithBytes:canvas
+                                              length:sizeof(VertexWithUV)*6
+                                             options: MTLResourceStorageModeShared];
         
-        uint width = 1024;
-        uint height = 1024;
+        uint width = 1920;
+        uint height = 1080;
         
-        _scene_meta.runningTime = 0;
+        _scene_meta.running_time = 0;
         _scene_meta.frame_count = 0;
-        _scene_meta.viewSize.x = width;
-        _scene_meta.viewSize.y = height;
+        _scene_meta.view_size.x = width;
+        _scene_meta.view_size.y = height;
+        
+        _scene_meta.tex_size.x = width;
+        _scene_meta.tex_size.y = height;
         
         _scene_meta_buffer = [_device newBufferWithBytes:&_scene_meta length:sizeof(SceneComplex) options: MTLResourceStorageModeShared];
         
-        struct Camera camera;
-        prepareCamera(&camera, _scene_meta.viewSize);
-        _camera_buffer = [_device newBufferWithBytes:&camera
+        //struct Camera camera;
+        prepareCamera(&_camera, _scene_meta.view_size, simd_make_float2(0, 0));
+        _camera_buffer = [_device newBufferWithBytes:&_camera
                         length:sizeof(struct Camera)
-                        options: MTLResourceStorageModeManaged];
+                        options: MTLResourceStorageModeShared];
         
         std::vector<Cube> cube_list;
         prepareCubeList(cube_list);
@@ -162,6 +173,30 @@ typedef struct  {
                                             options:MTLResourceStorageModeShared];
         free(seeds);
         
+        MTKTextureLoader *loader = [[MTKTextureLoader alloc] initWithDevice: _device];
+        
+        let path = [NSBundle.mainBundle pathForResource:@"vulture_hide_4k" ofType:@"hdr"];
+        let url = [[NSURL alloc] initFileURLWithPath:path];
+        
+        NSError *error = nil;
+        
+        NSDictionary *textureLoaderOptions = @{
+                        MTKTextureLoaderOptionTextureUsage : @(MTLTextureUsageShaderRead),
+                        MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
+                    };
+        
+        let image = [[[NSImage alloc] initWithContentsOfURL:url] TIFFRepresentation];
+        
+        _textureHDR = [loader newTextureWithData:image options:textureLoaderOptions error:&error];
+        
+        //_textureHDR = [loader newTextureWithContentsOfURL:url options: textureLoaderOptions error: &error];
+            
+            if(!_textureHDR)
+            {
+                NSLog(@"Failed to create the texture from %@", url.absoluteString);
+                return nil;
+            }
+        
         _threadGroupSize = MTLSizeMake(16, 16, 1);
         
         unsigned long gridX = (_textureA.width + _threadGroupSize.width - 1)/_threadGroupSize.width;
@@ -199,22 +234,22 @@ typedef struct  {
 #pragma mark - MetalKit View Delegate
 - (void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size
 {
-    _scene_meta.frame_count = 0;
-    _scene_meta.viewSize = simd_make_float2(size.width, size.height);
+    //_scene_meta.frame_count = 0;
+    _scene_meta.view_size = simd_make_float2(size.width, size.height);
 }
 
 - (void)drawInMTKView:(nonnull MTKView *)view
 {
-    if (_view.isPaused) {return;}
+    //if (_view.isPaused) {return;}
     
-    _scene_meta.runningTime = [[NSDate date] timeIntervalSince1970] - launchTime;
+    _scene_meta.running_time = [[NSDate date] timeIntervalSince1970] - launchTime;
     
     let commandBuffer = [_commandQueue commandBuffer];
     
     //__weak AAPLRenderer *weakSelf = self;
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
         self->_scene_meta.frame_count += 1;
-        self->_view.paused = (self->_scene_meta.frame_count > 1024);
+        //self->_view.paused = (self->_scene_meta.frame_count > 1024);
     }];
     
     let computeEncoder = [commandBuffer computeCommandEncoder];
@@ -226,9 +261,12 @@ typedef struct  {
     [computeEncoder setTexture:_textureARNG atIndex:2 + _scene_meta.frame_count % 2];
     [computeEncoder setTexture:_textureBRNG atIndex:2 + (1+_scene_meta.frame_count) % 2];
     
-    memcpy(_scene_meta_buffer.contents, &_scene_meta, sizeof(SceneComplex));
+    [computeEncoder setTexture:_textureHDR atIndex:4];
     
+    memcpy(_scene_meta_buffer.contents, &_scene_meta, sizeof(SceneComplex));
     [computeEncoder setBuffer:_scene_meta_buffer offset:0 atIndex:0];
+    
+    memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
     [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:1];
     
     [computeEncoder setBuffer:_sphere_list_buffer offset:0 atIndex:2];
@@ -249,7 +287,7 @@ typedef struct  {
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
     
     MTLViewport viewport = {0, 0,
-        _scene_meta.viewSize.x, _scene_meta.viewSize.y,
+        _scene_meta.view_size.x, _scene_meta.view_size.y,
         0, 1.0};
     [renderEncoder setViewport:viewport];
     [renderEncoder setRenderPipelineState:_renderPipelineState];
@@ -266,7 +304,23 @@ typedef struct  {
     let drawable = _view.currentDrawable;
     [commandBuffer presentDrawable:drawable];
     [commandBuffer commit];
-    _view.paused = YES;
+    
+    //_view.paused = YES;
+    //_view.enableSetNeedsDisplay = YES;
+}
+
+static float2 ddddd = simd_make_float2(0, 0);
+
+- (void)drag:(float2)delta
+{
+    let ratio = delta / _scene_meta.view_size;
+    
+    ddddd += ratio;
+    
+    self->_scene_meta.frame_count = 0;
+    self->_scene_meta.running_time = 0;
+    
+    prepareCamera(&_camera, _scene_meta.view_size, ddddd);
 }
 
 @end

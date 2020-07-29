@@ -67,7 +67,8 @@ struct Camera {
 };
 
 static Ray castRay(constant Camera* camera, float s, float t, thread pcg32_random_t* seed) {
-    auto rd = camera->lenRadius * randomInUnitDiskFF(seed);
+    //auto rd = camera->lenRadius * randomInUnitDiskFF(seed);
+    auto rd = 0.005 * randomInUnitDiskFF(seed);
     auto offset = camera->u*rd.x + camera->v*rd.y;
     auto origin = camera->lookFrom + offset;
     auto sample = camera->cornerLowLeft + camera->horizontal*s + camera->vertical*t;
@@ -86,12 +87,12 @@ struct Texture {
     }
 };
 
-enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic };
+enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic, Specular};
 struct Material {
     enum MaterialType type;
     
     float3 albedo;
-    float refractive;
+    float parameter;
     Texture texture;
 };
 
@@ -112,11 +113,17 @@ struct HitRecord {
     Material material;
     
     float3 normal() {
-        return front? n:-n;
+        
+        if (front)
+            return n;
+        else
+            return -n;
+        
+        //return front? n:-n;
     }
     
     void checkFace(thread Ray& ray) {
-        if(dot(ray.direction, n) <= 0){
+        if(dot(ray.direction, n) < 0){
             front = true;
         } else {
             front = false;
@@ -180,6 +187,8 @@ struct Square {
     
     bool hit_test(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
         
+        //if (!boundingBOX.hit(ray, range_t)) {return false;}
+        
         auto t = (value_k-ray.origin[axis_k]) / ray.direction[axis_k];
         
         if (t<range_t.x || t>range_t.y) {return false;}
@@ -221,7 +230,7 @@ struct Cube {
         auto direction = inverse_matrix * float4(ray.direction, 0.0);
         Ray transformedRay = Ray(origin.xyz, direction.xyz);
         
-        //if(!boundingBOX.hit(transformedRay, range_t)) {return false;}
+        if(!boundingBOX.hit(transformedRay, range_t)) {return false;}
     
         auto nearest = range_t.y;
         HitRecord testHitResult;
@@ -267,7 +276,7 @@ struct Sphere {
     
     bool hit_test(thread Ray& ray, float2 rang_t, thread HitRecord& hitRecord) {
         
-        //if(!boundingBOX.hit(ray, rang_t)) { return false; }
+        if(!boundingBOX.hit(ray, rang_t)) { return false; }
         
         float3 oc = ray.origin - center;
     
@@ -338,7 +347,8 @@ static bool scatter(thread Ray& ray,
             
         case MaterialType::Lambert: {
             
-            auto direction = normal + randomInHemisphere(normal, seed);// UnitSphereFFF(seed);
+            auto direction = normal + randomUnit(seed);
+            //normal + randomInHemisphere(normal, seed);
             auto scattered = Ray(hitRecord.p, direction);
             //auto attenuation = material.texture.value(hitRecord.uv, hitRecord.p);
             scatterRecord.specular = scattered;
@@ -357,7 +367,9 @@ static bool scatter(thread Ray& ray,
         case MaterialType::Dielectric: {
             
             auto attenuation = material.albedo;
-            auto etai_over_etat = hitRecord.front? (1.0/material.refractive):material.refractive;
+            auto etai_over_etat = hitRecord.front? (1.0/material.parameter):material.parameter;
+            
+            //if (!hitRecord.front) { return false; }
             
             auto unit_direction = ray.direction;
             auto cos_theta = min(dot(-unit_direction, normal), 1.0);
@@ -397,6 +409,27 @@ static bool scatter(thread Ray& ray,
             scatterRecord.attenuation = hitRecord.material.albedo; //attenuation;
             return true;
         }
+            
+        case MaterialType::Specular: {
+            
+            auto shouldSpecular = randomF(seed) < 1.0 ? 1.0f : 0.0f;
+            
+            auto diffuseDir = normal + randomUnit(seed);
+            auto specularDir = reflect(ray.direction, normal);
+            
+            specularDir = normalize(mix(specularDir, diffuseDir, hitRecord.material.parameter));
+            
+            auto origin = hitRecord.p + normal * 0.01;
+            auto direction = mix(diffuseDir, specularDir, shouldSpecular);
+            
+            auto scattered = Ray(origin, direction);
+            scatterRecord.specular = scattered;
+            scatterRecord.attenuation = mix(float3(1.0, 1.0, 1.0),
+                                            hitRecord.material.albedo,
+                                            shouldSpecular);
+            return true;
+        }
+            
         default: {return false;}
     }
 }

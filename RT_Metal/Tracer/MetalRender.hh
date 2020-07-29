@@ -8,6 +8,8 @@
 
 - (nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view;
 
+- (void)drag:(float2)delta;
+
 @end
 
 #endif /* MetalRender_h */

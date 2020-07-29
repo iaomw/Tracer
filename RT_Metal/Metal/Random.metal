@@ -28,7 +28,6 @@ uint32_t pcg32_random_r(thread pcg32_random_t* rng)
 float randomF(thread pcg32_random_t* rng)
 {
     //return pcg32_random_r(rng)/float(UINT_MAX);
-    
     auto i = pcg32_random_r(rng);
     return ldexp(float(i), -32);
 }
@@ -38,8 +37,8 @@ float randomF(float mini, float maxi, thread pcg32_random_t* rng) {
 }
 
 float3 randomUnit(thread pcg32_random_t* rng) {
-    auto a = randomF(rng);
-    auto z = randomF(rng);
+    auto z = randomF(rng) * 2.0 - 1.0;
+    auto a = randomF(rng) * 2*M_PI_F;
     auto r = sqrt(1-z*z);
     return float3(r*cos(a), r*sin(a), z);
 }
