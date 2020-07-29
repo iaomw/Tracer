@@ -90,8 +90,8 @@ typedef struct  {
         uint width = 1920;
         uint height = 1080;
         
-        _scene_meta.running_time = 0;
         _scene_meta.frame_count = 0;
+        _scene_meta.running_time = 0;
         _scene_meta.view_size.x = width;
         _scene_meta.view_size.y = height;
         

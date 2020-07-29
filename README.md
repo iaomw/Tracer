@@ -1,14 +1,7 @@
 # Tracer
-This is simply a repository for any **Ray Tracing** code written by me. Currently, it only contains **Swift** code for the three mini books on **Ray Tracing**. Many people don't do the third book, because the concept of **Monte Carlo** method is not well explained in it. As the follow up, which book is better on **Monte Carlo** topic? The **PBRT**. 
+This is simply a repository for my **Ray Tracing** code.
 
-256 *`SPP`* 1024x1024 *`Basic`*  | 512 *`SPP`* 1024x1024 *`Monte Carlo`*
-:---:|:---:
-![](Captures/capture_c.png) | ![](Captures/capture_d.png)
-
-
-### Why do I use Swift for Ray Tracing?
-- If I write the same C++ code from the books, I may forgot the concepts and logics very quickly. Using a different language will push my brain to work, and I will remember longer. 
-- I am considering switching to C++ & Objective-C, because most Swift types cannot been used in metal shader directly. If you want to use both Swift & Metal, there will be alot redundant work rewriting the code. That will be a nigtmare if I am doing a GPU version of PBRT.
+![](Captures/capture_e.png)
 
 ### Bigger things to-do:
 - [x] [Ray Tracing: In One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
@@ -17,6 +10,7 @@ This is simply a repository for any **Ray Tracing** code written by me. Currentl
 - [ ] [Metal API](https://developer.apple.com/documentation/metal)
     - [ ] Compute kernel BVH & SVGF
     - [ ] MPS Acceleration & SVGF
+    - [x] pcg-random
 - [ ] [**Physically Based Rendering** __*third edition*__](http://www.pbr-book.org/)
     - [ ] Volume Rendering
     - [ ] Metropolis Light Transport
@@ -34,7 +28,5 @@ This is simply a repository for any **Ray Tracing** code written by me. Currentl
 
 ### Problems
 - Using too many SIMD commands could block the main thread.
-- Sometimes, memory costing is high when launching the app.
-- Need better seeding for pcg-random on GPU.
 - Inconsistent Metal shader running results on AMD and Intel GPU.
 

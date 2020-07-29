@@ -270,13 +270,13 @@ void prepareSphereList(std::vector<Sphere>& list) {
     
     list.emplace_back(sphere);
     
-    sphere = MakeSphere(32, simd_make_float3(300, 100, 10));
+    sphere = MakeSphere(32, simd_make_float3(300, 100, 50));
     specu.parameter = 0.75;
     sphere.material = specu;
     
     list.emplace_back(sphere);
     
-    sphere = MakeSphere(32, simd_make_float3(400, 100, 10));
+    sphere = MakeSphere(32, simd_make_float3(400, 100, 50));
     specu.parameter = 1.00;
     sphere.material = specu;
     
