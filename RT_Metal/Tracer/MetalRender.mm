@@ -56,6 +56,8 @@ typedef struct  {
     id<MTLTexture> _textureARNG;
     id<MTLTexture> _textureBRNG;
     
+    id<MTLTexture> _viewTexture;
+    
     id<MTLTexture> _textureHDR;
     
     MTLSize _threadGroupSize;
@@ -69,8 +71,9 @@ typedef struct  {
     {
         _view = view;
         _device = view.device;
-        _view.preferredFramesPerSecond = 30;
+        //_view.preferredFramesPerSecond = 30;
         _commandQueue = [_device newCommandQueue];
+        _view.colorPixelFormat = MTLPixelFormatRGBA16Float;
         
         NSError* ERROR;
 
@@ -136,17 +139,27 @@ typedef struct  {
         
         _renderPipelineState = [_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor error:&ERROR];
         
+        int widthLevels = ceil(log2(width));
+        int heightLevels = ceil(log2(height));
+        int mipCount = (heightLevels > widthLevels) ? heightLevels : widthLevels;
+        
         let td = [[MTLTextureDescriptor alloc] init];
         td.textureType = MTLTextureType2D;
-        td.pixelFormat = MTLPixelFormatRGBA16Float; //MTLPixelFormatBGRA8Unorm;
+        td.pixelFormat = _view.colorPixelFormat; //MTLPixelFormatBGRA8Unorm;
         td.width = width;
         td.height = height;
+        td.mipmapLevelCount = mipCount;
         td.storageMode = MTLStorageModePrivate;
         
         td.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
         
         _textureA = [_device newTextureWithDescriptor:td];
         _textureB = [_device newTextureWithDescriptor:td];
+        
+        _viewTexture = [_textureA newTextureViewWithPixelFormat:_textureA.pixelFormat
+                                                    textureType:_textureA.textureType
+                                                         levels:NSMakeRange(10, 1)
+                                                         slices:NSMakeRange(0, 1)];
         
         let tdr = [[MTLTextureDescriptor alloc] init];
         tdr.textureType = MTLTextureType2D;
@@ -178,8 +191,6 @@ typedef struct  {
         let path = [NSBundle.mainBundle pathForResource:@"vulture_hide_4k" ofType:@"hdr"];
         let url = [[NSURL alloc] initFileURLWithPath:path];
         
-        NSError *error = nil;
-        
         NSDictionary *textureLoaderOptions = @{
                         MTKTextureLoaderOptionTextureUsage : @(MTLTextureUsageShaderRead),
                         MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
@@ -187,7 +198,7 @@ typedef struct  {
         
         let image = [[[NSImage alloc] initWithContentsOfURL:url] TIFFRepresentation];
         
-        _textureHDR = [loader newTextureWithData:image options:textureLoaderOptions error:&error];
+        _textureHDR = [loader newTextureWithData:image options:textureLoaderOptions error:&ERROR];
         
         //_textureHDR = [loader newTextureWithContentsOfURL:url options: textureLoaderOptions error: &error];
             
@@ -228,6 +239,10 @@ typedef struct  {
         }];
         [commandBuffer commit];
     }
+    
+    _view.paused = YES;
+    _view.enableSetNeedsDisplay = YES;
+    
     return self;
 }
 
@@ -244,22 +259,33 @@ typedef struct  {
     
     _scene_meta.running_time = [[NSDate date] timeIntervalSince1970] - launchTime;
     
-    let commandBuffer = [_commandQueue commandBuffer];
+                let commandBuffer = [_commandQueue commandBuffer];
+    
+                id<MTLBlitCommandEncoder> blit = [commandBuffer blitCommandEncoder];
+    
+                [blit generateMipmapsForTexture:self->_textureA];
+                [blit generateMipmapsForTexture:self->_textureB];
+    
+                [blit endEncoding];
     
     //__weak AAPLRenderer *weakSelf = self;
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
         self->_scene_meta.frame_count += 1;
-        //self->_view.paused = (self->_scene_meta.frame_count > 1024);
+        
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+            
+            self->_view.needsDisplay = YES;
+        }];
     }];
     
     let computeEncoder = [commandBuffer computeCommandEncoder];
     [computeEncoder setComputePipelineState:_computePipelineState];
     
     [computeEncoder setTexture:_textureA atIndex:_scene_meta.frame_count % 2];
-    [computeEncoder setTexture:_textureB atIndex:(1+_scene_meta.frame_count) % 2];
+    [computeEncoder setTexture:_textureB atIndex:(_scene_meta.frame_count+1) % 2];
     
     [computeEncoder setTexture:_textureARNG atIndex:2 + _scene_meta.frame_count % 2];
-    [computeEncoder setTexture:_textureBRNG atIndex:2 + (1+_scene_meta.frame_count) % 2];
+    [computeEncoder setTexture:_textureBRNG atIndex:2 + (_scene_meta.frame_count+1) % 2];
     
     [computeEncoder setTexture:_textureHDR atIndex:4];
     
@@ -289,6 +315,7 @@ typedef struct  {
     MTLViewport viewport = {0, 0,
         _scene_meta.view_size.x, _scene_meta.view_size.y,
         0, 1.0};
+    
     [renderEncoder setViewport:viewport];
     [renderEncoder setRenderPipelineState:_renderPipelineState];
     
@@ -296,7 +323,7 @@ typedef struct  {
     
     [renderEncoder setFragmentBuffer:_scene_meta_buffer offset:0 atIndex:0];
     [renderEncoder setFragmentTexture:_textureB atIndex:_scene_meta.frame_count % 2];
-    [renderEncoder setFragmentTexture:_textureA atIndex:(1+_scene_meta.frame_count) % 2];
+    [renderEncoder setFragmentTexture:_textureA atIndex:(_scene_meta.frame_count+1) % 2];
     
     [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
     [renderEncoder endEncoding];
@@ -304,9 +331,6 @@ typedef struct  {
     let drawable = _view.currentDrawable;
     [commandBuffer presentDrawable:drawable];
     [commandBuffer commit];
-    
-    //_view.paused = YES;
-    //_view.enableSetNeedsDisplay = YES;
 }
 
 static float2 ddddd = simd_make_float2(0, 0);

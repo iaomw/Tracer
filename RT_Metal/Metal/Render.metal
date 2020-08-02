@@ -64,14 +64,26 @@ float3 SRGBToLinear(float3 rgb)
     );
 }
 
-float3 ACESFilm(float3 x)
+float3 ACESTone(float3 color, float adapted_lum)
 {
-    float a = 2.51f;
-    float b = 0.03f;
-    float c = 2.43f;
-    float d = 0.59f;
-    float e = 0.14f;
-    return clamp((x*(a*x + b)) / (x*(c*x + d) + e), 0.0f, 1.0f);
+    const float A = 2.51f;
+    const float B = 0.03f;
+    const float C = 2.43f;
+    const float D = 0.59f;
+    const float E = 0.14f;
+
+    color *= adapted_lum;
+    return (color * (A * color + B)) / (color * (C * color + D) + E);
+}
+
+float3 CETone(float3 color, float adapted_lum)
+{
+    return 1 - exp(-adapted_lum * color);
+}
+
+float CETone(float color, float adapted_lum)
+{
+    return 1 - exp(-adapted_lum * color);
 }
 
 vertex RasterizerData
@@ -90,18 +102,18 @@ vertexShader(uint vertexID [[vertex_id]],
     return out;
 }
 
+constexpr sampler textureSampler (mag_filter::linear, min_filter::linear, mip_filter::linear);
+
 fragment float4
 fragmentShader( RasterizerData input [[stage_in]],
+                float2 point_coord [[point_coord]],
                
-               float2 point_coord [[point_coord]],
-               
-               texture2d<float> theTexture [[texture(0)]],
+                texture2d<float> thisTexture [[texture(0)]],
+                texture2d<float> prevTexture [[texture(1)]],
 
-               constant SceneComplex* sceneMeta [[buffer(0)]])
+                constant SceneComplex* sceneMeta [[buffer(0)]])
 
 {
-    constexpr sampler textureSampler (mag_filter::linear, min_filter::linear);
-    
     auto tex_w = sceneMeta->tex_size.x;
     auto tex_h = sceneMeta->tex_size.y;
     
@@ -119,9 +131,18 @@ fragmentShader( RasterizerData input [[stage_in]],
 
     auto scaled = offset + float2(0.5);
     
-    auto tex_color = theTexture.sample(textureSampler, scaled);
+    auto tex_color = thisTexture.sample(textureSampler, scaled);
     
-    tex_color.rgb = ACESFilm(tex_color.rgb * 0.5);
+    auto this_mip = thisTexture.sample(textureSampler, float2(0.5), prevTexture.get_num_mip_levels());
+    auto prev_mip = prevTexture.sample(textureSampler, float2(0.5), prevTexture.get_num_mip_levels());
+    
+    auto mix_mip = (this_mip.rgb + prev_mip.rgb) / 2;
+    
+    float luminance = dot(mix_mip, float3(0.2126, 0.7152, 0.0722));
+    float mapped = clamp(CETone(luminance, 1.0f), 0.0, 0.96);
+    float expose = 1.0 - mapped;
+    
+    tex_color.rgb = ACESTone(tex_color.rgb, expose);
     tex_color.rgb = LinearToSRGB(tex_color.rgb);
     
     return tex_color;
@@ -140,12 +161,6 @@ static float3 traceColor(float depth,
     HitRecord hitRecord;
     ScatterRecord scatterRecord;
     
-    constexpr sampler textureSampler (mag_filter::linear, min_filter::linear);
-    
-    //float2 uv = SampleSphericalMap(-normalize(ray.direction));
-    //auto ambient = ambientHDR.sample(textureSampler, uv);
-    //return float3(ambient.rgb);
-    
     float3 color = float3(0.0);
     float3 ratio = float3(1.0);
     float2 range_t = float2(0.01, FLT_MAX);
@@ -161,7 +176,7 @@ static float3 traceColor(float depth,
         HitRecord hit_re;
         range_t = float2(0.01, FLT_MAX);
         
-        for (int i=0; i<6; i++) {
+        for (int i=0; i<13; i++) {
             auto sphere = sphere_list[i];
             if(sphere.hit_test(test_ray, range_t, hit_re)) {
                 if (hit_re.t < range_t.y) {
@@ -171,7 +186,7 @@ static float3 traceColor(float depth,
                 }
             }
         }
-        
+
         for (int i=0; i<6; i++) {
             auto square = square_list[i];
             if(square.hit_test(test_ray, range_t, hit_re)) {
@@ -182,8 +197,8 @@ static float3 traceColor(float depth,
                 }
             }
         }
-        
-        for (int i=0; i<2; i++) {
+
+        for (int i=0; i<1; i++) {
             auto cube = cube_list[i];
             if(cube.hit_test(test_ray, range_t, hit_re)) {
                 if (hit_re.t < range_t.y) {
@@ -218,13 +233,13 @@ static float3 traceColor(float depth,
         ratio = ratio * scatterRecord.attenuation;
         test_ray = scatterRecord.specular;
         
-//        { // Russian Roulette
-//            float p = max(ratio.r, max(ratio.g, ratio.b));
-//            if (randomF(seed) > p)
-//                break;
-//            // Add the energy we 'lose' by randomly terminating paths
-//            ratio *= 1.0f / p;
-//        }
+        { // Russian Roulette
+            float p = max(ratio.r, max(ratio.g, ratio.b));
+            if (randomF(seed) > p)
+                break;
+            // Add the energy we 'lose' by randomly terminating paths
+            ratio *= 1.0f / p;
+        }
         
         depth -= 1;
         
@@ -237,8 +252,8 @@ kernel void
 tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
              texture2d<half, access::write> outTexture [[texture(1)]],
              
-             texture2d<uint32_t, access::read> inSeedRNG [[texture(2)]],
-             texture2d<uint32_t, access::write> outSeedRNG [[texture(3)]],
+             texture2d<uint32_t, access::read>  inRNG  [[texture(2)]],
+             texture2d<uint32_t, access::write> outRNG [[texture(3)]],
              
              texture2d<half, access::sample> textureHDR [[texture(4)]],
              
@@ -256,10 +271,10 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
         return;
     }
     
-    uint32_t rr = inSeedRNG.read(thread_pos).r;
-    uint32_t gg = inSeedRNG.read(thread_pos).g;
-    uint32_t bb = inSeedRNG.read(thread_pos).b;
-    uint32_t aa = inSeedRNG.read(thread_pos).a;
+    uint32_t rr = inRNG.read(thread_pos).r;
+    uint32_t gg = inRNG.read(thread_pos).g;
+    uint32_t bb = inRNG.read(thread_pos).b;
+    uint32_t aa = inRNG.read(thread_pos).a;
     
     uint64_t rng_state = (uint64_t(rr) << 32) | gg;
     uint64_t rng_inc = (uint64_t(bb) << 32) | aa;
@@ -282,7 +297,7 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     auto result = float3(0.0);
     
     auto ray = castRay(camera, u, v, &rng);
-    auto color = traceColor(8, ray,
+    auto color = traceColor(32, ray,
                             textureHDR,
                             sphere_list,
                             square_list,
@@ -307,5 +322,5 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     rng_cache.b = bb;
     rng_cache.a = aa;
     
-    outSeedRNG.write(rng_cache, thread_pos);
+    outRNG.write(rng_cache, thread_pos);
 }

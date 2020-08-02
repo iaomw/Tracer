@@ -88,18 +88,50 @@ struct Texture {
 };
 
 enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic, Specular};
+
 struct Material {
     enum MaterialType type;
     
+    float IOR;                 // index of refraction. used by fresnel and refraction.
     float3 albedo;
-    float parameter;
-    Texture texture;
-};
+    
+    float specularProb;
+    float specularRoughness;
+    float3  specularColor;
+    
+    float refractionProb;
+    float refractionRoughness;
+    float3  refractionColor;
+    
+    struct Texture texture;
+};;
 
 static float schlick(float cosine, float ref_idx) {
     auto r0 = (1-ref_idx) / (1+ref_idx);
     r0 = r0*r0;
     return r0 + (1-r0)*pow((1 - cosine),5);
+}
+
+static float FresnelReflectAmount(float n1, float n2, float3 normal, float3 incident, float f0, float f90)
+{
+        // Schlick aproximation
+        float r0 = (n1-n2) / (n1+n2);
+        r0 *= r0;
+        float cosX = -dot(normal, incident);
+        if (n1 > n2)
+        {
+            float n = n1/n2;
+            float sinT2 = n*n*(1.0-cosX*cosX);
+            // Total internal reflection
+            if (sinT2 > 1.0)
+                return f90;
+            cosX = sqrt(1.0-sinT2);
+        }
+        float x = 1.0-cosX;
+        float ret = r0+(1.0-r0)*x*x*x*x*x;
+ 
+        // adjust reflect multiplier for object reflectivity
+        return mix(f0, f90, ret);
 }
 
 struct HitRecord {
@@ -113,26 +145,17 @@ struct HitRecord {
     Material material;
     
     float3 normal() {
-        
-        if (front)
-            return n;
-        else
-            return -n;
-        
-        //return front? n:-n;
+        return front? n:-n;
     }
     
     void checkFace(thread Ray& ray) {
-        if(dot(ray.direction, n) < 0){
-            front = true;
-        } else {
-            front = false;
-        }
+        front = (dot(ray.direction, n) < 0);
     }
 };
 
 struct ScatterRecord {
     Ray specular = {float3(0), float3(0)};
+    float prob;
     float3 attenuation;
     // pdf: PDF
 };
@@ -234,6 +257,7 @@ struct Cube {
     
         auto nearest = range_t.y;
         HitRecord testHitResult;
+        
         for (auto rect : rectList) {
             if (!rect.hit_test(transformedRay, range_t, testHitResult)) {continue;}
             if (testHitResult.t >= nearest) {continue;}
@@ -367,15 +391,13 @@ static bool scatter(thread Ray& ray,
         case MaterialType::Dielectric: {
             
             auto attenuation = material.albedo;
-            auto etai_over_etat = hitRecord.front? (1.0/material.parameter):material.parameter;
-            
-            //if (!hitRecord.front) { return false; }
+            auto theIOR = hitRecord.front? (1.0/material.IOR) : material.IOR;
             
             auto unit_direction = ray.direction;
             auto cos_theta = min(dot(-unit_direction, normal), 1.0);
             auto sin_theta = sqrt(1.0 - cos_theta*cos_theta);
             
-            if (etai_over_etat * sin_theta > 1.0 ) {
+            if (theIOR * sin_theta > 1.0 ) {
                 auto reflected = reflect(unit_direction, normal);
                 auto scattered = Ray(hitRecord.p, reflected);
                 scatterRecord.specular = scattered;
@@ -383,7 +405,7 @@ static bool scatter(thread Ray& ray,
                 return true;
             }
 
-            auto reflect_prob = schlick(cos_theta, etai_over_etat);
+            auto reflect_prob = schlick(cos_theta, theIOR);
             if (randomF(seed) < reflect_prob) {
                 auto reflected = reflect(unit_direction, normal);
                 auto scattered = Ray(hitRecord.p, reflected);
@@ -392,7 +414,7 @@ static bool scatter(thread Ray& ray,
                 return true;
             }
 
-            auto refracted = refract(unit_direction, normal, etai_over_etat);
+            auto refracted = refract(unit_direction, normal, theIOR);
             auto scattered = Ray(hitRecord.p, refracted);
             scatterRecord.specular = scattered;
             scatterRecord.attenuation = attenuation;
@@ -412,21 +434,85 @@ static bool scatter(thread Ray& ray,
             
         case MaterialType::Specular: {
             
-            auto shouldSpecular = randomF(seed) < 1.0 ? 1.0f : 0.0f;
+            //normal = hitRecord.n;
+            float rayProbability = 1.0f;
+            auto throughput = float3(1.0);
+            
+            auto theIOR = hitRecord.front? (1.0/material.IOR) : material.IOR;
+            
+            if (!hitRecord.front) {
+                throughput *= exp(-hitRecord.material.refractionColor * hitRecord.t);
+            }
+            
+            // apply fresnel
+            float specularProb = hitRecord.material.specularProb;
+            float refractionProb = hitRecord.material.refractionProb;
+            
+            if (specularProb > 0.0f) {
+                
+                specularProb = FresnelReflectAmount(
+                        hitRecord.front? 1.0 : hitRecord.material.IOR,
+                        !hitRecord.front? 1.0 : hitRecord.material.IOR,
+                        normal, ray.direction, hitRecord.material.specularProb, 1.0f);
+                        //ray.direction, hitRecord.n, hitRecord.material.specularProb, 1.0f);
+                
+                refractionProb *= (1.0f - specularProb) / (1.0f - hitRecord.material.specularProb);
+            }
+            
+            auto doSpecular = 0.0f;
+            auto doRefraction = 0.0f;
+            auto raySelectRoll = randomF(seed);
+            
+            if (specularProb > 0.0f && raySelectRoll < specularProb)
+            {
+                doSpecular = 1.0f;
+                rayProbability = specularProb;
+            }
+            else if (refractionProb > 0.0f && raySelectRoll < (specularProb + refractionProb))
+            {
+                doRefraction = 1.0f;
+                rayProbability = refractionProb;
+            }
+            else
+            {
+                rayProbability = 1.0f - (specularProb + refractionProb);
+            }
+                 
+            // numerical problems can cause rayProbability to become small enough to cause a divide by zero.
+            rayProbability = max(rayProbability, 0.001f);
+            
+            auto origin = hitRecord.p + normal * 0.01;
+            
+            if (doRefraction == 1.0) {
+                origin = hitRecord.p - normal * 0.01;
+            } else {
+                origin = hitRecord.p + normal * 0.01;
+            }
             
             auto diffuseDir = normal + randomUnit(seed);
             auto specularDir = reflect(ray.direction, normal);
             
-            specularDir = normalize(mix(specularDir, diffuseDir, hitRecord.material.parameter));
+            specularDir = normalize(mix(specularDir, diffuseDir, hitRecord.material.specularRoughness * hitRecord.material.specularRoughness));
             
-            auto origin = hitRecord.p + normal * 0.01;
-            auto direction = mix(diffuseDir, specularDir, shouldSpecular);
+            auto refractionDir = refract(ray.direction, normal, theIOR);
+            refractionDir = normalize(mix(refractionDir, normalize(-normal + randomUnit(seed)), hitRecord.material.refractionRoughness *  hitRecord.material.refractionRoughness));
+                
+            auto direction = mix(diffuseDir, specularDir, doSpecular);
+            direction = mix(direction, refractionDir, doRefraction);
             
             auto scattered = Ray(origin, direction);
             scatterRecord.specular = scattered;
-            scatterRecord.attenuation = mix(float3(1.0, 1.0, 1.0),
-                                            hitRecord.material.albedo,
-                                            shouldSpecular);
+            scatterRecord.attenuation = throughput;
+            scatterRecord.prob = rayProbability;
+            
+            if (doRefraction == 0.0f) {
+                scatterRecord.attenuation *= mix(hitRecord.material.albedo,
+                                                 hitRecord.material.specularColor,
+                                                 doSpecular);
+            }
+            
+            scatterRecord.attenuation /= rayProbability;
+            
             return true;
         }
             

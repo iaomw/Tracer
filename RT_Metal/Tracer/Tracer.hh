@@ -29,11 +29,21 @@ struct Texture {
 };
 
 enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic, Specular };
+
 struct Material {
     enum MaterialType type;
     
+    float IOR;                 // index of refraction. used by fresnel and refraction.
     float3 albedo;
-    float parameter;
+    
+    float specularProb;
+    float specularRoughness;
+    float3  specularColor;
+    
+    float refractionProb;
+    float refractionRoughness;
+    float3  refractionColor;
+    
     struct Texture texture;
 };
 

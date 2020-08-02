@@ -176,10 +176,22 @@ void prepareCubeList(std::vector<Cube>& list) {
     
     auto translate = matrix4x4_translation(265, 0, 295);
     auto rotate = matrix4x4_rotation(M_PI*15/180, simd_make_float3(0, 1, 0));
+    // left-bottom-front point is the rotation point, that's bad.
     
     bigger.model_matrix = simd_mul(translate, rotate);
     bigger.inverse_matrix = simd_inverse(bigger.model_matrix);
     bigger.normal_matrix = simd_transpose(bigger.inverse_matrix);
+    
+    list.emplace_back(bigger);
+    
+//    translate = matrix4x4_translation(126, 0, 295); //126
+//    rotate = matrix4x4_rotation(-0.5*M_PI*15/180, simd_make_float3(0, 1, 0));
+//
+//    bigger.model_matrix = simd_mul(translate, rotate);
+//    bigger.inverse_matrix = simd_inverse(bigger.model_matrix);
+//    bigger.normal_matrix = simd_transpose(bigger.inverse_matrix);
+//
+//    list.emplace_back(bigger);
     
     Material white; white.type = MaterialType::Lambert;
     white.albedo = simd_make_float3(0.73, 0.73, 0.73);
@@ -193,8 +205,7 @@ void prepareCubeList(std::vector<Cube>& list) {
     smaller.model_matrix = simd_mul(translate, rotate);
     smaller.inverse_matrix = simd_inverse(smaller.model_matrix);
     smaller.normal_matrix = simd_transpose(smaller.inverse_matrix);
-
-    list.emplace_back(bigger);
+    
     list.emplace_back(smaller);
 }
 
@@ -211,30 +222,30 @@ void prepareCornellBox(std::vector<Square>& list) {
     
     //Material material_list[] = {light, red, green, white};
     
-    auto lightSource = MakeSquare(0, simd_make_float2(204, 360), 2, simd_make_float2(220, 340), 1, 554);
+    auto lightSource = MakeSquare(0, simd_make_float2(200, 355), 2, simd_make_float2(200, 355), 1, 554);
     //auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
     lightSource.material = light;
 
-    auto right = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 555); //flip
+    auto right = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 800); //flip
     right.material = red;
 
-    auto left = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 0);
+    auto left = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, -245);
     left.material = green;
 
-    auto top = MakeSquare(0, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 1, 555);
+    auto top = MakeSquare(0, simd_make_float2(-245, 800), 2, simd_make_float2(0, 555), 1, 555);
     top.material = white;
 
-    auto bottom = MakeSquare(0, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 1, 0);
+    auto bottom = MakeSquare(0, simd_make_float2(-245, 800), 2, simd_make_float2(0, 555), 1, 0);
     bottom.material = white;
 
-    auto back =  MakeSquare(0, simd_make_float2(0, 555), 1, simd_make_float2(0, 555), 2, 555);
+    auto back =  MakeSquare(0, simd_make_float2(-245, 800), 1, simd_make_float2(0, 555), 2, 555);
     back.material = white;
 
     list.emplace_back(right);
     list.emplace_back(left);
-    list.emplace_back(top);
-    list.emplace_back(bottom);
     list.emplace_back(back);
+    list.emplace_back(bottom);
+    list.emplace_back(top);
     list.emplace_back(lightSource);
 }
 
@@ -242,7 +253,7 @@ void prepareSphereList(std::vector<Sphere>& list) {
     
     Material glass; glass.type = MaterialType::Dielectric;
     glass.albedo = simd_make_float3(1.0, 1.0, 1.0);
-    glass.parameter = 1.5;
+    glass.IOR = 1.5;
     
     auto sphere = MakeSphere(64, simd_make_float3(200, 250, 200));
     sphere.material = glass;
@@ -250,37 +261,46 @@ void prepareSphereList(std::vector<Sphere>& list) {
     list.emplace_back(sphere);
     
     Material specu; specu.type = MaterialType::Specular;
-    specu.albedo = simd_make_float3(0.3f, 1.0f, 0.3f);
     
-    sphere = MakeSphere(50, simd_make_float3(100, 450, 400));
-    specu.parameter = 0.0;
-    sphere.material = specu;
+    specu.albedo = simd_make_float3(0.9f, 0.25f, 0.25f);
+    specu.specularProb = 0.02f;
+    specu.specularRoughness = 0.0;
+    specu.specularColor = simd_make_float3(1.0f, 1.0f, 1.0f) * 0.8f;
+    specu.IOR = 1.1f;
+    specu.refractionProb = 1.0f;
+    specu.refractionRoughness = 0.0;
+    specu.refractionColor = simd_make_float3(0.0f, 0.5f, 1.0f);
     
-    list.emplace_back(sphere);
+    for(auto i : {0, 1, 2, 3, 4, 5} ) {
+        
+        sphere = MakeSphere(40, simd_make_float3(0 + 100 * i, 50, 100));
+        specu.specularRoughness = i * 0.2;
+        specu.refractionRoughness = i * 0.2;
+        sphere.material = specu;
+        
+        list.emplace_back(sphere);
+    }
     
-    sphere = MakeSphere(50, simd_make_float3(250, 450, 400));
-    specu.parameter = 0.25;
-    sphere.material = specu;
+    Material gloss; gloss.type = MaterialType::Specular;
     
-    list.emplace_back(sphere);
+    gloss.albedo = simd_make_float3(1.0);
+    gloss.specularProb = 1.0f;
+    gloss.specularRoughness = 0.0;
+    gloss.specularColor = simd_make_float3(0.3f, 1.0f, 0.3f);
+    gloss.IOR = 1.1f;
+    //gloss.refractionProb = 1.0f;
+    //gloss.refractionRoughness = 0.0;
+    //gloss.refractionColor = simd_make_float3(0.0f, 0.5f, 1.0f);
     
-    sphere = MakeSphere(50, simd_make_float3(400, 450, 400));
-    specu.parameter = 0.5;
-    sphere.material = specu;
-    
-    list.emplace_back(sphere);
-    
-    sphere = MakeSphere(32, simd_make_float3(300, 100, 50));
-    specu.parameter = 0.75;
-    sphere.material = specu;
-    
-    list.emplace_back(sphere);
-    
-    sphere = MakeSphere(32, simd_make_float3(400, 100, 50));
-    specu.parameter = 1.00;
-    sphere.material = specu;
-    
-    list.emplace_back(sphere);
+    for(auto i : {0, 1, 2, 3, 4, 5} ) {
+        
+        sphere = MakeSphere(40, simd_make_float3(0 + 100 * i, 400, 300));
+        gloss.specularRoughness = i * 0.2;
+       // gloss.refractionRoughness = i * 0.2;
+        sphere.material = gloss;
+        
+        list.emplace_back(sphere);
+    }
 }
 
 void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
