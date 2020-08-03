@@ -131,12 +131,14 @@ fragmentShader( RasterizerData input [[stage_in]],
 
     auto scaled = offset + float2(0.5);
     
-    auto tex_color = thisTexture.sample(textureSampler, scaled);
+    if (scaled.x < 0 || scaled.y < 0 || scaled.x > 1.0 || scaled.y > 1.0) { return float4(0.0); }
     
-    auto this_mip = thisTexture.sample(textureSampler, float2(0.5), prevTexture.get_num_mip_levels());
+    auto tex_color = thisTexture.sample(textureSampler, scaled);
+
+    auto this_mip = thisTexture.sample(textureSampler, float2(0.5), thisTexture.get_num_mip_levels());
     auto prev_mip = prevTexture.sample(textureSampler, float2(0.5), prevTexture.get_num_mip_levels());
     
-    auto mix_mip = (this_mip.rgb + prev_mip.rgb) / 2;
+    auto mix_mip = (this_mip.rgb + 0 * prev_mip.rgb);
     
     float luminance = dot(mix_mip, float3(0.2126, 0.7152, 0.0722));
     float mapped = clamp(CETone(luminance, 1.0f), 0.0, 0.96);
@@ -159,7 +161,7 @@ static float3 traceColor(float depth,
                          thread pcg32_random_t* seed)
 {
     HitRecord hitRecord;
-    ScatterRecord scatterRecord;
+    ScatRecord scatRecord;
     
     float3 color = float3(0.0);
     float3 ratio = float3(1.0);
@@ -177,8 +179,8 @@ static float3 traceColor(float depth,
         range_t = float2(0.01, FLT_MAX);
         
         for (int i=0; i<13; i++) {
-            auto sphere = sphere_list[i];
-            if(sphere.hit_test(test_ray, range_t, hit_re)) {
+            auto sphere = &sphere_list[i];
+            if(sphere->hit_test(test_ray, range_t, hit_re)) {
                 if (hit_re.t < range_t.y) {
                     range_t.y = hit_re.t;
                     hitRecord = hit_re;
@@ -188,8 +190,8 @@ static float3 traceColor(float depth,
         }
 
         for (int i=0; i<6; i++) {
-            auto square = square_list[i];
-            if(square.hit_test(test_ray, range_t, hit_re)) {
+            auto square = &square_list[i];
+            if(square->hit_test(test_ray, range_t, hit_re)) {
                 if (hit_re.t < range_t.y) {
                     range_t.y = hit_re.t;
                     hitRecord = hit_re;
@@ -199,8 +201,8 @@ static float3 traceColor(float depth,
         }
 
         for (int i=0; i<1; i++) {
-            auto cube = cube_list[i];
-            if(cube.hit_test(test_ray, range_t, hit_re)) {
+            auto cube = &cube_list[i];
+            if(cube->hit_test(test_ray, range_t, hit_re)) {
                 if (hit_re.t < range_t.y) {
                     range_t.y = hit_re.t;
                     hitRecord = hit_re;
@@ -224,14 +226,14 @@ static float3 traceColor(float depth,
             return color;
         }
         
-        has_ray = scatter(test_ray, hitRecord, scatterRecord, seed);
+        has_ray = scatter(test_ray, hitRecord, scatRecord, seed);
         
         if(!has_ray) {
             return float3(0, 0, 0); //break;
         }
         
-        ratio = ratio * scatterRecord.attenuation;
-        test_ray = scatterRecord.specular;
+        ratio = ratio * scatRecord.attenuation;
+        test_ray = scatRecord.specular;
         
         { // Russian Roulette
             float p = max(ratio.r, max(ratio.g, ratio.b));

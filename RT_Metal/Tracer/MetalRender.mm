@@ -1,8 +1,6 @@
 #include "MetalRender.hh"
 #include "Tracer.hh"
 
-#import <ModelIO/ModelIO.h>
-
 typedef struct {
     float x, y;
     float u, v;
@@ -21,7 +19,7 @@ const VertexWithUV canvas[] =
 
 typedef struct  {
     float2 tex_size;
-    float2 view_size;// = simd_float2(1, 1);
+    float2 view_size;
     float running_time;
     uint32_t frame_count;
 } SceneComplex;
@@ -39,9 +37,10 @@ typedef struct  {
     id<MTLBuffer> _cornell_box_buffer;
     id<MTLBuffer> _sphere_list_buffer;
    
+    Camera _camera;
+    float2 _camera_rotation;
     SceneComplex _scene_meta;
     
-    Camera _camera;
     id<MTLBuffer> _camera_buffer;
     id<MTLBuffer> _scene_meta_buffer;
     
@@ -49,14 +48,11 @@ typedef struct  {
     
     id<MTLRenderPipelineState> _renderPipelineState;
     id<MTLComputePipelineState> _computePipelineState;
-    //id<MTLComputePipelineState> _Nullable _computePipelineState;
     
     id<MTLTexture> _textureA;
     id<MTLTexture> _textureB;
     id<MTLTexture> _textureARNG;
     id<MTLTexture> _textureBRNG;
-    
-    id<MTLTexture> _viewTexture;
     
     id<MTLTexture> _textureHDR;
     
@@ -89,25 +85,26 @@ typedef struct  {
         _vertex_buffer = [_device newBufferWithBytes:canvas
                                               length:sizeof(VertexWithUV)*6
                                              options: MTLResourceStorageModeShared];
-        
         uint width = 1920;
         uint height = 1080;
         
         _scene_meta.frame_count = 0;
         _scene_meta.running_time = 0;
-        _scene_meta.view_size.x = width;
-        _scene_meta.view_size.y = height;
         
         _scene_meta.tex_size.x = width;
         _scene_meta.tex_size.y = height;
         
+        _scene_meta.view_size.x = width;
+        _scene_meta.view_size.y = height;
+        
         _scene_meta_buffer = [_device newBufferWithBytes:&_scene_meta length:sizeof(SceneComplex) options: MTLResourceStorageModeShared];
         
-        //struct Camera camera;
-        prepareCamera(&_camera, _scene_meta.view_size, simd_make_float2(0, 0));
+        prepareCamera(&_camera, _scene_meta.tex_size, simd_make_float2(0, 0));
         _camera_buffer = [_device newBufferWithBytes:&_camera
                         length:sizeof(struct Camera)
                         options: MTLResourceStorageModeShared];
+        
+        _camera_rotation = simd_make_float2(0, 0);
         
         std::vector<Cube> cube_list;
         prepareCubeList(cube_list);
@@ -156,11 +153,6 @@ typedef struct  {
         _textureA = [_device newTextureWithDescriptor:td];
         _textureB = [_device newTextureWithDescriptor:td];
         
-        _viewTexture = [_textureA newTextureViewWithPixelFormat:_textureA.pixelFormat
-                                                    textureType:_textureA.textureType
-                                                         levels:NSMakeRange(10, 1)
-                                                         slices:NSMakeRange(0, 1)];
-        
         let tdr = [[MTLTextureDescriptor alloc] init];
         tdr.textureType = MTLTextureType2D;
         tdr.pixelFormat = MTLPixelFormatRGBA32Uint;
@@ -196,12 +188,10 @@ typedef struct  {
                         MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
                     };
         
-        let image = [[[NSImage alloc] initWithContentsOfURL:url] TIFFRepresentation];
+        let imageData = [[[NSImage alloc] initWithContentsOfURL:url] TIFFRepresentation];
         
-        _textureHDR = [loader newTextureWithData:image options:textureLoaderOptions error:&ERROR];
+        _textureHDR = [loader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
         
-        //_textureHDR = [loader newTextureWithContentsOfURL:url options: textureLoaderOptions error: &error];
-            
             if(!_textureHDR)
             {
                 NSLog(@"Failed to create the texture from %@", url.absoluteString);
@@ -235,13 +225,13 @@ typedef struct  {
 
         // Add a completion handler and commit the command buffer.
         [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> cb) {
-            self->_view.delegate = self; // Private texture is populated.
+            
+            self->_view.paused = YES;
+            self->_view.delegate = self;
+            self->_view.enableSetNeedsDisplay = YES;
         }];
         [commandBuffer commit];
     }
-    
-    _view.paused = YES;
-    _view.enableSetNeedsDisplay = YES;
     
     return self;
 }
@@ -257,23 +247,22 @@ typedef struct  {
 {
     //if (_view.isPaused) {return;}
     
-    _scene_meta.running_time = [[NSDate date] timeIntervalSince1970] - launchTime;
+    let commandBuffer = [_commandQueue commandBuffer];
+    let time = [[NSDate date] timeIntervalSince1970];
+    _scene_meta.running_time = time - launchTime;
     
-                let commandBuffer = [_commandQueue commandBuffer];
-    
-                id<MTLBlitCommandEncoder> blit = [commandBuffer blitCommandEncoder];
-    
-                [blit generateMipmapsForTexture:self->_textureA];
-                [blit generateMipmapsForTexture:self->_textureB];
-    
-                [blit endEncoding];
+        {
+            let blit = [commandBuffer blitCommandEncoder];
+            [blit generateMipmapsForTexture:self->_textureA];
+            [blit generateMipmapsForTexture:self->_textureB];
+            [blit endEncoding];
+        }
     
     //__weak AAPLRenderer *weakSelf = self;
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
         self->_scene_meta.frame_count += 1;
         
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
-            
             self->_view.needsDisplay = YES;
         }];
     }];
@@ -281,11 +270,11 @@ typedef struct  {
     let computeEncoder = [commandBuffer computeCommandEncoder];
     [computeEncoder setComputePipelineState:_computePipelineState];
     
-    [computeEncoder setTexture:_textureA atIndex:_scene_meta.frame_count % 2];
-    [computeEncoder setTexture:_textureB atIndex:(_scene_meta.frame_count+1) % 2];
+    [computeEncoder setTexture:_textureA atIndex: _scene_meta.frame_count % 2];
+    [computeEncoder setTexture:_textureB atIndex: (_scene_meta.frame_count+1) % 2];
     
-    [computeEncoder setTexture:_textureARNG atIndex:2 + _scene_meta.frame_count % 2];
-    [computeEncoder setTexture:_textureBRNG atIndex:2 + (_scene_meta.frame_count+1) % 2];
+    [computeEncoder setTexture:_textureARNG atIndex: 2 + _scene_meta.frame_count % 2];
+    [computeEncoder setTexture:_textureBRNG atIndex: 2 + (_scene_meta.frame_count+1) % 2];
     
     [computeEncoder setTexture:_textureHDR atIndex:4];
     
@@ -312,9 +301,7 @@ typedef struct  {
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
     
-    MTLViewport viewport = {0, 0,
-        _scene_meta.view_size.x, _scene_meta.view_size.y,
-        0, 1.0};
+    MTLViewport viewport = {0, 0, _scene_meta.view_size.x, _scene_meta.view_size.y, 0, 1.0};
     
     [renderEncoder setViewport:viewport];
     [renderEncoder setRenderPipelineState:_renderPipelineState];
@@ -322,8 +309,8 @@ typedef struct  {
     [renderEncoder setVertexBuffer:_vertex_buffer offset:0 atIndex:0];
     
     [renderEncoder setFragmentBuffer:_scene_meta_buffer offset:0 atIndex:0];
-    [renderEncoder setFragmentTexture:_textureB atIndex:_scene_meta.frame_count % 2];
-    [renderEncoder setFragmentTexture:_textureA atIndex:(_scene_meta.frame_count+1) % 2];
+    [renderEncoder setFragmentTexture:_textureB atIndex: _scene_meta.frame_count % 2];
+    [renderEncoder setFragmentTexture:_textureA atIndex: (_scene_meta.frame_count+1) % 2];
     
     [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
     [renderEncoder endEncoding];
@@ -333,18 +320,16 @@ typedef struct  {
     [commandBuffer commit];
 }
 
-static float2 ddddd = simd_make_float2(0, 0);
-
 - (void)drag:(float2)delta
 {
     let ratio = delta / _scene_meta.view_size;
     
-    ddddd += ratio;
+    _camera_rotation += ratio;
     
     self->_scene_meta.frame_count = 0;
     self->_scene_meta.running_time = 0;
     
-    prepareCamera(&_camera, _scene_meta.view_size, ddddd);
+    prepareCamera(&_camera, _scene_meta.tex_size, _camera_rotation);
 }
 
 @end

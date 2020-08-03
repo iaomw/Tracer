@@ -214,13 +214,14 @@ void prepareCornellBox(std::vector<Square>& list) {
     Material light; light.type= MaterialType::Diffuse; light.albedo = simd_make_float3(20, 20, 20);
     
     Material red; red.type = MaterialType::Lambert; red.albedo = simd_make_float3(0.65, 0.05, 0.05);
-    Material green; green.type = MaterialType::Lambert; green.albedo = simd_make_float3(0.12, 0.45, 0.15);
+    Material green; green.type = MaterialType::Lambert; green.albedo = simd_make_float3(0.05, 0.65, 0.05);
     Material white; white.type = MaterialType::Lambert; white.albedo = simd_make_float3(0.73, 0.73, 0.73);
+    
+    //green.albedo = simd_make_float3(0, 85.0/255.0, 164.0/255.0);
+    //green.albedo = simd_make_float3(0.05, 0.05, 0.65);
     
     Material metal; metal.type = MaterialType::Metal;
     metal.albedo = simd_make_float3(0.8, 0.85, 0.88);
-    
-    //Material material_list[] = {light, red, green, white};
     
     auto lightSource = MakeSquare(0, simd_make_float2(200, 355), 2, simd_make_float2(200, 355), 1, 554);
     //auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
@@ -312,7 +313,7 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     auto viewUp = simd_make_float3(0, 1, 0);
     
     auto dist_to_focus = 10;
-    auto aperture = 0.0;
+    auto aperture = 0.01;
     
     auto vfov = 45 * (M_PI/180);
     auto hfov = 2 * atan(tan(vfov * 0.5) * aspect);

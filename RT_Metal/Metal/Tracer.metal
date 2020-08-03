@@ -67,8 +67,8 @@ struct Camera {
 };
 
 static Ray castRay(constant Camera* camera, float s, float t, thread pcg32_random_t* seed) {
-    //auto rd = camera->lenRadius * randomInUnitDiskFF(seed);
-    auto rd = 0.005 * randomInUnitDiskFF(seed);
+    auto rd = camera->lenRadius * randomInUnitDiskFF(seed);
+    //auto rd = 0.005 * randomInUnitDiskFF(seed);
     auto offset = camera->u*rd.x + camera->v*rd.y;
     auto origin = camera->lookFrom + offset;
     auto sample = camera->cornerLowLeft + camera->horizontal*s + camera->vertical*t;
@@ -92,7 +92,7 @@ enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic, Specu
 struct Material {
     enum MaterialType type;
     
-    float IOR;                 // index of refraction. used by fresnel and refraction.
+    float IOR; // index of refraction. used by fresnel and refraction.
     float3 albedo;
     
     float specularProb;
@@ -153,7 +153,7 @@ struct HitRecord {
     }
 };
 
-struct ScatterRecord {
+struct ScatRecord {
     Ray specular = {float3(0), float3(0)};
     float prob;
     float3 attenuation;
@@ -167,25 +167,59 @@ struct AABB {
     float3 mini;
     float3 maxi;
     
-    bool hit(thread Ray& ray, float2 range_t) {
+    // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms/
+    
+    bool hit(thread Ray& ray, float2 range_t) const constant {
         
+        float tmin = range_t.x, tmax = range_t.y;
+            
         for (auto i : {0, 1, 2}) {
+            
             auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
             auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
             
-            auto ts = min_bound;
-            auto te = max_bound;
+            auto ts = min(max_bound, min_bound);
+            auto te = max(max_bound, min_bound);
             
-            if (ray.direction[i] < 0.0) {
-                ts = max_bound;
-                te = min_bound;
-            }
-            
-            auto tmin = metal::max(ts, range_t.x);
-            auto tmax = metal::min(te, range_t.y);
+            tmin = max(ts, tmin);
+            tmax = min(te, tmax);
             
             if (tmax <= tmin) { return false; }
         }
+        
+        return true;
+    }
+    
+    bool hit(thread Ray& ray, float2 range_t, thread HitRecord& record) const constant {
+        
+        float tmin = range_t.x;
+        float tmax = range_t.y;
+        
+        float3 normal = float3(0);
+        
+        for (auto i : {0, 1, 2}) {
+            
+            auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
+            auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
+            
+            auto ts = min(max_bound, min_bound);
+            auto te = max(max_bound, min_bound);
+            
+            tmin = max(ts, tmin);
+            tmax = min(te, tmax);
+            
+            if (tmax <= tmin) { return false; }
+            //if (tmax <= tmin || tmin < 0 || tmax < 0) { return false; }
+            
+            if (ts >= tmin) {
+                //tmin = ts;
+                normal = float3(0);
+                normal[i] = abs(min_bound) < abs(max_bound)? -1:1;
+            }
+        }
+        
+        record.t = tmin;
+        record.n = normal;
         
         return true;
     }
@@ -208,7 +242,7 @@ struct Square {
     AABB boundingBOX;
     Material material;
     
-    bool hit_test(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
+    bool hit_test(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) const constant {
         
         //if (!boundingBOX.hit(ray, range_t)) {return false;}
         
@@ -225,8 +259,9 @@ struct Square {
         hitRecord.uv[1] = (b-rang_j.x)/(rang_j.y-rang_j.x);
         
         hitRecord.t = t;
-        auto normal = float3(0); normal[axis_k]=1;
-        hitRecord.n = normal;
+        
+        hitRecord.n = float3(0);
+        hitRecord.n[axis_k] = 1;
         hitRecord.checkFace(ray);
         hitRecord.p = ray.pointAt(t);
         hitRecord.material = material;
@@ -247,34 +282,20 @@ struct Cube {
     
     Square rectList[6];
     
-    bool hit_test(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) {
+    bool hit_test(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) const constant {
         
         auto origin = inverse_matrix * float4(ray.origin, 1.0);
         auto direction = inverse_matrix * float4(ray.direction, 0.0);
-        Ray transformedRay = Ray(origin.xyz, direction.xyz);
         
-        if(!boundingBOX.hit(transformedRay, range_t)) {return false;}
-    
-        auto nearest = range_t.y;
-        HitRecord testHitResult;
+        Ray testRay = Ray(origin.xyz, direction.xyz);
         
-        for (auto rect : rectList) {
-            if (!rect.hit_test(transformedRay, range_t, testHitResult)) {continue;}
-            if (testHitResult.t >= nearest) {continue;}
-            hitRecord = testHitResult;
-            nearest = testHitResult.t;
-        }
+        if(!boundingBOX.hit(testRay, range_t, hitRecord)) {return false;}
         
-        if (nearest >= range_t.y) {
-            return false;
-        }
-        
-        hitRecord.checkFace(transformedRay);
+        hitRecord.checkFace(testRay);
         hitRecord.p = ray.pointAt(hitRecord.t);
-        //hitRecord.p = (model_matrix * float4(hitRecord.p, 1.0)).xyz;
-        //hitRecord.p = (float4(hitRecord.p, 1.0) * model_matrix).xyz;
+        hitRecord.material = rectList[0].material;
+        
         hitRecord.n = normalize((normal_matrix * float4(hitRecord.normal(), 0.0)).xyz);
-        //hitRecord.n = normalize((float4(hitRecord.normal(), 0.0) * normal_matrix).xyz);
         
         return true;
     }
@@ -298,9 +319,9 @@ struct Sphere {
     AABB boundingBOX;
     Material material;
     
-    bool hit_test(thread Ray& ray, float2 rang_t, thread HitRecord& hitRecord) {
+    bool hit_test(thread Ray& ray, float2 rang_t, thread HitRecord& hitRecord) const constant {
         
-        if(!boundingBOX.hit(ray, rang_t)) { return false; }
+        //if(!boundingBOX.hit(ray, rang_t)) { return false; }
         
         float3 oc = ray.origin - center;
     
@@ -361,7 +382,7 @@ static bool emit_test(thread HitRecord& hitRecord, thread float3& color) {
     
 static bool scatter(thread Ray& ray,
                     thread HitRecord& hitRecord,
-                    thread ScatterRecord& scatterRecord,
+                    thread ScatRecord& scatterRecord,
                     thread pcg32_random_t* seed)
 {
     auto material = hitRecord.material;
