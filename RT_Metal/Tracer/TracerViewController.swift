@@ -32,18 +32,21 @@ class TracerViewController: NSViewController {
     }
     
     override func mouseUp(with event: NSEvent) {
-        //print("mouseUp \(event)")
+        print("mouseUp \(event)")
+        let delta = simd_float2(0, 0)
+        metalRender?.drag(delta, state: true)
     }
 
     override func mouseDown(with event: NSEvent) {
         //print("mouseDown \(event)")
+        let delta = simd_float2(0, 0)
+        metalRender?.drag(delta, state: false)
     }
 
     override func mouseDragged(with event: NSEvent) {
         //print("mouseDragged \(event)")
         let delta = simd_float2(Float(event.deltaX), Float(event.deltaY))
-        //print("mouseDragged \(delta)")
-        metalRender?.drag(delta)
+        metalRender?.drag(delta, state: false)
     }
     
     let kLeftArrowKeyCode:  UInt16  = 123
@@ -56,13 +59,13 @@ class TracerViewController: NSViewController {
         switch event.keyCode {
 
         case kLeftArrowKeyCode:
-            metalRender?.drag(simd_float2(1, 0))
+            metalRender?.drag(simd_float2(1, 0), state: true)
         case kRightArrowKeyCode:
-            metalRender?.drag(simd_float2(-1, 0))
+            metalRender?.drag(simd_float2(-1, 0), state: true)
         case kDownArrowKeyCode:
-            metalRender?.drag(simd_float2(0, 1))
+            metalRender?.drag(simd_float2(0, 1), state: true)
         case kUpArrowKeyCode:
-            metalRender?.drag(simd_float2(0, -1))
+            metalRender?.drag(simd_float2(0, -1), state: true)
         default:
             break
         }

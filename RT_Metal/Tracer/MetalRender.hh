@@ -8,7 +8,7 @@
 
 - (nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view;
 
-- (void)drag:(float2)delta;
+- (void)drag:(float2)delta state:(BOOL)ended;
 
 @end
 

@@ -138,10 +138,15 @@ fragmentShader( RasterizerData input [[stage_in]],
     auto this_mip = thisTexture.sample(textureSampler, float2(0.5), thisTexture.get_num_mip_levels());
     auto prev_mip = prevTexture.sample(textureSampler, float2(0.5), prevTexture.get_num_mip_levels());
     
-    auto mix_mip = (this_mip.rgb + 0 * prev_mip.rgb);
+    auto this_luma = dot(this_mip.rgb, float3(0.2126, 0.7152, 0.0722));
+    auto prev_luma = dot(prev_mip.rgb, float3(0.2126, 0.7152, 0.0722));
     
-    float luminance = dot(mix_mip, float3(0.2126, 0.7152, 0.0722));
-    float mapped = clamp(CETone(luminance, 1.0f), 0.0, 0.96);
+    auto frame_count = sceneMeta->frame_count;
+    
+    auto mix_luma = (this_luma + prev_luma * frame_count) / (1 + frame_count);
+    
+   // float luminance = dot(mix_mip.rgb, float3(0.2126, 0.7152, 0.0722));
+    float mapped = clamp(CETone(mix_luma, 1.0f), 0.04, 0.96);
     float expose = 1.0 - mapped;
     
     tex_color.rgb = ACESTone(tex_color.rgb, expose);
@@ -177,7 +182,7 @@ static float3 traceColor(float depth,
         
         HitRecord hit_re;
         range_t = float2(0.01, FLT_MAX);
-        
+
         for (int i=0; i<13; i++) {
             auto sphere = &sphere_list[i];
             if(sphere->hit_test(test_ray, range_t, hit_re)) {
@@ -210,6 +215,17 @@ static float3 traceColor(float depth,
                 }
             }
         }
+
+        //for (int i=1; i<2; i++) {
+            auto cube = &cube_list[1];
+            if(cube->hit_medium(test_ray, range_t, hit_re, seed)) {
+                if (hit_re.t < range_t.y) {
+                    range_t.y = hit_re.t;
+                    hitRecord = hit_re;
+                    hitted = true;
+                }
+            }
+        //}
         
         if (!hitted) {
             float3 sphereVector = test_ray.origin + 1000000 * test_ray.direction;
@@ -293,8 +309,8 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     
     pcg32_random_t rng;
     
-    rng.inc = rng_inc;
-    rng.state = rng_state;
+    rng.inc = rng_inc;// + thread_pos.x;
+    rng.state = rng_state;// + thread_pos.y;
 
     auto result = float3(0.0);
     
@@ -309,6 +325,7 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     
     auto hhhh = half4(1.0);
     hhhh.rgb = half3(result);
+    //hhhh.rgb = half3(randomF(&rng), randomF(&rng), randomF(&rng));
     
     outTexture.write(hhhh, thread_pos);
     

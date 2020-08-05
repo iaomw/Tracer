@@ -55,8 +55,8 @@ struct AABB {
 struct Square {
     uint8_t axis_i;
     uint8_t axis_j;
-    float2 rang_i;
-    float2 rang_j;
+    float2 range_i;
+    float2 range_j;
     
     uint8_t axis_k;
     float value_k;

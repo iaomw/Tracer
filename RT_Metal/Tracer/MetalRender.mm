@@ -28,6 +28,8 @@ typedef struct  {
 @implementation AAPLRenderer
 {
     MTKView* _view;
+    BOOL _dragging;
+    
     id<MTLDevice> _device;
 
     id<MTLBuffer> _vertex_buffer;
@@ -260,7 +262,12 @@ typedef struct  {
     
     //__weak AAPLRenderer *weakSelf = self;
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-        self->_scene_meta.frame_count += 1;
+        
+        if (self->_dragging) {
+            self->_scene_meta.frame_count = 0;
+        } else {
+            self->_scene_meta.frame_count += 1;
+        }
         
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
             self->_view.needsDisplay = YES;
@@ -320,8 +327,10 @@ typedef struct  {
     [commandBuffer commit];
 }
 
-- (void)drag:(float2)delta
+- (void)drag:(float2)delta state:(BOOL)ended;
 {
+    _dragging = !ended;
+    
     let ratio = delta / _scene_meta.view_size;
     
     _camera_rotation += ratio;

@@ -106,24 +106,24 @@ inline AABB MakeAABB(AABB& box_s, AABB& box_e) {
     return MakeAABB(small, big);
 }
     
-Square MakeSquare(uint8_t axis_i, float2 rang_i, uint8_t axis_j, float2 rang_j, uint8_t axis_k, float k) {
+Square MakeSquare(uint8_t axis_i, float2 range_i, uint8_t axis_j, float2 range_j, uint8_t axis_k, float k) {
     Square r;
     
     r.axis_i = axis_i;
     r.axis_j = axis_j;
-    r.rang_i = rang_i;
-    r.rang_j = rang_j;
+    r.range_i = range_i;
+    r.range_j = range_j;
     r.axis_k = axis_k;
     r.value_k = k;
     
     auto a = float3();
-    a[axis_i] = rang_i.x;
-    a[axis_j] = rang_j.x;
+    a[axis_i] = range_i.x;
+    a[axis_j] = range_j.x;
     a[axis_k] = k - 0.0001;
     
     auto b = float3();
-    b[axis_i] = rang_i.y;
-    b[axis_j] = rang_j.y;
+    b[axis_i] = range_i.y;
+    b[axis_j] = range_j.y;
     b[axis_k] = k + 0.0001;
     
     r.boundingBOX = MakeAABB(a, b);
@@ -193,8 +193,11 @@ void prepareCubeList(std::vector<Cube>& list) {
 //
 //    list.emplace_back(bigger);
     
-    Material white; white.type = MaterialType::Lambert;
+    Material white; white.type = MaterialType::Isotropic;
     white.albedo = simd_make_float3(0.73, 0.73, 0.73);
+    white.albedo = simd_make_float3(1, 1, 1);
+    //white.albedo = simd_make_float3(0.1, 0.1, 0.1);
+    white.IOR = 0.01;
     
     auto smaller = MakeCube(simd_make_float3(0, 0, 0),
                             simd_make_float3(165, 165, 165), white);
@@ -211,7 +214,7 @@ void prepareCubeList(std::vector<Cube>& list) {
 
 void prepareCornellBox(std::vector<Square>& list) {
     
-    Material light; light.type= MaterialType::Diffuse; light.albedo = simd_make_float3(20, 20, 20);
+    Material light; light.type= MaterialType::Diffuse; light.albedo = simd_make_float3(5, 5, 5);
     
     Material red; red.type = MaterialType::Lambert; red.albedo = simd_make_float3(0.65, 0.05, 0.05);
     Material green; green.type = MaterialType::Lambert; green.albedo = simd_make_float3(0.05, 0.65, 0.05);
