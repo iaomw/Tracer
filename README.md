@@ -1,6 +1,9 @@
 # Tracer
 This is simply a repository for my **Ray Tracing** code.
 
+![](Captures/capture_h.jpg)
+![](Captures/capture_g.jpg)
+![](Captures/capture_f.png)
 ![](Captures/capture_e.png)
 
 ### Bigger things to-do:

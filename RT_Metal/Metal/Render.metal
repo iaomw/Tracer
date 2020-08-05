@@ -217,14 +217,14 @@ static float3 traceColor(float depth,
         }
 
         //for (int i=1; i<2; i++) {
-            auto cube = &cube_list[1];
-            if(cube->hit_medium(test_ray, range_t, hit_re, seed)) {
-                if (hit_re.t < range_t.y) {
-                    range_t.y = hit_re.t;
-                    hitRecord = hit_re;
-                    hitted = true;
-                }
-            }
+//            auto cube = &cube_list[1];
+//            if(cube->hit_medium(test_ray, range_t, hit_re, seed)) {
+//                if (hit_re.t < range_t.y) {
+//                    range_t.y = hit_re.t;
+//                    hitRecord = hit_re;
+//                    hitted = true;
+//                }
+//            }
         //}
         
         if (!hitted) {

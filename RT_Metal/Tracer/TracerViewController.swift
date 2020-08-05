@@ -32,7 +32,7 @@ class TracerViewController: NSViewController {
     }
     
     override func mouseUp(with event: NSEvent) {
-        print("mouseUp \(event)")
+        //print("mouseUp \(event)")
         let delta = simd_float2(0, 0)
         metalRender?.drag(delta, state: true)
     }
