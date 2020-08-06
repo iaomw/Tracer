@@ -1,7 +1,7 @@
-#ifndef MetalRender_h
-#define MetalRender_h
+#ifndef AAPLRenderer_h
+#define AAPLRenderer_h
 
-#include "Common.h"
+#include "Common.hh"
 
 // A platform-independent renderer class.
 @interface AAPLRenderer : NSObject<MTKViewDelegate>

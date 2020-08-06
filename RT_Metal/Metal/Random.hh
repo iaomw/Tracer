@@ -1,14 +1,14 @@
 #ifndef Random_h
 #define Random_h
 
-#include <metal_stdlib>
-using namespace metal;
+#include "Common.hh"
 
 struct pcg_state_setseq_64 {    // Internals are *Private*.
     uint64_t state;             // RNG state.  All values are possible.
     uint64_t inc;               // Controls which RNG sequence (stream) is
                                 // selected. Must *always* be odd.
 };
+
 typedef struct pcg_state_setseq_64 pcg32_random_t;
 
 // If you *must* statically initialize it, here's one.
@@ -20,17 +20,10 @@ typedef struct pcg_state_setseq_64 pcg32_random_t;
 //     Seed the rng.  Specified in two parts, state initializer and a
 //     sequence selection constant (a.k.a. stream id)
 
-//void pcg32_srandom(uint64_t initstate, uint64_t initseq);
 void pcg32_srandom_r(thread pcg32_random_t* rng, uint64_t initstate, uint64_t initseq);
 
-//uint32_t pcg32_random(void);
 uint32_t pcg32_random_r(thread pcg32_random_t* rng);
 
-// pcg32_boundedrand(bound):
-// pcg32_boundedrand_r(rng, bound):
-//     Generate a uniformly distributed number, r, where 0 <= r < bound
-
-//uint32_t pcg32_boundedrand(uint32_t bound);
 uint32_t pcg32_boundedrand_r(thread pcg32_random_t* rng, uint32_t bound);
 
 float randomF(thread pcg32_random_t* rng);

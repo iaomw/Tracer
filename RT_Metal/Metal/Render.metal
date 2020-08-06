@@ -1,6 +1,6 @@
 #include "Render.hh"
 #include "Random.hh"
-#include "Tracer.metal"
+#include "Scatter.hh"
 
 typedef enum  {
     VertexInputIndexVertices = 0,
@@ -101,8 +101,6 @@ vertexShader(uint vertexID [[vertex_id]],
     
     return out;
 }
-
-constexpr sampler textureSampler (mag_filter::linear, min_filter::linear, mip_filter::linear);
 
 fragment float4
 fragmentShader( RasterizerData input [[stage_in]],
@@ -236,7 +234,7 @@ static float3 traceColor(float depth,
         }
         
         float3 emit_color;
-        auto emitted = emit_test(hitRecord, emit_color);
+        auto emitted = emit(hitRecord, emit_color);
         if (emitted) {
             color = ratio * emit_color;
             return color;

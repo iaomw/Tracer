@@ -9,10 +9,13 @@
 /* Begin PBXBuildFile section */
 		570DF00924CF97F700421890 /* vulture_hide_4k.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 570DF00824CF979500421890 /* vulture_hide_4k.hdr */; };
 		571C09602439267700DA0BAC /* Tracer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571C095F2439267700DA0BAC /* Tracer.mm */; };
-		571FF88B246367E4002DDF02 /* MetalRender.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571FF88A246367E4002DDF02 /* MetalRender.mm */; };
+		571FF88B246367E4002DDF02 /* AAPLRenderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571FF88A246367E4002DDF02 /* AAPLRenderer.mm */; };
 		573DD1092432B9D900B09B0A /* Render.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1082432B9D900B09B0A /* Render.metal */; };
 		573DD1122433AA9900B09B0A /* Random.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1112433AA9900B09B0A /* Random.metal */; };
-		5749BCA32435005B002B60E4 /* Tracer.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5749BCA22435005B002B60E4 /* Tracer.metal */; };
+		5749BCA32435005B002B60E4 /* Scatter.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5749BCA22435005B002B60E4 /* Scatter.metal */; };
+		5759E67524DB496600C8A2D7 /* Camera.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67424DB496600C8A2D7 /* Camera.metal */; };
+		5759E67E24DB717400C8A2D7 /* Material.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67D24DB717400C8A2D7 /* Material.metal */; };
+		5759E68024DB723D00C8A2D7 /* HItRecord.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67F24DB723D00C8A2D7 /* HItRecord.metal */; };
 		575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 575F7DBA242469C300DA5F33 /* TracerWindowController.swift */; };
 		57DD356A241EEC110094632B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD3569241EEC110094632B /* AppDelegate.swift */; };
 		57DD356C241EEC110094632B /* TracerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD356B241EEC110094632B /* TracerViewController.swift */; };
@@ -24,15 +27,29 @@
 		570DF00824CF979500421890 /* vulture_hide_4k.hdr */ = {isa = PBXFileReference; lastKnownFileType = file; path = vulture_hide_4k.hdr; sourceTree = "<group>"; };
 		571C095F2439267700DA0BAC /* Tracer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Tracer.mm; sourceTree = "<group>"; };
 		571C09612439269400DA0BAC /* Tracer.hh */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; lineEnding = 0; path = Tracer.hh; sourceTree = "<group>"; };
-		571FF88A246367E4002DDF02 /* MetalRender.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MetalRender.mm; sourceTree = "<group>"; };
-		571FF88C246367FC002DDF02 /* MetalRender.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MetalRender.hh; sourceTree = "<group>"; };
-		571FF88D24639A81002DDF02 /* Common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Common.h; sourceTree = "<group>"; };
+		571FF88A246367E4002DDF02 /* AAPLRenderer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AAPLRenderer.mm; sourceTree = "<group>"; };
+		571FF88C246367FC002DDF02 /* AAPLRenderer.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AAPLRenderer.hh; sourceTree = "<group>"; };
+		571FF88D24639A81002DDF02 /* Common.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Common.hh; sourceTree = "<group>"; };
 		573DD1082432B9D900B09B0A /* Render.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Render.metal; sourceTree = "<group>"; };
 		573DD10A24335D6D00B09B0A /* Render.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Render.hh; sourceTree = "<group>"; };
 		573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Tracer-Bridging-Header.h"; sourceTree = "<group>"; };
 		573DD1112433AA9900B09B0A /* Random.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Random.metal; sourceTree = "<group>"; };
-		5749BCA22435005B002B60E4 /* Tracer.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Tracer.metal; sourceTree = "<group>"; };
+		5749BCA22435005B002B60E4 /* Scatter.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Scatter.metal; sourceTree = "<group>"; };
 		5749BCA624362BDE002B60E4 /* Random.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Random.hh; sourceTree = "<group>"; };
+		5759E67124DB3EB900C8A2D7 /* Scatter.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Scatter.hh; sourceTree = "<group>"; };
+		5759E67224DB483D00C8A2D7 /* Ray.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Ray.hh; sourceTree = "<group>"; };
+		5759E67324DB492500C8A2D7 /* Camera.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Camera.hh; sourceTree = "<group>"; };
+		5759E67424DB496600C8A2D7 /* Camera.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Camera.metal; sourceTree = "<group>"; };
+		5759E67624DB651400C8A2D7 /* Texture.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Texture.hh; sourceTree = "<group>"; };
+		5759E67724DB65F200C8A2D7 /* Material.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Material.hh; sourceTree = "<group>"; };
+		5759E67824DB667400C8A2D7 /* AABB.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AABB.hh; sourceTree = "<group>"; };
+		5759E67924DB674C00C8A2D7 /* HitRecord.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = HitRecord.hh; sourceTree = "<group>"; };
+		5759E67A24DB6C8600C8A2D7 /* Square.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Square.hh; sourceTree = "<group>"; };
+		5759E67B24DB6D3B00C8A2D7 /* Cube.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Cube.hh; sourceTree = "<group>"; };
+		5759E67C24DB6D9500C8A2D7 /* Sphere.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Sphere.hh; sourceTree = "<group>"; };
+		5759E67D24DB717400C8A2D7 /* Material.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Material.metal; sourceTree = "<group>"; };
+		5759E67F24DB723D00C8A2D7 /* HItRecord.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = HItRecord.metal; sourceTree = "<group>"; };
+		5759E68124DC352E00C8A2D7 /* BVH.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = BVH.hh; sourceTree = "<group>"; };
 		575F7DBA242469C300DA5F33 /* TracerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TracerWindowController.swift; sourceTree = "<group>"; };
 		57DD3566241EEC110094632B /* Tracer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tracer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		57DD3569241EEC110094632B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -57,12 +74,27 @@
 		573DD1072432961400B09B0A /* Metal */ = {
 			isa = PBXGroup;
 			children = (
-				5749BCA22435005B002B60E4 /* Tracer.metal */,
-				573DD10A24335D6D00B09B0A /* Render.hh */,
-				573DD1082432B9D900B09B0A /* Render.metal */,
+				571FF88D24639A81002DDF02 /* Common.hh */,
+				5759E67224DB483D00C8A2D7 /* Ray.hh */,
+				5759E67324DB492500C8A2D7 /* Camera.hh */,
+				5759E67424DB496600C8A2D7 /* Camera.metal */,
+				5759E67624DB651400C8A2D7 /* Texture.hh */,
+				5759E67724DB65F200C8A2D7 /* Material.hh */,
+				5759E67D24DB717400C8A2D7 /* Material.metal */,
+				5759E67924DB674C00C8A2D7 /* HitRecord.hh */,
+				5759E67F24DB723D00C8A2D7 /* HItRecord.metal */,
+				5759E67124DB3EB900C8A2D7 /* Scatter.hh */,
+				5749BCA22435005B002B60E4 /* Scatter.metal */,
+				5759E68124DC352E00C8A2D7 /* BVH.hh */,
+				5759E67824DB667400C8A2D7 /* AABB.hh */,
+				5759E67B24DB6D3B00C8A2D7 /* Cube.hh */,
+				5759E67A24DB6C8600C8A2D7 /* Square.hh */,
+				5759E67C24DB6D9500C8A2D7 /* Sphere.hh */,
+				573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */,
 				5749BCA624362BDE002B60E4 /* Random.hh */,
 				573DD1112433AA9900B09B0A /* Random.metal */,
-				573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */,
+				573DD10A24335D6D00B09B0A /* Render.hh */,
+				573DD1082432B9D900B09B0A /* Render.metal */,
 			);
 			path = Metal;
 			sourceTree = "<group>";
@@ -88,11 +120,10 @@
 			isa = PBXGroup;
 			children = (
 				570DF00824CF979500421890 /* vulture_hide_4k.hdr */,
-				571FF88D24639A81002DDF02 /* Common.h */,
 				571C09612439269400DA0BAC /* Tracer.hh */,
 				571C095F2439267700DA0BAC /* Tracer.mm */,
-				571FF88C246367FC002DDF02 /* MetalRender.hh */,
-				571FF88A246367E4002DDF02 /* MetalRender.mm */,
+				571FF88C246367FC002DDF02 /* AAPLRenderer.hh */,
+				571FF88A246367E4002DDF02 /* AAPLRenderer.mm */,
 				57DD3569241EEC110094632B /* AppDelegate.swift */,
 				57DD356B241EEC110094632B /* TracerViewController.swift */,
 				575F7DBA242469C300DA5F33 /* TracerWindowController.swift */,
@@ -176,14 +207,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5759E67E24DB717400C8A2D7 /* Material.metal in Sources */,
 				573DD1092432B9D900B09B0A /* Render.metal in Sources */,
 				575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */,
 				573DD1122433AA9900B09B0A /* Random.metal in Sources */,
+				5759E68024DB723D00C8A2D7 /* HItRecord.metal in Sources */,
 				571C09602439267700DA0BAC /* Tracer.mm in Sources */,
-				5749BCA32435005B002B60E4 /* Tracer.metal in Sources */,
+				5749BCA32435005B002B60E4 /* Scatter.metal in Sources */,
 				57DD356C241EEC110094632B /* TracerViewController.swift in Sources */,
+				5759E67524DB496600C8A2D7 /* Camera.metal in Sources */,
 				57DD356A241EEC110094632B /* AppDelegate.swift in Sources */,
-				571FF88B246367E4002DDF02 /* MetalRender.mm in Sources */,
+				571FF88B246367E4002DDF02 /* AAPLRenderer.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
