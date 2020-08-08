@@ -19,7 +19,7 @@ struct HitRecord {
     }
     
 #ifdef __METAL_VERSION__
-    void checkFace(thread Ray& ray) {
+    void checkFace(const thread Ray& ray) {
         front = (dot(ray.direction, n) < 0);
     }
 #endif
@@ -27,8 +27,6 @@ struct HitRecord {
 };
 
 struct ScatRecord {
-    Ray specular = {float3(0), float3(0)};
-    float prob;
     float3 attenuation;
     // pdf: PDF
 };

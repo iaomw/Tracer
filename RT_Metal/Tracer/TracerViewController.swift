@@ -22,13 +22,14 @@ class TracerViewController: NSViewController {
     } ()
     
     override func viewDidLoad() {
+        super.viewDidLoad()
+        
         metalRender = AAPLRenderer(metalKitView: self.metalView)
         
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { (event) -> NSEvent? in
             self.keyDown(with: event)
             return event
         }
-       // NSEvent.addLocalMonitorForEventsMatchingMask(NSEventMask.KeyDownMask, handler: keyDownkeyDown)
     }
     
     override func mouseUp(with event: NSEvent) {

@@ -20,7 +20,7 @@ struct Material {
     float refractionRoughness;
     float3  refractionColor;
     
-    struct Texture texture;
+    struct TextureInfo textureInfo;
 };
 
 float schlick(float cosine, float ref_idx);

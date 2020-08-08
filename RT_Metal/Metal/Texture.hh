@@ -3,9 +3,14 @@
 
 #include "Common.hh"
 
+#include "Noise.hh"
+
 enum struct TextureType { Constant, Checker, Noise, Image };
-struct Texture {
+
+struct TextureInfo {
+    
     enum TextureType type;
+    
     uint textureIndex;
     float3 albedo;
     
@@ -18,7 +23,7 @@ struct Texture {
                 return albedo;
                 
             case TextureType::Checker: {
-                auto sines = sin(100 * uv.x) * cos(10 * uv.y);
+                auto sines = sin(10 * M_PI_F * uv.x) * cos(M_PI_F * uv.y);
                 if (sines < 0)
                     return albedo * 0.5;
                 else
@@ -32,6 +37,9 @@ struct Texture {
                 auto sample = texture->sample(textureSampler, uv);
                 return float3(sample.rgb);
             }
+                
+            case TextureType::Noise:
+                return float3( noise(p * 0.1) );
                 
             default:
                 return albedo;

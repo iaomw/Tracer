@@ -22,7 +22,7 @@ struct Square {
     
 #ifdef __METAL_VERSION__
     
-    bool hit_test(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) constant {
+    bool hit_test(const thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) constant {
         
         //if (!boundingBOX.hit(ray, range_t)) {return false;}
         
@@ -45,6 +45,8 @@ struct Square {
         hitRecord.checkFace(ray);
         hitRecord.p = ray.pointAt(t);
         hitRecord.material = material;
+        
+        range_t.y = hitRecord.t;
         
         return true;
     }

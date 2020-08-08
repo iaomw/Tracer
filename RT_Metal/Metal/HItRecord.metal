@@ -4,7 +4,7 @@ bool emit(thread HitRecord& hitRecord, thread float3& color) {
     
     switch(hitRecord.material.type) {
         case MaterialType::Diffuse: {
-            color = hitRecord.material.texture.albedo;
+            color = hitRecord.material.textureInfo.albedo;
             return true;
         }
         case MaterialType::Metal:

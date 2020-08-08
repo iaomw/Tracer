@@ -8,15 +8,15 @@ bool scatter(thread Ray& ray,
     auto material = hitRecord.material;
     auto normal = hitRecord.normal();
     
+    auto attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+    
     switch(material.type) {
             
         case MaterialType::Lambert: {
             
             auto direction = normal + randomUnit(seed);
-            //normal + randomInHemisphere(normal, seed);
-            auto scattered = Ray(hitRecord.p, direction);
-            auto attenuation = material.texture.value(nullptr, hitRecord.uv, hitRecord.p);
-            scatRecord.specular = scattered;
+            
+            ray = Ray(hitRecord.p, direction);
             scatRecord.attenuation = attenuation;
             return true;
         }
@@ -25,19 +25,15 @@ bool scatter(thread Ray& ray,
             
             auto fuzz = 0.01 * randomInUnitSphereFFF(seed);
             auto reflected = reflect(ray.direction, normal);
-            auto scattered = Ray(hitRecord.p, reflected + fuzz);
-            auto attenuation = material.texture.albedo;
+            auto direction = reflected + fuzz;
             
-            attenuation = material.texture.value(nullptr, hitRecord.uv, hitRecord.p);
-            
-            scatRecord.specular = scattered;
+            ray = Ray(hitRecord.p, direction);
             scatRecord.attenuation = attenuation;
-            return true;//(dot(scattered.direction, hitRecord.normal()) > 0);
+            return true;
         }
             
         case MaterialType::Dielectric: {
             
-            auto attenuation = material.texture.albedo;
             auto theIOR = hitRecord.front? (1.0/material.parameter) : material.parameter;
             
             auto unit_direction = ray.direction;
@@ -46,8 +42,8 @@ bool scatter(thread Ray& ray,
             
             if (theIOR * sin_theta > 1.0 ) {
                 auto reflected = reflect(unit_direction, normal);
-                auto scattered = Ray(hitRecord.p, reflected);
-                scatRecord.specular = scattered;
+                
+                ray = Ray(hitRecord.p, reflected);
                 scatRecord.attenuation = attenuation;
                 return true;
             }
@@ -55,15 +51,15 @@ bool scatter(thread Ray& ray,
             auto reflect_prob = schlick(cos_theta, theIOR);
             if (randomF(seed) < reflect_prob) {
                 auto reflected = reflect(unit_direction, normal);
-                auto scattered = Ray(hitRecord.p, reflected);
-                scatRecord.specular = scattered;
+                
+                ray = Ray(hitRecord.p, reflected);
                 scatRecord.attenuation = attenuation;
                 return true;
             }
 
             auto refracted = refract(unit_direction, normal, theIOR);
-            auto scattered = Ray(hitRecord.p, refracted);
-            scatRecord.specular = scattered;
+            
+            ray = Ray(hitRecord.p, refracted);
             scatRecord.attenuation = attenuation;
             return true;
         }
@@ -71,18 +67,14 @@ bool scatter(thread Ray& ray,
             return false;
         }
         case MaterialType::Isotropic: {
-
-            auto scattered = Ray(hitRecord.p, randomInUnitSphereFFF(seed));
-            //auto attenuation = material.texture.value(hitRecord.uv, hitRecord.p);
-            scatRecord.attenuation = hitRecord.material.texture.albedo;
-            scatRecord.specular = scattered;
             
+            ray = Ray(hitRecord.p, randomInUnitSphereFFF(seed));
+            scatRecord.attenuation = attenuation;
             return true;
         }
             
         case MaterialType::Specular: {
             
-            //normal = hitRecord.n;
             float rayProbability = 1.0f;
             auto throughput = float3(1.0);
             
@@ -148,13 +140,12 @@ bool scatter(thread Ray& ray,
             auto direction = mix(diffuseDir, specularDir, doSpecular);
             direction = mix(direction, refractionDir, doRefraction);
             
-            auto scattered = Ray(origin, direction);
-            scatRecord.specular = scattered;
+            ray = Ray(origin, direction);
             scatRecord.attenuation = throughput;
-            scatRecord.prob = rayProbability;
             
             if (doRefraction == 0.0f) {
-                scatRecord.attenuation *= mix(hitRecord.material.texture.albedo,
+                
+                scatRecord.attenuation *= mix(hitRecord.material.textureInfo.albedo,
                                               hitRecord.material.specularColor,
                                               doSpecular);
             }

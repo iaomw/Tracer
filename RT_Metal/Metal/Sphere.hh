@@ -23,7 +23,7 @@ struct Sphere {
         uv[1] = (theta + M_PI_2_F) / M_PI_F;
     }
     
-    bool hit_test(thread Ray& ray, float2 range_t, thread HitRecord& hitRecord) constant {
+    bool hit_test(const thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) constant {
         
         float3 oc = ray.origin - center;
     
@@ -47,6 +47,9 @@ struct Sphere {
             hitRecord.checkFace(ray);
             sphereUV(hitRecord.n, hitRecord.uv);
             hitRecord.material = material;
+            
+            range_t.y = hitRecord.t;
+            
             return true;
         }
 
@@ -58,6 +61,9 @@ struct Sphere {
             hitRecord.checkFace(ray);
             sphereUV(hitRecord.n, hitRecord.uv);
             hitRecord.material = material;
+            
+            range_t.y = hitRecord.t;
+            
             return true;
         }
         

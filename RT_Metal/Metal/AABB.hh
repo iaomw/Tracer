@@ -14,7 +14,7 @@ struct AABB {
 #ifdef __METAL_VERSION__
     
     // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms/
-    bool hit(thread Ray& ray, float2 range_t) constant {
+    bool hit(thread Ray& ray, const thread float2& range_t) constant {
         
         float tmin = range_t.x, tmax = range_t.y;
             
@@ -35,7 +35,7 @@ struct AABB {
         return true;
     }
     
-    bool hit(thread Ray& ray, float2 range_t, thread HitRecord& record) constant {
+    bool hit(thread Ray& ray, const thread float2& range_t, thread HitRecord& record) constant {
         
         float tmin = range_t.x;
         float tmax = range_t.y;

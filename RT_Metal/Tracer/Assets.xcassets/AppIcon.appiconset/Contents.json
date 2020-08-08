@@ -1,61 +1,61 @@
 {
   "images" : [
     {
-      "filename" : "metal-bar-16.png",
+      "filename" : "mac-16x16.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "16x16"
     },
     {
-      "filename" : "metal-bar-32.png",
+      "filename" : "mac-16x16@2x.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "16x16"
     },
     {
-      "filename" : "metal-bar-33.png",
+      "filename" : "mac-32x32.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "32x32"
     },
     {
-      "filename" : "metal-bar-64.png",
+      "filename" : "mac-32x32@2x.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "32x32"
     },
     {
-      "filename" : "metal-bar-128.png",
+      "filename" : "mac-128x128.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "128x128"
     },
     {
-      "filename" : "metal-bar-256.png",
+      "filename" : "mac-128x128@2x.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "128x128"
     },
     {
-      "filename" : "metal-bar-257.png",
+      "filename" : "mac-256x256.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "256x256"
     },
     {
-      "filename" : "metal-bar-512.png",
+      "filename" : "mac-256x256@2x.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "256x256"
     },
     {
-      "filename" : "metal-bar-513.png",
+      "filename" : "mac-512x512.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "512x512"
     },
     {
-      "filename" : "metal-bar-1024.png",
+      "filename" : "mac-512x512@2x.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "512x512"

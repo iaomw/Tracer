@@ -8,14 +8,17 @@ struct Ray {
     float3 direction;
     //Float time;
     //const Medium *medium;
+    
 #ifdef __METAL_VERSION__
+    Ray();
+    
     Ray(float3 o, float3 d) {
         origin = o;
         direction = metal::normalize(d);
     }
 #endif
     
-    float3 pointAt(float t) {
+    float3 pointAt(float t) const {
         return origin + direction * t;
     }
 };

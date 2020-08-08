@@ -16,7 +16,42 @@
 		5759E67524DB496600C8A2D7 /* Camera.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67424DB496600C8A2D7 /* Camera.metal */; };
 		5759E67E24DB717400C8A2D7 /* Material.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67D24DB717400C8A2D7 /* Material.metal */; };
 		5759E68024DB723D00C8A2D7 /* HItRecord.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67F24DB723D00C8A2D7 /* HItRecord.metal */; };
+		5759E68424DCAC1E00C8A2D7 /* Noise.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E68324DCAC1E00C8A2D7 /* Noise.metal */; };
 		575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 575F7DBA242469C300DA5F33 /* TracerWindowController.swift */; };
+		57874FBE24DDF37100080AB7 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57874FBD24DDF37100080AB7 /* AppDelegate.swift */; };
+		57874FC024DDF37100080AB7 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57874FBF24DDF37100080AB7 /* SceneDelegate.swift */; };
+		57874FC224DDF37100080AB7 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57874FC124DDF37100080AB7 /* ViewController.swift */; };
+		57874FC524DDF37100080AB7 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 57874FC324DDF37100080AB7 /* Main.storyboard */; };
+		57874FC724DDF37200080AB7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 57874FC624DDF37200080AB7 /* Assets.xcassets */; };
+		57874FCA24DDF37200080AB7 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 57874FC824DDF37200080AB7 /* LaunchScreen.storyboard */; };
+		57874FCF24DDF70800080AB7 /* Tracer.hh in Sources */ = {isa = PBXBuildFile; fileRef = 571C09612439269400DA0BAC /* Tracer.hh */; };
+		57874FD024DDF70800080AB7 /* Tracer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571C095F2439267700DA0BAC /* Tracer.mm */; };
+		57874FD124DDF70800080AB7 /* AAPLRenderer.hh in Sources */ = {isa = PBXBuildFile; fileRef = 571FF88C246367FC002DDF02 /* AAPLRenderer.hh */; };
+		57874FD224DDF70800080AB7 /* AAPLRenderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571FF88A246367E4002DDF02 /* AAPLRenderer.mm */; };
+		57874FD324DDF73900080AB7 /* Common.hh in Sources */ = {isa = PBXBuildFile; fileRef = 571FF88D24639A81002DDF02 /* Common.hh */; };
+		57874FD424DDFECC00080AB7 /* Ray.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67224DB483D00C8A2D7 /* Ray.hh */; };
+		57874FD524DDFECC00080AB7 /* Camera.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67324DB492500C8A2D7 /* Camera.hh */; };
+		57874FD624DDFECC00080AB7 /* Camera.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67424DB496600C8A2D7 /* Camera.metal */; };
+		57874FD724DDFECC00080AB7 /* Texture.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67624DB651400C8A2D7 /* Texture.hh */; };
+		57874FD824DDFECC00080AB7 /* Material.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67724DB65F200C8A2D7 /* Material.hh */; };
+		57874FD924DDFECC00080AB7 /* Material.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67D24DB717400C8A2D7 /* Material.metal */; };
+		57874FDA24DDFECC00080AB7 /* HitRecord.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67924DB674C00C8A2D7 /* HitRecord.hh */; };
+		57874FDB24DDFECC00080AB7 /* HItRecord.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67F24DB723D00C8A2D7 /* HItRecord.metal */; };
+		57874FDC24DDFECC00080AB7 /* Scatter.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67124DB3EB900C8A2D7 /* Scatter.hh */; };
+		57874FDD24DDFECC00080AB7 /* Scatter.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5749BCA22435005B002B60E4 /* Scatter.metal */; };
+		57874FDE24DDFECC00080AB7 /* BVH.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E68124DC352E00C8A2D7 /* BVH.hh */; };
+		57874FDF24DDFECC00080AB7 /* AABB.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67824DB667400C8A2D7 /* AABB.hh */; };
+		57874FE024DDFECC00080AB7 /* Cube.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67B24DB6D3B00C8A2D7 /* Cube.hh */; };
+		57874FE124DDFECC00080AB7 /* Square.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67A24DB6C8600C8A2D7 /* Square.hh */; };
+		57874FE224DDFECC00080AB7 /* Sphere.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67C24DB6D9500C8A2D7 /* Sphere.hh */; };
+		57874FE324DDFECC00080AB7 /* Tracer-Bridging-Header.h in Sources */ = {isa = PBXBuildFile; fileRef = 573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */; };
+		57874FE424DDFECC00080AB7 /* Noise.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E68224DCAA1C00C8A2D7 /* Noise.hh */; };
+		57874FE524DDFECC00080AB7 /* Noise.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E68324DCAC1E00C8A2D7 /* Noise.metal */; };
+		57874FE624DDFECC00080AB7 /* Random.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5749BCA624362BDE002B60E4 /* Random.hh */; };
+		57874FE724DDFECC00080AB7 /* Random.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1112433AA9900B09B0A /* Random.metal */; };
+		57874FE824DDFECC00080AB7 /* Render.hh in Sources */ = {isa = PBXBuildFile; fileRef = 573DD10A24335D6D00B09B0A /* Render.hh */; };
+		57874FE924DDFECC00080AB7 /* Render.metal in Sources */ = {isa = PBXBuildFile; fileRef = 573DD1082432B9D900B09B0A /* Render.metal */; };
+		57874FEA24DDFF0500080AB7 /* vulture_hide_4k.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 570DF00824CF979500421890 /* vulture_hide_4k.hdr */; };
 		57DD356A241EEC110094632B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD3569241EEC110094632B /* AppDelegate.swift */; };
 		57DD356C241EEC110094632B /* TracerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD356B241EEC110094632B /* TracerViewController.swift */; };
 		57DD356E241EEC140094632B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356D241EEC140094632B /* Assets.xcassets */; };
@@ -50,7 +85,17 @@
 		5759E67D24DB717400C8A2D7 /* Material.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Material.metal; sourceTree = "<group>"; };
 		5759E67F24DB723D00C8A2D7 /* HItRecord.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = HItRecord.metal; sourceTree = "<group>"; };
 		5759E68124DC352E00C8A2D7 /* BVH.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = BVH.hh; sourceTree = "<group>"; };
+		5759E68224DCAA1C00C8A2D7 /* Noise.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Noise.hh; sourceTree = "<group>"; };
+		5759E68324DCAC1E00C8A2D7 /* Noise.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Noise.metal; sourceTree = "<group>"; };
 		575F7DBA242469C300DA5F33 /* TracerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TracerWindowController.swift; sourceTree = "<group>"; };
+		57874FBB24DDF37100080AB7 /* Tracer-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Tracer-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		57874FBD24DDF37100080AB7 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		57874FBF24DDF37100080AB7 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		57874FC124DDF37100080AB7 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		57874FC424DDF37100080AB7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		57874FC624DDF37200080AB7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		57874FC924DDF37200080AB7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		57874FCB24DDF37200080AB7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		57DD3566241EEC110094632B /* Tracer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tracer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		57DD3569241EEC110094632B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		57DD356B241EEC110094632B /* TracerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TracerViewController.swift; sourceTree = "<group>"; };
@@ -61,6 +106,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		57874FB824DDF37100080AB7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		57DD3563241EEC110094632B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -90,13 +142,29 @@
 				5759E67B24DB6D3B00C8A2D7 /* Cube.hh */,
 				5759E67A24DB6C8600C8A2D7 /* Square.hh */,
 				5759E67C24DB6D9500C8A2D7 /* Sphere.hh */,
-				573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */,
+				5759E68224DCAA1C00C8A2D7 /* Noise.hh */,
+				5759E68324DCAC1E00C8A2D7 /* Noise.metal */,
 				5749BCA624362BDE002B60E4 /* Random.hh */,
 				573DD1112433AA9900B09B0A /* Random.metal */,
+				573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */,
 				573DD10A24335D6D00B09B0A /* Render.hh */,
 				573DD1082432B9D900B09B0A /* Render.metal */,
 			);
 			path = Metal;
+			sourceTree = "<group>";
+		};
+		57874FBC24DDF37100080AB7 /* Tracer-iOS */ = {
+			isa = PBXGroup;
+			children = (
+				57874FBD24DDF37100080AB7 /* AppDelegate.swift */,
+				57874FC124DDF37100080AB7 /* ViewController.swift */,
+				57874FBF24DDF37100080AB7 /* SceneDelegate.swift */,
+				57874FC624DDF37200080AB7 /* Assets.xcassets */,
+				57874FC324DDF37100080AB7 /* Main.storyboard */,
+				57874FC824DDF37200080AB7 /* LaunchScreen.storyboard */,
+				57874FCB24DDF37200080AB7 /* Info.plist */,
+			);
+			path = "Tracer-iOS";
 			sourceTree = "<group>";
 		};
 		57DD355D241EEC110094632B = {
@@ -104,6 +172,7 @@
 			children = (
 				573DD1072432961400B09B0A /* Metal */,
 				57DD3568241EEC110094632B /* Tracer */,
+				57874FBC24DDF37100080AB7 /* Tracer-iOS */,
 				57DD3567241EEC110094632B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -112,6 +181,7 @@
 			isa = PBXGroup;
 			children = (
 				57DD3566241EEC110094632B /* Tracer.app */,
+				57874FBB24DDF37100080AB7 /* Tracer-iOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -138,6 +208,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		57874FBA24DDF37100080AB7 /* Tracer-iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 57874FCE24DDF37200080AB7 /* Build configuration list for PBXNativeTarget "Tracer-iOS" */;
+			buildPhases = (
+				57874FB724DDF37100080AB7 /* Sources */,
+				57874FB824DDF37100080AB7 /* Frameworks */,
+				57874FB924DDF37100080AB7 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Tracer-iOS";
+			productName = "Tracer-iOS";
+			productReference = 57874FBB24DDF37100080AB7 /* Tracer-iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
 		57DD3565241EEC110094632B /* Tracer */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 57DD3576241EEC140094632B /* Build configuration list for PBXNativeTarget "Tracer" */;
@@ -161,10 +248,13 @@
 		57DD355E241EEC110094632B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 1130;
+				LastSwiftUpdateCheck = 1200;
 				LastUpgradeCheck = 1200;
 				ORGANIZATIONNAME = iaomw;
 				TargetAttributes = {
+					57874FBA24DDF37100080AB7 = {
+						CreatedOnToolsVersion = 12.0;
+					};
 					57DD3565241EEC110094632B = {
 						CreatedOnToolsVersion = 11.3.1;
 						LastSwiftMigration = 1140;
@@ -185,24 +275,73 @@
 			projectRoot = "";
 			targets = (
 				57DD3565241EEC110094632B /* Tracer */,
+				57874FBA24DDF37100080AB7 /* Tracer-iOS */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		57874FB924DDF37100080AB7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57874FCA24DDF37200080AB7 /* LaunchScreen.storyboard in Resources */,
+				57874FEA24DDFF0500080AB7 /* vulture_hide_4k.hdr in Resources */,
+				57874FC524DDF37100080AB7 /* Main.storyboard in Resources */,
+				57874FC724DDF37200080AB7 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		57DD3564241EEC110094632B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				570DF00924CF97F700421890 /* vulture_hide_4k.hdr in Resources */,
-				57DD356E241EEC140094632B /* Assets.xcassets in Resources */,
 				57DD3571241EEC140094632B /* Main.storyboard in Resources */,
+				57DD356E241EEC140094632B /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		57874FB724DDF37100080AB7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57874FD424DDFECC00080AB7 /* Ray.hh in Sources */,
+				57874FD524DDFECC00080AB7 /* Camera.hh in Sources */,
+				57874FD624DDFECC00080AB7 /* Camera.metal in Sources */,
+				57874FD724DDFECC00080AB7 /* Texture.hh in Sources */,
+				57874FD824DDFECC00080AB7 /* Material.hh in Sources */,
+				57874FD924DDFECC00080AB7 /* Material.metal in Sources */,
+				57874FDA24DDFECC00080AB7 /* HitRecord.hh in Sources */,
+				57874FDB24DDFECC00080AB7 /* HItRecord.metal in Sources */,
+				57874FDC24DDFECC00080AB7 /* Scatter.hh in Sources */,
+				57874FDD24DDFECC00080AB7 /* Scatter.metal in Sources */,
+				57874FDE24DDFECC00080AB7 /* BVH.hh in Sources */,
+				57874FDF24DDFECC00080AB7 /* AABB.hh in Sources */,
+				57874FE024DDFECC00080AB7 /* Cube.hh in Sources */,
+				57874FE124DDFECC00080AB7 /* Square.hh in Sources */,
+				57874FE224DDFECC00080AB7 /* Sphere.hh in Sources */,
+				57874FE324DDFECC00080AB7 /* Tracer-Bridging-Header.h in Sources */,
+				57874FE424DDFECC00080AB7 /* Noise.hh in Sources */,
+				57874FE524DDFECC00080AB7 /* Noise.metal in Sources */,
+				57874FE624DDFECC00080AB7 /* Random.hh in Sources */,
+				57874FE724DDFECC00080AB7 /* Random.metal in Sources */,
+				57874FE824DDFECC00080AB7 /* Render.hh in Sources */,
+				57874FE924DDFECC00080AB7 /* Render.metal in Sources */,
+				57874FD324DDF73900080AB7 /* Common.hh in Sources */,
+				57874FCF24DDF70800080AB7 /* Tracer.hh in Sources */,
+				57874FD024DDF70800080AB7 /* Tracer.mm in Sources */,
+				57874FD124DDF70800080AB7 /* AAPLRenderer.hh in Sources */,
+				57874FD224DDF70800080AB7 /* AAPLRenderer.mm in Sources */,
+				57874FC224DDF37100080AB7 /* ViewController.swift in Sources */,
+				57874FBE24DDF37100080AB7 /* AppDelegate.swift in Sources */,
+				57874FC024DDF37100080AB7 /* SceneDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		57DD3562241EEC110094632B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -217,6 +356,7 @@
 				57DD356C241EEC110094632B /* TracerViewController.swift in Sources */,
 				5759E67524DB496600C8A2D7 /* Camera.metal in Sources */,
 				57DD356A241EEC110094632B /* AppDelegate.swift in Sources */,
+				5759E68424DCAC1E00C8A2D7 /* Noise.metal in Sources */,
 				571FF88B246367E4002DDF02 /* AAPLRenderer.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -224,6 +364,22 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
+		57874FC324DDF37100080AB7 /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				57874FC424DDF37100080AB7 /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		57874FC824DDF37200080AB7 /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				57874FC924DDF37200080AB7 /* Base */,
+			);
+			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
 		57DD356F241EEC140094632B /* Main.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -235,6 +391,55 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		57874FCC24DDF37200080AB7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = DPLD6QA2D7;
+				INFOPLIST_FILE = "Tracer-iOS/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "IA.Tracer-iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "Metal/Tracer-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		57874FCD24DDF37200080AB7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = "Tracer-iOS/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "IA.Tracer-iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "Metal/Tracer-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		57DD3574241EEC140094632B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -404,6 +609,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		57874FCE24DDF37200080AB7 /* Build configuration list for PBXNativeTarget "Tracer-iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				57874FCC24DDF37200080AB7 /* Debug */,
+				57874FCD24DDF37200080AB7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		57DD3561241EEC110094632B /* Build configuration list for PBXProject "Tracer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

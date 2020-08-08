@@ -56,7 +56,6 @@ float3 LinearToSRGB(float3 rgb)
 float3 SRGBToLinear(float3 rgb)
 {
     rgb = clamp(rgb, 0.0f, 1.0f);
-     
     return mix(
         pow(((rgb + 0.055f) / 1.055f), float3(2.4f)),
         rgb / 12.92f,
@@ -144,7 +143,7 @@ fragmentShader( RasterizerData input [[stage_in]],
     auto mix_luma = (this_luma + prev_luma * frame_count) / (1 + frame_count);
     
    // float luminance = dot(mix_mip.rgb, float3(0.2126, 0.7152, 0.0722));
-    float mapped = clamp(CETone(mix_luma, 1.0f), 0.04, 0.96);
+    float mapped = clamp(CETone(mix_luma, 1.0f), 0.0, 0.96);
     float expose = 1.0 - mapped;
     
     tex_color.rgb = ACESTone(tex_color.rgb, expose);
@@ -153,115 +152,73 @@ fragmentShader( RasterizerData input [[stage_in]],
     return tex_color;
 }
 
-static float3 traceColor(float depth,
-                         thread Ray& ray,
+static float3 traceColor(float depth, thread Ray& ray,
                          
-                         texture2d<half, access::sample> ambientHDR,
+                         thread texture2d<half, access::sample> &ambientHDR,
                          
                          constant Sphere* sphere_list,
                          constant Square* square_list,
                          constant Cube* cube_list,
+                         
                          thread pcg32_random_t* seed)
 {
     HitRecord hitRecord;
     ScatRecord scatRecord;
     
-    float3 color = float3(0.0);
     float3 ratio = float3(1.0);
-    float2 range_t = float2(0.01, FLT_MAX);
-    
-    Ray test_ray = ray;
-    bool hitted = false;
-    bool has_ray = false;
+    float2 range_t;
     
     do {
-        hitted = false;
-        has_ray = false;
         
-        HitRecord hit_re;
         range_t = float2(0.01, FLT_MAX);
 
         for (int i=0; i<13; i++) {
-            auto sphere = &sphere_list[i];
-            if(sphere->hit_test(test_ray, range_t, hit_re)) {
-                if (hit_re.t < range_t.y) {
-                    range_t.y = hit_re.t;
-                    hitRecord = hit_re;
-                    hitted = true;
-                }
-            }
+            sphere_list[i].hit_test(ray, range_t, hitRecord);
         }
 
         for (int i=0; i<6; i++) {
-            auto square = &square_list[i];
-            if(square->hit_test(test_ray, range_t, hit_re)) {
-                if (hit_re.t < range_t.y) {
-                    range_t.y = hit_re.t;
-                    hitRecord = hit_re;
-                    hitted = true;
-                }
-            }
+            square_list[i].hit_test(ray, range_t, hitRecord);
         }
 
         for (int i=0; i<1; i++) {
-            auto cube = &cube_list[i];
-            if(cube->hit_test(test_ray, range_t, hit_re)) {
-                if (hit_re.t < range_t.y) {
-                    range_t.y = hit_re.t;
-                    hitRecord = hit_re;
-                    hitted = true;
-                }
-            }
+            cube_list[i].hit_test(ray, range_t, hitRecord);
         }
 
-        //for (int i=1; i<2; i++) {
+//        for (int i=1; i<2; i++) {
 //            auto cube = &cube_list[1];
-//            if(cube->hit_medium(test_ray, range_t, hit_re, seed)) {
-//                if (hit_re.t < range_t.y) {
-//                    range_t.y = hit_re.t;
-//                    hitRecord = hit_re;
-//                    hitted = true;
-//                }
-//            }
-        //}
+//            cube->hit_medium(ray, range_t, hitRecord, seed);
+//        }
         
-        if (!hitted) {
-            float3 sphereVector = test_ray.origin + 1000000 * test_ray.direction;
-            float2 uv = SampleSphericalMap(normalize(sphereVector) * float3(1, -1, -1));
+        if ( FLT_MAX == range_t.y ) {
+            float3 sphereVector = ray.origin + 1000000 * ray.direction;
+            sphereVector = normalize(sphereVector) * float3(1, -1, -1);
+            float2 uv = SampleSphericalMap(sphereVector);
             auto ambient = ambientHDR.sample(textureSampler, uv);
-            color = ratio * float3(ambient.rgb);
-            return color; //break;
+            return ratio * float3(ambient.rgb);
         }
         
         float3 emit_color;
-        auto emitted = emit(hitRecord, emit_color);
-        if (emitted) {
-            color = ratio * emit_color;
-            return color;
+        if ( emit(hitRecord, emit_color) ) {
+            return ratio * emit_color;
         }
         
-        has_ray = scatter(test_ray, hitRecord, scatRecord, seed);
-        
-        if(!has_ray) {
-            return float3(0, 0, 0); //break;
+        if ( !scatter(ray, hitRecord, scatRecord, seed) ) {
+            return float3(0); //break;
         }
         
-        ratio = ratio * scatRecord.attenuation;
-        test_ray = scatRecord.specular;
+        ratio *= scatRecord.attenuation;
         
         { // Russian Roulette
-            float p = max(ratio.r, max(ratio.g, ratio.b));
+            float p = max3(ratio.r, ratio.g, ratio.b);
             if (randomF(seed) > p)
                 break;
             // Add the energy we 'lose' by randomly terminating paths
             ratio *= 1.0f / p;
         }
         
-        depth -= 1;
-        
-    } while(has_ray && depth > 0);
+    } while( (--depth) > 0 );
     
-    return color;
+    return float3(0);
 }
 
 kernel void

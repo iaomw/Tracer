@@ -148,8 +148,8 @@ void prepareCubeList(std::vector<Cube>& list) {
     
     Material metal; metal.type = MaterialType::Metal;
     
-    metal.texture.type = TextureType::Constant;
-    metal.texture.albedo = simd_make_float3(0.8, 0.85, 0.88);
+    metal.textureInfo.type = TextureType::Constant;
+    metal.textureInfo.albedo = simd_make_float3(0.8, 0.85, 0.88);
     
     auto bigger = MakeCube(simd_make_float3(0, 0, 0),
                            simd_make_float3(165, 330, 165), metal);
@@ -174,9 +174,8 @@ void prepareCubeList(std::vector<Cube>& list) {
 //    list.emplace_back(bigger);
     
     Material white; white.type = MaterialType::Isotropic;
-    white.texture.albedo = simd_make_float3(0.73, 0.73, 0.73);
-    white.texture.albedo = simd_make_float3(1, 1, 1);
-    white.texture.albedo = simd_make_float3(0.5, 0.5, 0.5);
+    white.textureInfo.albedo = simd_make_float3(0.73, 0.73, 0.73);
+    white.textureInfo.albedo = simd_make_float3(1, 1, 1);
     white.parameter = 0.01;
     
     auto smaller = MakeCube(simd_make_float3(0, 0, 0),
@@ -195,19 +194,19 @@ void prepareCubeList(std::vector<Cube>& list) {
 void prepareCornellBox(std::vector<Square>& list) {
     
     Material light; light.type= MaterialType::Diffuse;
-    light.texture.albedo = simd_make_float3(21, 21, 21);
+    light.textureInfo.albedo = simd_make_float3(21, 21, 21);
     
     Material red; red.type = MaterialType::Lambert;
-    red.texture.type = TextureType::Constant;
-    red.texture.albedo = simd_make_float3(0.65, 0.05, 0.05);
+    red.textureInfo.type = TextureType::Constant;
+    red.textureInfo.albedo = simd_make_float3(0.65, 0.05, 0.05);
     
     Material green; green.type = MaterialType::Lambert;
-    green.texture.type = TextureType::Constant;
-    green.texture.albedo = simd_make_float3(0.05, 0.65, 0.05);
+    green.textureInfo.type = TextureType::Constant;
+    green.textureInfo.albedo = simd_make_float3(0.05, 0.65, 0.05);
     
     Material white; white.type = MaterialType::Lambert;
-    white.texture.type = TextureType::Checker;
-    white.texture.albedo = simd_make_float3(0.73, 0.73, 0.73);
+    white.textureInfo.type = TextureType::Checker;
+    white.textureInfo.albedo = simd_make_float3(0.73, 0.73, 0.73);
     
     auto lightSource = MakeSquare(0, simd_make_float2(200, 355), 2, simd_make_float2(200, 355), 1, 554);
     //auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
@@ -239,7 +238,8 @@ void prepareCornellBox(std::vector<Square>& list) {
 void prepareSphereList(std::vector<Sphere>& list) {
     
     Material glass; glass.type = MaterialType::Dielectric;
-    glass.texture.albedo = simd_make_float3(1.0, 1.0, 1.0);
+    glass.textureInfo.albedo = simd_make_float3(1.0, 1.0, 1.0);
+    glass.textureInfo.type = TextureType::Noise;
     glass.parameter = 1.5;
     
     auto sphere = MakeSphere(64, simd_make_float3(200, 250, 200));
@@ -249,7 +249,7 @@ void prepareSphereList(std::vector<Sphere>& list) {
     
     Material specu; specu.type = MaterialType::Specular;
     
-    specu.texture.albedo = simd_make_float3(0.9f, 0.25f, 0.25f);
+    specu.textureInfo.albedo = simd_make_float3(0.9f, 0.25f, 0.25f);
     specu.specularProb = 0.02f;
     specu.specularRoughness = 0.0;
     specu.specularColor = simd_make_float3(1.0f, 1.0f, 1.0f) * 0.8f;
@@ -270,7 +270,7 @@ void prepareSphereList(std::vector<Sphere>& list) {
     
     Material gloss; gloss.type = MaterialType::Specular;
     
-    gloss.texture.albedo = simd_make_float3(1.0);
+    gloss.textureInfo.albedo = simd_make_float3(1.0);
     gloss.specularProb = 1.0f;
     gloss.specularRoughness = 0.0;
     gloss.specularColor = simd_make_float3(0.3f, 1.0f, 0.3f);

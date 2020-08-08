@@ -71,7 +71,11 @@ typedef struct  {
         _device = view.device;
         //_view.preferredFramesPerSecond = 30;
         _commandQueue = [_device newCommandQueue];
+        
         _view.colorPixelFormat = MTLPixelFormatRGBA16Float;
+        //_view.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+        //_view.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedSRGB);
+        //_view.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedLinearSRGB);
         
         NSError* ERROR;
 
@@ -112,19 +116,19 @@ typedef struct  {
         prepareCubeList(cube_list);
         _cube_list_buffer = [_device newBufferWithBytes:cube_list.data()
                             length:sizeof(struct Cube)*cube_list.size()
-                            options: MTLResourceStorageModeManaged];
+                            options: MTLResourceStorageModeShared];
         
         std::vector<Square> cornell_box;
         prepareCornellBox(cornell_box);
         _cornell_box_buffer = [_device newBufferWithBytes:cornell_box.data()
                             length:sizeof(struct Square)*cornell_box.size()
-                            options: MTLResourceStorageModeManaged];
+                            options: MTLResourceStorageModeShared];
         
         std::vector<Sphere> sphere_list;
         prepareSphereList(sphere_list);
         _sphere_list_buffer = [_device newBufferWithBytes:sphere_list.data()
                             length:sizeof(struct Sphere)*sphere_list.size()
-                            options: MTLResourceStorageModeManaged];
+                            options: MTLResourceStorageModeShared];
         
         // Create a reusable pipeline state object.
         let pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
@@ -134,7 +138,7 @@ typedef struct  {
         
         pipelineStateDescriptor.vertexFunction = vertexFunction;
         pipelineStateDescriptor.fragmentFunction = fragmentFunction;
-        pipelineStateDescriptor.colorAttachments[0].pixelFormat = _view.colorPixelFormat;
+        pipelineStateDescriptor.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA16Float;
         
         _renderPipelineState = [_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor error:&ERROR];
         
@@ -144,7 +148,7 @@ typedef struct  {
         
         let td = [[MTLTextureDescriptor alloc] init];
         td.textureType = MTLTextureType2D;
-        td.pixelFormat = _view.colorPixelFormat; //MTLPixelFormatBGRA8Unorm;
+        td.pixelFormat = MTLPixelFormatRGBA16Float; //MTLPixelFormatBGRA8Unorm;
         td.width = width;
         td.height = height;
         td.mipmapLevelCount = mipCount;
@@ -190,7 +194,14 @@ typedef struct  {
                         MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
                     };
         
-        let imageData = [[[NSImage alloc] initWithContentsOfURL:url] TIFFRepresentation];
+        #if TARGET_OS_IPHONE
+        
+            let image = [[UIImage alloc] initWithContentsOfFile:path];
+            //let imageData = [[NSData alloc] initWithContentsOfFile:path];
+            let imageData = UIImagePNGRepresentation(image);
+        #else
+            let imageData = [[[NSImage alloc] initWithContentsOfURL:url] TIFFRepresentation];
+        #endif
         
         _textureHDR = [loader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
         
@@ -245,10 +256,8 @@ typedef struct  {
     _scene_meta.view_size = simd_make_float2(size.width, size.height);
 }
 
-- (void)drawInMTKView:(nonnull MTKView *)view
+-(void)render:(MTKView *)view
 {
-    //if (_view.isPaused) {return;}
-    
     let commandBuffer = [_commandQueue commandBuffer];
     let time = [[NSDate date] timeIntervalSince1970];
     _scene_meta.running_time = time - launchTime;
@@ -270,7 +279,12 @@ typedef struct  {
         }
         
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
-            self->_view.needsDisplay = YES;
+            
+            #if TARGET_OS_IPHONE
+                [self->_view setNeedsDisplay];
+            #else
+                self->_view.needsDisplay = YES;
+            #endif
         }];
     }];
     
@@ -325,6 +339,13 @@ typedef struct  {
     let drawable = _view.currentDrawable;
     [commandBuffer presentDrawable:drawable];
     [commandBuffer commit];
+}
+
+- (void)drawInMTKView:(nonnull MTKView *)view
+{
+    @autoreleasepool {
+        [self render:view];
+    }
 }
 
 - (void)drag:(float2)delta state:(BOOL)ended;
