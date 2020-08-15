@@ -73,34 +73,6 @@ void MakeCamera(Camera* camera,
     camera->cornerLowLeft = lookFrom - vertical/2 - horizontal/2 - focus_dist*w;
 }
     
-inline AABB MakeAABB(float3& a, float3& b) {
-
-    auto mini = simd_make_float3(fminf(a.x, b.x),
-                                  fminf(a.y, b.y),
-                                  fminf(a.z, b.z));
-    
-    auto maxi = simd_make_float3(fmaxf(a.x, b.x),
-                                 fmaxf(a.y, b.y),
-                                 fmaxf(a.z, b.z));
-    
-    AABB r; r.mini = mini; r.maxi = maxi;
-    
-    return r;
-}
-
-inline AABB MakeAABB(AABB& box_s, AABB& box_e) {
-    
-    auto small = simd_make_float3(fminf(box_s.mini.x, box_e.mini.x),
-                                  fminf(box_s.mini.y, box_e.mini.y),
-                                  fminf(box_s.mini.z, box_e.mini.z));
-    
-    auto big = simd_make_float3(fmaxf(box_s.maxi.x, box_e.maxi.x),
-                                fmaxf(box_s.maxi.y, box_e.maxi.y),
-                                fmaxf(box_s.maxi.z, box_e.maxi.z));
-
-    return MakeAABB(small, big);
-}
-    
 Square MakeSquare(uint8_t axis_i, float2 range_i, uint8_t axis_j, float2 range_j, uint8_t axis_k, float k) {
     Square r;
     
@@ -121,17 +93,19 @@ Square MakeSquare(uint8_t axis_i, float2 range_i, uint8_t axis_j, float2 range_j
     b[axis_j] = range_j.y;
     b[axis_k] = k + 0.0001;
     
-    r.boundingBOX = MakeAABB(a, b);
+    r.boundingBOX = AABB::make(a, b);
+    r.model_matrix = matrix_identity_float4x4;
     
     return r;
 }
     
 Cube MakeCube(float3 a, float3 b, Material& material) {
     
-    Cube r; r.a = a; r.b = b;
-    
-    r.boundingBOX = MakeAABB(a, b);
+    Cube r;
+    r.box = AABB::make(a, b);
+    r.boundingBOX = r.box;
     r.material = material;
+    r.model_matrix = matrix_identity_float4x4;
     
     return r;
 };
@@ -140,7 +114,8 @@ Sphere MakeSphere(float r, float3 c) {
     Sphere s; s.radius = r+0.0001; s.center = c;
     auto offset = simd_make_float3(r, r, r);
     auto a = c-offset, b = c+offset;
-    s.boundingBOX = MakeAABB(a, b);
+    s.boundingBOX = AABB::make(a, b);
+    s.model_matrix = matrix_identity_float4x4;
     return s;
 }
 

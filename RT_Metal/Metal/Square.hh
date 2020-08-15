@@ -24,8 +24,6 @@ struct Square {
     
     bool hit_test(const thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) constant {
         
-        //if (!boundingBOX.hit(ray, range_t)) {return false;}
-        
         auto t = (value_k-ray.origin[axis_k]) / ray.direction[axis_k];
         if (t<range_t.x || t>range_t.y) { return false; }
         

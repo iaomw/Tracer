@@ -5,10 +5,8 @@ bool scatter(thread Ray& ray,
              thread ScatRecord& scatRecord,
              thread pcg32_random_t* seed)
 {
-    auto material = hitRecord.material;
     auto normal = hitRecord.normal();
-    
-    auto attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+    thread auto& material = hitRecord.material;
     
     switch(material.type) {
             
@@ -17,7 +15,7 @@ bool scatter(thread Ray& ray,
             auto direction = normal + randomUnit(seed);
             
             ray = Ray(hitRecord.p, direction);
-            scatRecord.attenuation = attenuation;
+            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             return true;
         }
             
@@ -28,7 +26,7 @@ bool scatter(thread Ray& ray,
             auto direction = reflected + fuzz;
             
             ray = Ray(hitRecord.p, direction);
-            scatRecord.attenuation = attenuation;
+            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             return true;
         }
             
@@ -44,7 +42,7 @@ bool scatter(thread Ray& ray,
                 auto reflected = reflect(unit_direction, normal);
                 
                 ray = Ray(hitRecord.p, reflected);
-                scatRecord.attenuation = attenuation;
+                scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
                 return true;
             }
 
@@ -53,14 +51,14 @@ bool scatter(thread Ray& ray,
                 auto reflected = reflect(unit_direction, normal);
                 
                 ray = Ray(hitRecord.p, reflected);
-                scatRecord.attenuation = attenuation;
+                scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
                 return true;
             }
 
             auto refracted = refract(unit_direction, normal, theIOR);
             
             ray = Ray(hitRecord.p, refracted);
-            scatRecord.attenuation = attenuation;
+            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             return true;
         }
         case MaterialType::Diffuse: {
@@ -69,7 +67,7 @@ bool scatter(thread Ray& ray,
         case MaterialType::Isotropic: {
             
             ray = Ray(hitRecord.p, randomInUnitSphereFFF(seed));
-            scatRecord.attenuation = attenuation;
+            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             return true;
         }
             

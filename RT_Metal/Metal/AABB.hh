@@ -4,9 +4,6 @@
 #include "Common.hh"
 #include "HitRecord.hh"
 
-enum class Axis { X=0, Y=1, Z=2 };
-//const Axis AxisList[3]{Axis::X, Axis::Y, Axis::Z};
-
 struct AABB {
     float3 mini;
     float3 maxi;
@@ -14,7 +11,7 @@ struct AABB {
 #ifdef __METAL_VERSION__
     
     // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms/
-    bool hit(thread Ray& ray, const thread float2& range_t) constant {
+    bool hit_keep_range(thread Ray& ray, const thread float2& range_t) constant {
         
         float tmin = range_t.x, tmax = range_t.y;
             
@@ -31,6 +28,30 @@ struct AABB {
             
             if (tmax <= tmin) { return false; }
         }
+        
+        return true;
+    }
+    
+    bool hit_update_range(thread Ray& ray, thread float2& range_t) constant {
+        
+        float tmin = range_t.x, tmax = range_t.y;
+            
+        for (auto i : {0, 1, 2}) {
+            
+            auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
+            auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
+            
+            auto ts = min(max_bound, min_bound);
+            auto te = max(max_bound, min_bound);
+            
+            tmin = max(ts, tmin);
+            tmax = min(te, tmax);
+            
+            if (tmax <= tmin) { return false; }
+        }
+        
+        range_t.x = tmin;
+        range_t.y = tmax;
         
         return true;
     }
@@ -80,6 +101,36 @@ struct AABB {
         record.uv = float2(ratio[axisUV.x], ratio[axisUV.y]);
         
         return true;
+    }
+    
+#else
+    
+    static AABB make(float3& a, float3& b) {
+        
+        auto mini = simd_make_float3(fminf(a.x, b.x),
+                                      fminf(a.y, b.y),
+                                      fminf(a.z, b.z));
+        
+        auto maxi = simd_make_float3(fmaxf(a.x, b.x),
+                                     fmaxf(a.y, b.y),
+                                     fmaxf(a.z, b.z));
+        
+        AABB r; r.mini = mini; r.maxi = maxi;
+        
+        return r;
+    }
+
+    static AABB make(AABB& box_s, AABB& box_e) {
+        
+        auto small = simd_make_float3(fminf(box_s.mini.x, box_e.mini.x),
+                                      fminf(box_s.mini.y, box_e.mini.y),
+                                      fminf(box_s.mini.z, box_e.mini.z));
+        
+        auto big = simd_make_float3(fmaxf(box_s.maxi.x, box_e.maxi.x),
+                                    fmaxf(box_s.maxi.y, box_e.maxi.y),
+                                    fmaxf(box_s.maxi.z, box_e.maxi.z));
+
+        return AABB::make(small, big);
     }
     
 #endif

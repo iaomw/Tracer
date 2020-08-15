@@ -4,13 +4,12 @@
 #include "Common.hh"
 
 struct Cube {
-    float3 a;
-    float3 b;
     
     float4x4 model_matrix;
     float4x4 normal_matrix;
     float4x4 inverse_matrix;
     
+    AABB box;
     AABB boundingBOX;
     Material material;
     
@@ -23,7 +22,7 @@ struct Cube {
         
         Ray testRay = Ray(origin.xyz, direction.xyz);
         
-        if(!boundingBOX.hit(testRay, range_t, hitRecord)) {return false;}
+        if(!box.hit(testRay, range_t, hitRecord)) {return false;}
         
         hitRecord.material = material;
         hitRecord.p = ray.pointAt(hitRecord.t);
@@ -62,9 +61,9 @@ struct Cube {
 
         const auto ray_length = length(testRay.direction);
         const auto distance_inside = (rec2.t - rec1.t) * ray_length;
-        const auto hit_distance = neg_inv_density * log( 2 * randomF(seed) );
+        //const auto hit_distance = neg_inv_density * log( randomF(seed) );
         //const auto hit_distance = -100 * log(0.99999 + 0.00002 * randomF(seed));
-        //const auto hit_distance = neg_inv_density * log(0.99999 + 0.00002 * randomF(seed));
+        const auto hit_distance = neg_inv_density * log(0.99999 + 0.00002 * randomF(seed));
         
         if (hit_distance > distance_inside) {
             return false;

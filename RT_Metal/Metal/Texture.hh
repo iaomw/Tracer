@@ -10,7 +10,6 @@ enum struct TextureType { Constant, Checker, Noise, Image };
 struct TextureInfo {
     
     enum TextureType type;
-    
     uint textureIndex;
     float3 albedo;
     

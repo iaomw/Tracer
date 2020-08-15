@@ -126,7 +126,7 @@ fragmentShader( RasterizerData input [[stage_in]],
     auto r_ratio = pix_ratio / tex_ratio;
     offset.x *= r_ratio;
 
-    auto scaled = offset + float2(0.5);
+    auto scaled = float2(-1, 1) * offset + float2(0.5);
     
     if (scaled.x < 0 || scaled.y < 0 || scaled.x > 1.0 || scaled.y > 1.0) { return float4(0.0); }
     
@@ -152,58 +152,214 @@ fragmentShader( RasterizerData input [[stage_in]],
     return tex_color;
 }
 
+static void realTest(constant BVH& bvh_node,
+                            
+                            thread Ray& ray,
+                            thread float2& range_t,
+                            thread HitRecord& hitRecord,
+                            
+                            constant Sphere* sphere_list,
+                            constant Square* square_list,
+                            constant Cube* cube_list,
+                            
+                            constant uint32_t* meshIndex,
+                            constant MeshEle* mesh) {
+    
+    auto shapeIndex = bvh_node.shapeIndex;
+    
+    switch(bvh_node.shape) {
+            
+        case ShapeType::Sphere: {
+            sphere_list[shapeIndex].hit_test(ray, range_t, hitRecord);
+        }
+        case ShapeType::Square: {
+            square_list[shapeIndex].hit_test(ray, range_t, hitRecord);
+        }
+        case ShapeType::Cube: {
+            cube_list[shapeIndex].hit_test(ray, range_t, hitRecord);
+        }
+        case  ShapeType::Mesh: {
+            //square_list[shapeIndex].hit_test(ray, range_t, hitRecord);
+        }
+        default: {}
+    } // switch
+    
+    if ( isinf(range_t.y) ) {
+        
+    }
+}
+
 static float3 traceColor(float depth, thread Ray& ray,
                          
                          thread texture2d<half, access::sample> &ambientHDR,
+                         thread texture2d<half, access::sample> &textureTest,
                          
                          constant Sphere* sphere_list,
                          constant Square* square_list,
                          constant Cube* cube_list,
+                         
+                         constant uint32_t* meshIndex,
+                         constant MeshEle* mesh,
+                         constant BVH* bvh_list,
                          
                          thread pcg32_random_t* seed)
 {
     HitRecord hitRecord;
     ScatRecord scatRecord;
     
-    float3 ratio = float3(1.0);
     float2 range_t;
+    float3 ratio = float3(1.0);
     
+    float3 color = float3(0);
+    float3 markColor = float3(0.0);
+   
     do {
         
-        range_t = float2(0.01, FLT_MAX);
+        range_t = float2(0.01, INFINITY);
 
-        for (int i=0; i<13; i++) {
-            sphere_list[i].hit_test(ray, range_t, hitRecord);
-        }
-
-        for (int i=0; i<6; i++) {
-            square_list[i].hit_test(ray, range_t, hitRecord);
-        }
-
-        for (int i=0; i<1; i++) {
-            cube_list[i].hit_test(ray, range_t, hitRecord);
-        }
-
+//        for (int i=0; i<13; i++) {
+//            sphere_list[i].hit_test(ray, range_t, hitRecord);
+//        }
+//
+//        for (int i=0; i<6; i++) {
+//            square_list[i].hit_test(ray, range_t, hitRecord);
+//        }
+//
+//        for (int i=0; i<1; i++) {
+//            cube_list[i].hit_test(ray, range_t, hitRecord);
+//        }
+//
 //        for (int i=1; i<2; i++) {
-//            auto cube = &cube_list[1];
-//            cube->hit_medium(ray, range_t, hitRecord, seed);
+//            cube_list[1].hit_medium(ray, range_t, hitRecord, seed);
+//        }
+    
+//        for (uint32_t i=0; i<372; i+=3) {
+//        //for (uint32_t i=0; i<140448; i+=3) {
+//
+//            auto index_a = meshIndex[i];
+//            auto index_b = meshIndex[i+1];
+//            auto index_c = meshIndex[i+2];
+//
+//            constant auto& ele_a = mesh[index_a];
+//            constant auto& ele_b = mesh[index_b];
+//            constant auto& ele_c = mesh[index_c];
+//
+//            auto done = MeshEle::rayTriangleIntersect(ray, ele_a, ele_b, ele_c, range_t, hitRecord);
+//
+//            if (done) {
+//                auto hhhh = textureTest.sample(textureSampler, hitRecord.uv);
+//                hitRecord.material.textureInfo.albedo = float3(hhhh.xyz);
+//            }
 //        }
         
-        if ( FLT_MAX == range_t.y ) {
+        //                if ( hitBVH ) {
+        //
+        //                    markRec.p = ray.pointAt(markRec.t);
+        //                    auto delta = abs(markRec.p - center);
+        //
+        //                    int cheker = 0;
+        //
+        //                    for (int i=0; i<3; i++) {
+        //
+        //                        if (abs(delta[i] - half_diagonal[i]) * 0.1 < 0.1) {
+        //                            cheker+=1;
+        //
+        //                            if (cheker == 2) { return float3(0, 1, 0);}
+        //                        }
+        //                    }
+        //                }
+            
+        
+        
+        uint the_index = 0;
+        constant auto& root = bvh_list[the_index];
+        constant auto& bvh_box = root.boundingBOX;
+        
+        uint tested_index = UINT_MAX;
+        
+        float2 range_bvh = float2(FLT_MIN, FLT_MAX);
+        
+        if ( bvh_box.hit_keep_range(ray, range_bvh) ) {
+            
+            do {
+                
+                constant auto& the_node = bvh_list[the_index];
+                
+                uint left_index = the_node.left;
+                uint right_index = the_node.right;
+                
+                constant auto& left_node = bvh_list[left_index];
+                constant auto& right_node = bvh_list[right_index];
+                
+                if (tested_index != left_index && tested_index != right_index) {
+                    
+                    // test left
+                    auto hitted = left_node.boundingBOX.hit_keep_range(ray, range_bvh);
+                    
+                    if (left_node.shape != ShapeType::BVH) {
+                        
+                        if (hitted) { // test real object
+                            realTest(left_node, ray, range_t, hitRecord, sphere_list, square_list, cube_list, meshIndex, mesh);
+                        }
+                        
+                        tested_index = left_index;
+                    } else { // got to left
+                        the_index = left_index;
+                    }
+                    continue;
+                } // came to this part firsty
+                
+                if (tested_index == left_index) {
+                    // test left
+                    auto hitted = right_node.boundingBOX.hit_keep_range(ray, range_bvh);
+                    
+                    if (hitted) {
+                        
+                        if (right_node.shape != ShapeType::BVH) {
+                            
+                            realTest(right_node, ray, range_t, hitRecord, sphere_list, square_list, cube_list, meshIndex, mesh);
+                            tested_index = right_index;
+                            
+                        } else { // got to left
+                            the_index = right_index;
+                        }
+                    }
+                    
+                    continue;
+                } // came back from left
+                
+                if (tested_index == right_index) {
+                    
+                    tested_index = the_index;
+                    the_index = the_node.parent;
+                    continue;
+                } // came back from right
+            
+                //auto center = (bvh_box.maxi + bvh_box.mini) / 2;
+                //auto half_diagonal = (bvh_box.maxi - bvh_box.mini) / 2;
+            } while (tested_index != 0);
+        }
+
+        if ( isinf(range_t.y ) ) {
             float3 sphereVector = ray.origin + 1000000 * ray.direction;
-            sphereVector = normalize(sphereVector) * float3(1, -1, -1);
-            float2 uv = SampleSphericalMap(sphereVector);
+            float2 uv = SampleSphericalMap(normalize(sphereVector));
             auto ambient = ambientHDR.sample(textureSampler, uv);
-            return ratio * float3(ambient.rgb);
+            //return ratio * float3(ambient.rgb);
+            color = ratio * float3(ambient.rgb);
+            break;
         }
         
         float3 emit_color;
         if ( emit(hitRecord, emit_color) ) {
-            return ratio * emit_color;
+            //return ratio * emit_color;
+            color = ratio * emit_color;
+            break;
         }
         
         if ( !scatter(ray, hitRecord, scatRecord, seed) ) {
-            return float3(0); //break;
+            //return float3(1, 0, 1);
+            color = float3(0);
+            break;
         }
         
         ratio *= scatRecord.attenuation;
@@ -218,7 +374,7 @@ static float3 traceColor(float depth, thread Ray& ray,
         
     } while( (--depth) > 0 );
     
-    return float3(0);
+    return color + markColor;
 }
 
 kernel void
@@ -229,14 +385,20 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
              texture2d<uint32_t, access::write> outRNG [[texture(3)]],
              
              texture2d<half, access::sample> textureHDR [[texture(4)]],
+             texture2d<half, access::sample> textureTest [[texture(5)]],
              
              uint2 thread_pos  [[thread_position_in_grid]],
+             
              constant SceneComplex* sceneMeta [[buffer(0)]],
              constant Camera* camera [[buffer(1)]],
 
              constant Sphere* sphere_list [[buffer(2)]],
              constant Square* square_list [[buffer(3)]],
-             constant Cube* cube_list [[buffer(4)]] )
+             constant Cube* cube_list [[buffer(4)]],
+             
+             constant uint32_t* meshIndex [[buffer(5)]],
+             constant MeshEle* mesh [[buffer(6)]],
+             constant BVH* bvh_list [[buffer(7)]] )
 {
     // Check if the pixel is within the bounds of the output texture
     if((thread_pos.x >= outTexture.get_width()) || (thread_pos.y >= outTexture.get_height()))
@@ -252,6 +414,8 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     uint64_t rng_state = (uint64_t(rr) << 32) | gg;
     uint64_t rng_inc = (uint64_t(bb) << 32) | aa;
     
+    pcg32_random_t rng = { rng_inc, rng_state };
+    
     auto cached_color = float3(inTexture.read(thread_pos).rgb);
     auto frame_count = sceneMeta->frame_count;
     
@@ -262,25 +426,26 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     auto u = float(thread_pos.x)/outTexture.get_width();
     auto v = float(thread_pos.y)/outTexture.get_height();
     
-    pcg32_random_t rng;
-    
-    rng.inc = rng_inc;// + thread_pos.x;
-    rng.state = rng_state;// + thread_pos.y;
-
-    auto result = float3(0.0);
-    
     auto ray = castRay(camera, u, v, &rng);
     auto color = traceColor(32, ray,
+                            
                             textureHDR,
+                            textureTest,
+                            
                             sphere_list,
                             square_list,
-                            cube_list, &rng);
+                            cube_list,
+                            
+                            meshIndex,
+                            mesh,
+                            bvh_list,
+                            
+                            &rng);
 
-    result.rgb = (cached_color.rgb * frame_count + color) / (frame_count + 1);
+    float3 result = (cached_color.rgb * frame_count + color) / (frame_count + 1);
     
     auto hhhh = half4(1.0);
     hhhh.rgb = half3(result);
-    //hhhh.rgb = half3(randomF(&rng), randomF(&rng), randomF(&rng));
     
     outTexture.write(hhhh, thread_pos);
     
