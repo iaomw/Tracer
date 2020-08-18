@@ -11,8 +11,8 @@ struct Sphere {
     float4x4 normal_matrix;
     float4x4 inverse_matrix;
     
+    uint32_t material;
     AABB boundingBOX;
-    Material material;
     
 #ifdef __METAL_VERSION__
     

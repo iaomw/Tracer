@@ -26,6 +26,12 @@
         typedef simd_float4 float4;
         typedef simd_float3 float3;
         typedef simd_float2 float2;
+        
+        struct VertexStrut {
+            float vx, vy, vz;
+            float nx, ny, nz;
+            float2 uv;
+        };
 
     #endif
 

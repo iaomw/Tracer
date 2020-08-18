@@ -14,7 +14,7 @@ struct HitRecord {
     float3 n;
     float2 uv;
         
-    Material material;
+    uint32_t material;
     
     float3 normal() {
         return front? n:-n;
@@ -30,11 +30,11 @@ struct ScatRecord {
     // pdf: PDF
 };
 
-bool emit(thread HitRecord& hitRecord, thread float3& color);
+bool emit(thread HitRecord& hitRecord, thread float3& color, constant Material* materials);
 
 constant float kEpsilon = 1e-8;
 
-struct MeshEle {
+struct Triangle {
     
     packed_float3 v;
     packed_float3 n;
@@ -43,9 +43,9 @@ struct MeshEle {
 
     static bool rayTriangleIntersect(const thread Ray& ray,
                                      
-                                     constant MeshEle& x_a,
-                                     constant MeshEle& x_b,
-                                     constant MeshEle& x_c,
+                                     constant Triangle& x_a,
+                                     constant Triangle& x_b,
+                                     constant Triangle& x_c,
                                      
                                      thread float2& range_t,
                                      
@@ -55,12 +55,9 @@ struct MeshEle {
         const thread float3 &orig = ray.origin;
         const thread float3 &dir = ray.direction;
         
-        float3 offset = float3(0);//float3(500, 200, 200);
-        float3 scale = float3(8); float3(20, 20, 20);
-        
-        auto v0 = x_a.v * scale + offset;
-        auto v1 = x_b.v * scale + offset;
-        auto v2 = x_c.v * scale + offset;
+        thread auto& v0 = x_a.v;
+        thread auto& v1 = x_b.v;
+        thread auto& v2 = x_c.v;
         
         float3 v0v1 = (v1 - v0);
         float3 v0v2 = (v2 - v0);
@@ -102,21 +99,14 @@ struct MeshEle {
     
         hitRecord.uv = u * x_b.uv + v * x_c.uv + w * x_a.uv;
         hitRecord.n = u * x_b.n + v * x_c.n + w * x_a.n;
+        hitRecord.n = normalize(hitRecord.n);
         
-        //hitRecord.n = normalize( x_a.n + x_b.n + x_c.n );
         hitRecord.checkFace(ray);
         
-        Material material;
-        //material.type= MaterialType::Metal;
-        material.type= MaterialType::Lambert;
-        material.textureInfo.type = TextureType::Constant;
-        material.textureInfo.albedo = float3(1.0);
-        
-        hitRecord.material = material;
+        hitRecord.material = 8;
          
         return true;
     }
-    
 };
     
 #endif

@@ -52,6 +52,8 @@ typedef struct  {
     id<MTLBuffer> _index_buffer;
     
     id<MTLBuffer> _bvh_buffer;
+    
+    id<MTLBuffer> _material_buffer;
    
     Camera _camera;
     float2 _camera_rotation;
@@ -106,9 +108,8 @@ typedef struct  {
         let vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
         let fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
         
-        _vertex_buffer = [_device newBufferWithBytes:canvas
-                                              length:sizeof(VertexWithUV)*6
-                                             options: MTLResourceStorageModeShared];
+        _vertex_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: MTLResourceStorageModeManaged];
+        
         uint width = 1920;
         uint height = 1080;
         
@@ -130,29 +131,35 @@ typedef struct  {
         
         _camera_rotation = simd_make_float2(0, 0);
         
+        std::vector<Material> materials;
+        
         std::vector<Cube> cube_list;
-        prepareCubeList(cube_list);
+        prepareCubeList(cube_list, materials);
         _cube_list_buffer = [_device newBufferWithBytes:cube_list.data()
                             length:sizeof(struct Cube)*cube_list.size()
-                            options: MTLResourceStorageModeShared];
+                            options: MTLResourceStorageModeManaged];
         
         std::vector<Square> cornell_box;
-        prepareCornellBox(cornell_box);
+        prepareCornellBox(cornell_box, materials);
         _cornell_box_buffer = [_device newBufferWithBytes:cornell_box.data()
                             length:sizeof(struct Square)*cornell_box.size()
-                            options: MTLResourceStorageModeShared];
+                            options: MTLResourceStorageModeManaged];
         
         std::vector<Sphere> sphere_list;
-        prepareSphereList(sphere_list);
+        prepareSphereList(sphere_list, materials);
         _sphere_list_buffer = [_device newBufferWithBytes:sphere_list.data()
                             length:sizeof(struct Sphere)*sphere_list.size()
-                            options: MTLResourceStorageModeShared];
+                            options: MTLResourceStorageModeManaged];
+        
+        _material_buffer = [_device newBufferWithBytes:materials.data()
+                                                length:sizeof(struct Material)*materials.size()
+                                               options:MTLResourceStorageModeManaged];
         
         // Create a reusable pipeline state object.
         let pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
         
         pipelineStateDescriptor.label = @"Canvas pipeline";
-        //pipelineStateDescriptor.sampleCount = _view.sampleCount;
+        pipelineStateDescriptor.sampleCount = _view.sampleCount;
         
         pipelineStateDescriptor.vertexFunction = vertexFunction;
         pipelineStateDescriptor.fragmentFunction = fragmentFunction;
@@ -192,144 +199,12 @@ typedef struct  {
         UInt32 count = width * height * 4;
         UInt32* seeds = (UInt32*)malloc(count*sizeof(UInt32));
 
-        for (int i = 0; i < count; i++) {
-            seeds[i] = arc4random();
-        }
+        for (int i = 0; i < count; i++) { seeds[i] = arc4random(); }
         
-        id <MTLBuffer> _sourceBuffer;
-        _sourceBuffer = [_device newBufferWithBytes:seeds
-                                             length:sizeof(UInt32)*4*width*height
-                                            options:MTLResourceStorageModeShared];
+        id <MTLBuffer> _sourceBuffer = [_device newBufferWithBytes:seeds
+                                                            length:sizeof(UInt32)*4*width*height
+                                                           options:MTLResourceStorageModeShared];
         free(seeds);
-        
-        MTKTextureLoader *loader = [[MTKTextureLoader alloc] initWithDevice: _device];
-        
-        let pathHDR = [NSBundle.mainBundle pathForResource:@"vulture_hide_4k" ofType:@"hdr"];
-        let urlHDR = [[NSURL alloc] initFileURLWithPath:pathHDR];
-        
-        NSDictionary *textureLoaderOptions = @ {
-                        MTKTextureLoaderOptionTextureUsage : @(MTLTextureUsageShaderRead),
-                        MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
-            
-                        MTKTextureLoaderOptionOrigin: MTKTextureLoaderOriginFlippedVertically
-                        };
-        
-        let pathTest = [NSBundle.mainBundle pathForResource:@"coatball/uv_test" ofType:@"png"];
-        let urlTest = [[NSURL alloc] initFileURLWithPath:pathTest];
-    
-        #if TARGET_OS_IPHONE
-        
-            let image = [[UIImage alloc] initWithContentsOfFile:path];
-            //let imageData = [[NSData alloc] initWithContentsOfFile:path];
-            let imageData = UIImagePNGRepresentation(image);
-        #else
-            let imageData = [[[NSImage alloc] initWithContentsOfURL:urlHDR] TIFFRepresentation];
-            let testData =  [[[NSImage alloc] initWithContentsOfURL:urlTest] TIFFRepresentation];
-        #endif
-        
-        _textureHDR = [loader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
-        _textureTest = [loader newTextureWithData:testData options:textureLoaderOptions error:&ERROR];
-        
-            if(!_textureHDR)
-            {
-                NSLog(@"Failed to create the texture from %@", urlHDR.absoluteString);
-                return nil;
-            }
-        
-        let allocator = [[MTKMeshBufferAllocator alloc] initWithDevice:_device];
-        
-        let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/uv_test" ofType:@"obj"];
-        let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
-        
-        MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);
-
-        // Indicate how each Metal vertex descriptor attribute maps to each Model I/O attribute.
-        modelIOVertexDescriptor.attributes[0].name = MDLVertexAttributePosition;
-        modelIOVertexDescriptor.attributes[0].offset = 0;
-        modelIOVertexDescriptor.attributes[0].bufferIndex = 0;
-        modelIOVertexDescriptor.attributes[0].format = MDLVertexFormatFloat3;
-        
-        modelIOVertexDescriptor.attributes[1].name = MDLVertexAttributeNormal;
-        modelIOVertexDescriptor.attributes[1].offset = 12;
-        modelIOVertexDescriptor.attributes[1].bufferIndex = 0;
-        modelIOVertexDescriptor.attributes[1].format = MDLVertexFormatFloat3;
-        
-        modelIOVertexDescriptor.attributes[2].name = MDLVertexAttributeTextureCoordinate;
-        modelIOVertexDescriptor.attributes[2].offset = 24;
-        modelIOVertexDescriptor.attributes[2].bufferIndex = 0;
-        modelIOVertexDescriptor.attributes[2].format = MDLVertexFormatFloat2;
-        
-        modelIOVertexDescriptor.layouts[0].stride = 32;
-        
-        let newAsset = [[MDLAsset alloc] initWithURL:modelURL
-                                    vertexDescriptor:modelIOVertexDescriptor
-                                     bufferAllocator:allocator]; // preserveTopology: NO
-        let newMesh = (MDLMesh *) [newAsset objectAtIndex:0];
-        
-        [newMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0.0];
-        
-        //[[MDLVoxelArray alloc] init]
-        
-        _mesh_buffer =  [_device newBufferWithBytes: newMesh.vertexBuffers.firstObject.map.bytes
-                                             length: newMesh.vertexBuffers.firstObject.length
-                                            options: MTLResourceStorageModeManaged];
-        
-        _index_buffer = [_device newBufferWithBytes: [newMesh.submeshes.firstObject indexBuffer].map.bytes
-                                             length: [newMesh.submeshes.firstObject indexBuffer].length
-                                            options: MTLResourceStorageModeManaged];
-        
-//          MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);
-//          // Indicate how each Metal vertex descriptor attribute maps to each Model I/O attribute.
-//            modelIOVertexDescriptor.attributes[AAPLVertexAttributePosition].name  = MDLVertexAttributePosition;
-//            modelIOVertexDescriptor.attributes[AAPLVertexAttributeTexcoord].name  = MDLVertexAttributeTextureCoordinate;
-//            modelIOVertexDescriptor.attributes[AAPLVertexAttributeNormal].name    = MDLVertexAttributeNormal;
-//            modelIOVertexDescriptor.attributes[AAPLVertexAttributeTangent].name   = MDLVertexAttributeTangent;
-//            modelIOVertexDescriptor.attributes[AAPLVertexAttributeBitangent].name = MDLVertexAttributeBitangent;
-//
-//        let _meshes = [AAPLMesh newMeshesFromURL:urlModel modelIOVertexDescriptor:modelIOVertexDescriptor metalDevice:_device error:&ERROR];
-        
-        _threadGroupSize = MTLSizeMake(16, 16, 1);
-        
-        unsigned long gridX = (_textureA.width + _threadGroupSize.width - 1)/_threadGroupSize.width;
-        unsigned long gridY = (_textureA.height + _threadGroupSize.height - 1)/_threadGroupSize.height;
-        
-        _threadGroupGrid = MTLSizeMake(gridX, gridY, 1);
-        
-        launchTime = [[NSDate date] timeIntervalSince1970];
-        
-        std::vector<BVH> bvh_list;
-        
-        for (int i=0; i<sphere_list.size(); i++) {
-            auto& sphere = sphere_list[i];
-            BVH::build(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
-        }
-        
-        for (int i=0; i<cornell_box.size(); i++) {
-            auto& square = cornell_box[i];
-            BVH::build(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
-        }
-        
-        for (int i=0; i<cube_list.size(); i++) {
-            auto& cube = cube_list[i];
-            BVH::build(cube.boundingBOX, cube.model_matrix, ShapeType::Cube, i, bvh_list);
-        }
-        
-        let meshTransform = matrix4x4_scale(8, 8, 8);
-        
-        let bBox = newMesh.boundingBox;
-        
-        float3 minB = (float3)bBox.minBounds;
-        float3 maxB = (float3)bBox.maxBounds;
-        
-        let meshBox = AABB::make(minB, maxB);
-    
-        BVH::build(meshBox, meshTransform, ShapeType::Mesh, 0, bvh_list);
-        
-        BVH::work(bvh_list);
-        
-        _bvh_buffer = [_device newBufferWithBytes:bvh_list.data()
-                                           length:sizeof(struct BVH)*bvh_list.size()
-                                          options: MTLResourceStorageModeShared];
         
         // Create a command buffer for GPU work.
         id <MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
@@ -354,6 +229,164 @@ typedef struct  {
             self->_view.delegate = self;
             self->_view.enableSetNeedsDisplay = YES;
         }];
+        
+        MTKTextureLoader *loader = [[MTKTextureLoader alloc] initWithDevice: _device];
+                
+        let pathHDR = [NSBundle.mainBundle pathForResource:@"vulture_hide_4k" ofType:@"hdr"];
+        let urlHDR = [[NSURL alloc] initFileURLWithPath:pathHDR];
+        
+        NSDictionary *textureLoaderOptions = @ {
+            
+                    MTKTextureLoaderOptionTextureUsage : @(MTLTextureUsageShaderRead),
+                    MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
+
+                    MTKTextureLoaderOptionOrigin: MTKTextureLoaderOriginFlippedVertically };
+        
+        let pathTest = [NSBundle.mainBundle pathForResource:@"coatball/uv_test" ofType:@"png"];
+        let urlTest = [[NSURL alloc] initFileURLWithPath:pathTest];
+    
+        #if TARGET_OS_IPHONE
+        
+            let image = [[UIImage alloc] initWithContentsOfFile:path];
+            //let imageData = [[NSData alloc] initWithContentsOfFile:path];
+            let imageData = UIImagePNGRepresentation(image);
+        #else
+            let imageData = [[[NSImage alloc] initWithContentsOfURL:urlHDR] TIFFRepresentation];
+            let testData =  [[[NSImage alloc] initWithContentsOfURL:urlTest] TIFFRepresentation];
+        #endif
+                
+        _textureHDR = [loader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
+        _textureTest = [loader newTextureWithData:testData options:textureLoaderOptions error:&ERROR];
+        
+            if(!_textureHDR)
+            {
+                NSLog(@"Failed to create the texture from %@", urlHDR.absoluteString);
+                return nil;
+            }
+                
+        let allocator = [[MTKMeshBufferAllocator alloc] initWithDevice:_device];
+        
+        let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
+        let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
+                
+            MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);
+
+            // Indicate how each Metal vertex descriptor attribute maps to each Model I/O attribute.
+            modelIOVertexDescriptor.attributes[0].name = MDLVertexAttributePosition;
+            modelIOVertexDescriptor.attributes[0].offset = 0;
+            modelIOVertexDescriptor.attributes[0].bufferIndex = 0;
+            modelIOVertexDescriptor.attributes[0].format = MDLVertexFormatFloat3;
+            
+            modelIOVertexDescriptor.attributes[1].name = MDLVertexAttributeNormal;
+            modelIOVertexDescriptor.attributes[1].offset = 12;
+            modelIOVertexDescriptor.attributes[1].bufferIndex = 0;
+            modelIOVertexDescriptor.attributes[1].format = MDLVertexFormatFloat3;
+            
+            modelIOVertexDescriptor.attributes[2].name = MDLVertexAttributeTextureCoordinate;
+            modelIOVertexDescriptor.attributes[2].offset = 24;
+            modelIOVertexDescriptor.attributes[2].bufferIndex = 0;
+            modelIOVertexDescriptor.attributes[2].format = MDLVertexFormatFloat2;
+            
+            modelIOVertexDescriptor.layouts[0].stride = 32;
+                
+        let testAsset = [[MDLAsset alloc] initWithURL:modelURL
+                                    vertexDescriptor:modelIOVertexDescriptor
+                                     bufferAllocator:allocator]; // preserveTopology: NO
+        let testMesh = (MDLMesh *) [testAsset objectAtIndex:0];
+        [testMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0.0];
+                
+            //[[MDLVoxelArray alloc] init]
+                
+        std::vector<BVH> bvh_list;
+                
+        //        for (int i=0; i<sphere_list.size(); i++) {
+        //            auto& sphere = sphere_list[i];
+        //            BVH::build(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
+        //        }
+        //
+        //        for (int i=0; i<cube_list.size(); i++) {
+        //            auto& cube = cube_list[i];
+        //            BVH::build(cube.boundingBOX, cube.model_matrix, ShapeType::Cube, i, bvh_list);
+        //        }
+        //
+        //        //for (int i=0; i<0; i++) {
+        //        for (int i=4; i<cornell_box.size(); i++) {
+        //            auto& square = cornell_box[i];
+        //            BVH::build(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
+        //        }
+                
+            //let bBox = newMesh.boundingBox;
+            //float3 minB = (float3)bBox.minBounds;
+            //float3 maxB = (float3)bBox.maxBounds;
+            //let meshBox = AABB::make(minB, maxB);
+            //BVH::build(meshBox, meshTransform, ShapeType::Mesh, 0, bvh_list);
+                
+            auto index_ptr = (uint32_t*)testMesh.submeshes.firstObject.indexBuffer.map.bytes;
+            auto vertex_ptr = (VertexStrut*)testMesh.vertexBuffers.firstObject.map.bytes;
+            
+            auto vertexCount = testMesh.submeshes.firstObject.indexCount;
+            
+            float scale = 40.0; float offset = 278;
+            for (uint32_t i=0; i<vertexCount; i+=3) {
+                
+                auto index_a = index_ptr[i];
+                auto index_b = index_ptr[i+1];
+                auto index_c = index_ptr[i+2];
+                
+                auto vertex_a = (vertex_ptr + index_a);
+                auto vertex_b = (vertex_ptr + index_b);
+                auto vertex_c = (vertex_ptr + index_c);
+                
+                for (auto ele : { vertex_a, vertex_b, vertex_c }) {
+                    
+                    ele->vx *= scale;
+                    ele->vy *= scale;
+                    ele->vz *= scale;
+                    
+                    ele->vx += offset;
+                    ele->vy += offset;
+                    ele->vz += offset;
+                }
+                
+                auto max_x = std::max( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
+                auto max_y = std::max( {vertex_a->vy, vertex_b->vy, vertex_c->vy} );
+                auto max_z = std::max( {vertex_a->vz, vertex_b->vz, vertex_c->vz} );
+                
+                auto min_x = std::min( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
+                auto min_y = std::min( {vertex_a->vy, vertex_b->vy, vertex_c->vy} );
+                auto min_z = std::min( {vertex_a->vz, vertex_b->vz, vertex_c->vz} );
+                
+                AABB box;
+                
+                box.maxi = simd_make_float3(max_x, max_y, max_z);
+                box.mini = simd_make_float3(min_x, min_y, min_z);
+                
+                BVH::build(box, matrix_identity_float4x4, ShapeType::Triangle, i/3, bvh_list);
+            }
+        
+                BVH::work(bvh_list);
+                
+                _mesh_buffer =  [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
+                                                     length: testMesh.vertexBuffers.firstObject.length
+                                                    options: MTLResourceStorageModeManaged];
+                
+                _index_buffer = [_device newBufferWithBytes: [testMesh.submeshes.firstObject indexBuffer].map.bytes
+                                                     length: [testMesh.submeshes.firstObject indexBuffer].length
+                                                    options: MTLResourceStorageModeManaged];
+                
+                _bvh_buffer = [_device newBufferWithBytes:bvh_list.data()
+                                                   length:sizeof(struct BVH)*bvh_list.size()
+                                                  options: MTLResourceStorageModeManaged];
+                
+                _threadGroupSize = MTLSizeMake(16, 16, 1);
+
+                unsigned long gridX = (_textureA.width + _threadGroupSize.width - 1)/_threadGroupSize.width;
+                unsigned long gridY = (_textureA.height + _threadGroupSize.height - 1)/_threadGroupSize.height;
+                
+                _threadGroupGrid = MTLSizeMake(gridX, gridY, 1);
+                
+        launchTime = [[NSDate date] timeIntervalSince1970];
+        
         [commandBuffer commit];
     }
     
@@ -388,10 +421,6 @@ typedef struct  {
         } else {
             self->_scene_meta.frame_count += 1;
         }
-        
-//        if (self->_scene_meta.frame_count > 8) {
-//            return;
-//        }
         
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
             
@@ -428,6 +457,8 @@ typedef struct  {
     [computeEncoder setBuffer:_index_buffer offset:0 atIndex:5];
     [computeEncoder setBuffer:_mesh_buffer offset:0 atIndex:6];
     [computeEncoder setBuffer:_bvh_buffer offset:0 atIndex:7];
+    
+    [computeEncoder setBuffer:_material_buffer offset:0 atIndex:8];
     
     _threadGroupSize = MTLSizeMake(16, 16, 1);
     

@@ -11,49 +11,79 @@ struct AABB {
 #ifdef __METAL_VERSION__
     
     // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms/
-    bool hit_keep_range(thread Ray& ray, const thread float2& range_t) constant {
+    bool hit(thread Ray& ray, const thread float2& range_t) constant {
         
-        float tmin = range_t.x, tmax = range_t.y;
-            
-        for (auto i : {0, 1, 2}) {
-            
-            auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
-            auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
-            
-            auto ts = min(max_bound, min_bound);
-            auto te = max(max_bound, min_bound);
-            
-            tmin = max(ts, tmin);
-            tmax = min(te, tmax);
-            
-            if (tmax <= tmin) { return false; }
-        }
+        auto inverse = 1.0 / ray.direction;
+
+        auto ts = (mini - ray.origin) * inverse;
+        auto te = (maxi - ray.origin) * inverse;
+
+        float tmin = max3( min(ts[0], te[0]), min(ts[1], te[1]), min(ts[2], te[2]));
+        float tmax = min3( max(ts[0], te[0]), max(ts[1], te[1]), max(ts[2], te[2]));
         
-        return true;
+        tmin = max(tmin, range_t.x);
+        tmax = min(tmax, range_t.y);
+
+        return ! (tmax < tmin || tmax < 0);
+        
+//        float tmin = range_t.x, tmax = range_t.y;
+//
+//        for (auto i : {0, 1, 2}) {
+//
+//            auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
+//            auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
+//
+//            auto ts = min(max_bound, min_bound);
+//            auto te = max(max_bound, min_bound);
+//
+//            tmin = max(ts, tmin);
+//            tmax = min(te, tmax);
+//
+//            if (tmax < tmin || tmax < 0) { return false; }
+//        }
+//
+//        return true;
     }
     
-    bool hit_update_range(thread Ray& ray, thread float2& range_t) constant {
+    bool hit_get_t(const thread Ray& ray, const thread float2& range_t, thread float& t) constant {
         
-        float tmin = range_t.x, tmax = range_t.y;
-            
-        for (auto i : {0, 1, 2}) {
-            
-            auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
-            auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
-            
-            auto ts = min(max_bound, min_bound);
-            auto te = max(max_bound, min_bound);
-            
-            tmin = max(ts, tmin);
-            tmax = min(te, tmax);
-            
-            if (tmax <= tmin) { return false; }
-        }
+        auto inverse = 1.0 / ray.direction;
+
+        auto ts = (mini - ray.origin) * inverse;
+        auto te = (maxi - ray.origin) * inverse;
+
+        float tmin = max3( min(ts[0], te[0]), min(ts[1], te[1]), min(ts[2], te[2]));
+        float tmax = min3( max(ts[0], te[0]), max(ts[1], te[1]), max(ts[2], te[2]));
         
-        range_t.x = tmin;
-        range_t.y = tmax;
-        
+        tmin = max(tmin, range_t.x);
+        tmax = min(tmax, range_t.y);
+
+        if (tmax < tmin || tmax < 0) { return false; }
+        t = (tmin < 0)? tmax : tmin;
         return true;
+        
+//        float tmin = range_t.x, tmax = range_t.y;
+//
+//        for (auto i : {0, 1, 2}) {
+//
+//            auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
+//            auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
+//
+//            auto ts = min(max_bound, min_bound);
+//            auto te = max(max_bound, min_bound);
+//
+//            tmin = max(ts, tmin);
+//            tmax = min(te, tmax);
+//
+//            if (tmax <= tmin || tmax < 0) { return false; }
+//        }
+//
+//        range_t.x = tmin;
+//        range_t.y = tmax;
+//
+//        t = (tmin < 0)? tmax : tmin;
+//
+//        return true;
     }
     
     bool hit(thread Ray& ray, const thread float2& range_t, thread HitRecord& record) constant {
@@ -86,7 +116,6 @@ struct AABB {
             
             //if (tmax < tmin) { return false; }
             if (tmax <= tmin || tmax < 0) { return false; }
-            //if (tmax <= tmin || tmax < 0 || tmin < 0) { return false; }
         }
         
         record.t = tmin < 0 ? tmax : tmin; // internal or external

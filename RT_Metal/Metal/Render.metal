@@ -146,45 +146,10 @@ fragmentShader( RasterizerData input [[stage_in]],
     float mapped = clamp(CETone(mix_luma, 1.0f), 0.0, 0.96);
     float expose = 1.0 - mapped;
     
-    tex_color.rgb = ACESTone(tex_color.rgb, expose);
+    tex_color.rgb = ACESTone(tex_color.rgb, 0.5);
     tex_color.rgb = LinearToSRGB(tex_color.rgb);
     
     return tex_color;
-}
-
-static inline bool realTest(constant BVH& bvh_node,
-                            
-                            thread Ray& ray,
-                            thread float2& range_t,
-                            thread HitRecord& hitRecord,
-                            
-                            constant Sphere* sphere_list,
-                            constant Square* square_list,
-                            constant Cube* cube_list,
-                            
-                            constant uint32_t* meshIndex,
-                            constant MeshEle* mesh) {
-    
-    auto shapeIndex = bvh_node.shapeIndex;
-    
-    switch(bvh_node.shape) {
-            
-        case ShapeType::Sphere: {
-            return sphere_list[shapeIndex].hit_test(ray, range_t, hitRecord);
-        }
-        case ShapeType::Square: {
-            return square_list[shapeIndex].hit_test(ray, range_t, hitRecord);
-        }
-        case ShapeType::Cube: {
-            return cube_list[shapeIndex].hit_test(ray, range_t, hitRecord);
-        }
-        case  ShapeType::Mesh: {
-            //square_list[shapeIndex].hit_test(ray, range_t, hitRecord);
-        }
-        default: {
-            return false;
-        }
-    } // switch
 }
 
 float3 traceBVH(float depth, thread Ray& ray,
@@ -196,142 +161,182 @@ float3 traceBVH(float depth, thread Ray& ray,
                          constant Square* square_list,
                          constant Cube* cube_list,
                          
-                         constant uint32_t* meshIndex,
-                         constant MeshEle* mesh,
+                         constant uint32_t* tirIndex,
+                         constant Triangle* tirList,
                          constant BVH* bvh_list,
+                
+                         constant  Material* materials,
                          
-                       thread pcg32_random_t* seed)
+                         thread pcg32_random_t* seed)
 {
     HitRecord hitRecord;
     ScatRecord scatRecord;
     
-    float2 range_t;
+    float3 color = float3(0);
     float3 ratio = float3(1.0);
     
-    float3 color = float3(0);
-    float3 markColor = float3(0.0);
-   
+    float2 range_t;
+
     do {
         
         range_t = float2(0.01, INFINITY);
-    
-//        for (uint32_t i=0; i<372; i+=3) {
-//        //for (uint32_t i=0; i<140448; i+=3) {
-//
-//            auto index_a = meshIndex[i];
-//            auto index_b = meshIndex[i+1];
-//            auto index_c = meshIndex[i+2];
-//
-//            constant auto& ele_a = mesh[index_a];
-//            constant auto& ele_b = mesh[index_b];
-//            constant auto& ele_c = mesh[index_c];
-//
-//            auto done = MeshEle::rayTriangleIntersect(ray, ele_a, ele_b, ele_c, range_t, hitRecord);
-//
-//            if (done) {
-//                auto hhhh = textureTest.sample(textureSampler, hitRecord.uv);
-//                hitRecord.material.textureInfo.albedo = float3(hhhh.xyz);
-//            }
-//        }
-        
-        //                if ( hitBVH ) {
-        //
-        //                    markRec.p = ray.pointAt(markRec.t);
-        //                    auto delta = abs(markRec.p - center);
-        //
-        //                    int cheker = 0;
-        //
-        //                    for (int i=0; i<3; i++) {
-        //
-        //                        if (abs(delta[i] - half_diagonal[i]) * 0.1 < 0.1) {
-        //                            cheker+=1;
-        //
-        //                            if (cheker == 2) { return float3(0, 1, 0);}
-        //                        }
-        //                    }
-        //                }
             
         uint the_index = 0;
         uint tested_index = UINT_MAX;
-
-        constant auto& the_node = bvh_list[the_index];
-        constant auto& the_bbox = the_node.boundingBOX;
-
-        float2 range_bvh = float2(FLT_MIN, FLT_MAX);
-
-        if ( the_bbox.hit_keep_range(ray, range_bvh) ) {
+        
+        uint32_t stack_mark = 0;
+        uint32_t stack_level = 0;
+        
+        float ttt = INFINITY;
+        
+        //if ( bvh_list[the_index].boundingBOX.hit(ray, range_t) ) {
+        if ( bvh_list[the_index].boundingBOX.hit_get_t(ray, range_t, ttt) ) {
 
             do {
-
-                constant auto& the_node = bvh_list[the_index];
-
-                uint left_index = the_node.left;
-                uint right_index = the_node.right;
-
-                constant auto& left_node = bvh_list[left_index];
-                constant auto& right_node = bvh_list[right_index];
-
+                
+                uint selected_index = UINT_MAX;
+                
+                uint left_index = bvh_list[the_index].left;
+                uint right_index = bvh_list[the_index].right;
+                uint parent_index = bvh_list[the_index].parent;
+                
+                {
+//                    auto center = (bvh_list[the_index].boundingBOX.maxi + bvh_list[the_index].boundingBOX.mini) / 2;
+//                    auto half_diagonal = (bvh_list[the_index].boundingBOX.maxi - bvh_list[the_index].boundingBOX.mini) / 2;
+//
+//                    auto p = ray.pointAt(ttt);
+//                    auto delta = abs(p - center);
+//
+//                    int cheker = 0;
+//                    for (int i=0; i<3; i++) {
+//                        if (abs(delta[i] - half_diagonal[i]) * 0.1 < 0.2 * 1 ) {
+//                            cheker+=1;
+//                            if (cheker == 2) { return float3(0, 1, 0);}
+//                        }
+//                    }
+//
+//                    bool left_test = bvh_list[left_index].boundingBOX.hit_get_t(ray, range_t, ttt);
+//
+//                    if (left_test) {
+//                        center = (bvh_list[left_index].boundingBOX.maxi + bvh_list[left_index].boundingBOX.mini) / 2;
+//                        half_diagonal = (bvh_list[left_index].boundingBOX.maxi - bvh_list[left_index].boundingBOX.mini) / 2;
+//
+//                        p = ray.pointAt(ttt);
+//                        delta = abs(p - center);
+//
+//                        cheker = 0;
+//                        for (int i=0; i<3; i++) {
+//                            if (abs(delta[i] - half_diagonal[i]) * 0.1 < 0.2 * 1 ) {
+//                                cheker+=1;
+//                                if (cheker == 2) { return float3(0, 1, 0);}
+//                            }
+//                        }
+//                    }
+//
+//                    bool right_test = bvh_list[right_index].boundingBOX.hit_get_t(ray, range_t, ttt);
+//
+//                    if (right_test) {
+//                        center = (bvh_list[right_index].boundingBOX.maxi + bvh_list[right_index].boundingBOX.mini) / 2;
+//                        half_diagonal = (bvh_list[right_index].boundingBOX.maxi - bvh_list[right_index].boundingBOX.mini) / 2;
+//
+//                        p = ray.pointAt(ttt);
+//                        delta = abs(p - center);
+//
+//                        cheker = 0;
+//                        for (int i=0; i<3; i++) {
+//                            if (abs(delta[i] - half_diagonal[i]) * 0.1 < 0.2 * 1 ) {
+//                                cheker+=1;
+//                                if (cheker == 2) { return float3(0, 1, 0);}
+//                            }
+//                        }
+//                    }
+                }
+                
                 if (tested_index != left_index && tested_index != right_index) {
-                    // test left
-                    if (left_node.shape != ShapeType::BVH) {
+                
+                    float t_left = INFINITY, t_right = INFINITY;
+                    
+                    bool left_test = bvh_list[left_index].boundingBOX.hit_get_t(ray, range_t, t_left);
+                    bool right_test = bvh_list[right_index].boundingBOX.hit_get_t(ray, range_t, t_right);
+                    
+                    if (!left_test && !right_test) {
                         
-                        auto done = realTest(left_node, ray, range_t, hitRecord, sphere_list, square_list, cube_list, meshIndex, mesh);
-
-                        if (done) {
-                            range_bvh.y = hitRecord.t;
-                            range_t.y = hitRecord.t;
-                        }
-
-                        tested_index = left_index;
+                        tested_index = the_index;
+                        the_index = parent_index;
+                        
+                        stack_mark &= ~(1U << stack_level); // clear the bit
+                        stack_level -= 1; // pop stack
+                        continue;
                     }
                     
-                    else {
-                        
-                        auto hitted = left_node.boundingBOX.hit_keep_range(ray, range_bvh);
-                        
-                        if (hitted)
-                            the_index = left_index;
-                        else
-                            tested_index = left_index;
-                    }
+                    selected_index = (t_left < t_right)? left_index:right_index;
                     
-                    continue;
+                    bool needTestAnother = (left_test) && (right_test);
+                    if (needTestAnother) { stack_mark |= 1U << stack_level; }
                 } // came to this part firsty
-
-                if (tested_index == left_index) {
-                    // test right
-                    if (right_node.shape != ShapeType::BVH) {
-                        
-                        auto done = realTest(right_node, ray, range_t, hitRecord, sphere_list, square_list, cube_list, meshIndex, mesh);
-
-                        if (done) {
-                            range_bvh.y = hitRecord.t;
-                            range_t.y = hitRecord.t;
-                        }
-
-                        tested_index = right_index;
+                
+                else { // came back from left or right
+                    
+                    uint needCheckChild = (stack_mark >> stack_level) & 1U;
+                    // don't need check child in case of go back;
+                    stack_mark &= ~(1U << stack_level);
+                    
+                    if (0 == needCheckChild) { // go up
+                        tested_index = the_index;
+                        the_index = parent_index;
+                        stack_level -= 1; // pop stack
+                        continue;
                     }
                     
-                    else {
-                        
-                        auto hitted = right_node.boundingBOX.hit_keep_range(ray, range_bvh);
-                        
-                        if (hitted)
-                            the_index = right_index;
-                        else
-                            tested_index = right_index;
+                    if (tested_index == left_index) {
+                        selected_index = right_index;
+                    } else {
+                        selected_index = left_index;
                     }
-
-                    continue;
-                } // came back from left
-
-                if (tested_index == right_index) {
-
-                    tested_index = the_index;
-                    the_index = the_node.parent;
-                    continue;
-                } // came back from right
-
+                    
+                    auto hitted = bvh_list[selected_index].boundingBOX.hit(ray, range_t);
+                    if (!hitted) {
+                        tested_index = selected_index;
+                        the_index = parent_index;
+                        stack_level -= 1;
+                        continue;
+                    }
+                }
+                
+                auto shapeIndex = bvh_list[selected_index].shapeIndex;
+                
+                switch(bvh_list[selected_index].shape) {
+                        
+                    case ShapeType::BVH: { // Should already tested before reaching this step
+                        //auto hitted = bvh_list[selected_index].boundingBOX.hit_keep_range(ray, range_t);
+                        //if (hitted) {
+                            the_index = selected_index;
+                            stack_level += 1;
+                            continue;
+                        //}
+                    }
+                    case ShapeType::Sphere: {
+                        sphere_list[shapeIndex].hit_test(ray, range_t, hitRecord); break;
+                    }
+                    case ShapeType::Square: {
+                        square_list[shapeIndex].hit_test(ray, range_t, hitRecord); break;
+                    }
+                    case ShapeType::Cube: {
+                        cube_list[shapeIndex].hit_test(ray, range_t, hitRecord); break;
+                    }
+                    case  ShapeType::Triangle: {
+                        auto index_r = shapeIndex * 3;
+                        auto index_a = tirIndex[index_r];
+                        auto index_b = tirIndex[index_r + 1];
+                        auto index_c = tirIndex[index_r + 2];
+                        
+                        Triangle::rayTriangleIntersect(ray, tirList[index_a], tirList[index_b], tirList[index_c], range_t, hitRecord);
+                        break;
+                    }
+                    default: { return float3(0); }
+                } // switch
+                
+                tested_index = selected_index;
                 //auto center = (bvh_box.maxi + bvh_box.mini) / 2;
                 //auto half_diagonal = (bvh_box.maxi - bvh_box.mini) / 2;
             } while (tested_index != 0);
@@ -347,13 +352,13 @@ float3 traceBVH(float depth, thread Ray& ray,
         }
         
         float3 emit_color;
-        if ( emit(hitRecord, emit_color) ) {
+        if ( emit(hitRecord, emit_color, materials) ) {
             //return ratio * emit_color;
             color = ratio * emit_color;
             break;
         }
         
-        if ( !scatter(ray, hitRecord, scatRecord, seed) ) {
+        if ( !scatter(ray, hitRecord, scatRecord, seed, materials) ) {
             //return float3(1, 0, 1);
             color = float3(0);
             break;
@@ -371,7 +376,7 @@ float3 traceBVH(float depth, thread Ray& ray,
         
     } while( (--depth) > 0 );
     
-    return color + markColor;
+    return color;
 }
 
 
@@ -385,8 +390,10 @@ float3 traceColor(float depth, thread Ray& ray,
                          constant Cube* cube_list,
                          
                          constant uint32_t* meshIndex,
-                         constant MeshEle* mesh,
+                         constant Triangle* mesh,
                          constant BVH* bvh_list,
+                  
+                         constant  Material* materials,
                          
                          thread pcg32_random_t* seed)
 {
@@ -397,27 +404,47 @@ float3 traceColor(float depth, thread Ray& ray,
     float3 ratio = float3(1.0);
     
     float3 color = float3(0);
-    float3 markColor = float3(0.0);
    
     do {
         
         range_t = float2(0.01, INFINITY);
 
-        for (int i=0; i<13; i++) {
-            sphere_list[i].hit_test(ray, range_t, hitRecord);
-        }
+//        for (int i=0; i<13; i++) {
+//            sphere_list[i].hit_test(ray, range_t, hitRecord);
+//        }
 
         for (int i=0; i<6; i++) {
             square_list[i].hit_test(ray, range_t, hitRecord);
         }
 
-        for (int i=0; i<1; i++) {
+        for (int i=0; i<2; i++) {
             cube_list[i].hit_test(ray, range_t, hitRecord);
         }
-
-        for (int i=1; i<2; i++) {
-            cube_list[1].hit_medium(ray, range_t, hitRecord, seed);
-        }
+//
+//        for (int i=1; i<2; i++) {
+//            cube_list[1].hit_medium(ray, range_t, hitRecord, seed);
+//        }
+        
+        
+        //144045
+        //for (uint32_t i=0; i<372; i+=3) {
+        //for (uint32_t i=0; i<140448; i+=3) {
+//        for (uint32_t i=0; i<44045; i+=3) {
+//            auto index_a = meshIndex[i];
+//            auto index_b = meshIndex[i+1];
+//            auto index_c = meshIndex[i+2];
+//
+//            constant auto& ele_a = mesh[index_a];
+//            constant auto& ele_b = mesh[index_b];
+//            constant auto& ele_c = mesh[index_c];
+//
+//            auto done = Triangle::rayTriangleIntersect(ray, ele_a, ele_b, ele_c, range_t, hitRecord);
+//
+////            if (done) {
+////                auto hhhh = textureTest.sample(textureSampler, hitRecord.uv);
+////                hitRecord.material.textureInfo.albedo = float3(hhhh.xyz);
+////            }
+//        }
 
         if ( isinf(range_t.y ) ) {
             float3 sphereVector = ray.origin + 1000000 * ray.direction;
@@ -429,13 +456,13 @@ float3 traceColor(float depth, thread Ray& ray,
         }
         
         float3 emit_color;
-        if ( emit(hitRecord, emit_color) ) {
+        if ( emit(hitRecord, emit_color, materials) ) {
             //return ratio * emit_color;
             color = ratio * emit_color;
             break;
         }
         
-        if ( !scatter(ray, hitRecord, scatRecord, seed) ) {
+        if ( !scatter(ray, hitRecord, scatRecord, seed, materials) ) {
             //return float3(1, 0, 1);
             color = float3(0);
             break;
@@ -453,7 +480,7 @@ float3 traceColor(float depth, thread Ray& ray,
         
     } while( (--depth) > 0 );
     
-    return color + markColor;
+    return color;
 }
 
 kernel void
@@ -463,7 +490,7 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
              texture2d<uint32_t, access::read>  inRNG  [[texture(2)]],
              texture2d<uint32_t, access::write> outRNG [[texture(3)]],
              
-             texture2d<half, access::sample> textureHDR [[texture(4)]],
+             texture2d<half, access::sample>  textureHDR [[texture(4)]],
              texture2d<half, access::sample> textureTest [[texture(5)]],
              
              uint2 thread_pos  [[thread_position_in_grid]],
@@ -476,8 +503,10 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
              constant Cube* cube_list [[buffer(4)]],
              
              constant uint32_t* meshIndex [[buffer(5)]],
-             constant MeshEle* mesh [[buffer(6)]],
-             constant BVH* bvh_list [[buffer(7)]] )
+             constant Triangle* meshList [[buffer(6)]],
+             constant BVH* bvh_list [[buffer(7)]],
+             
+             constant Material* materials [[buffer(8)]])
 {
     // Check if the pixel is within the bounds of the output texture
     if((thread_pos.x >= outTexture.get_width()) || (thread_pos.y >= outTexture.get_height()))
@@ -507,7 +536,7 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     
     auto ray = castRay(camera, u, v, &rng);
     auto color = traceBVH(32, ray,
-                            
+    //auto color = traceColor(32, ray,
                             textureHDR,
                             textureTest,
                             
@@ -516,8 +545,10 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
                             cube_list,
                             
                             meshIndex,
-                            mesh,
+                            meshList,
                             bvh_list,
+                          
+                            materials,
                             
                             &rng);
 

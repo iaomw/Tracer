@@ -30,7 +30,7 @@ enum struct BVHStatus {
 };
 
 enum struct ShapeType {
-    Sphere, Square, Cube, Mesh, BVH, UNKNOW
+    Sphere, Square, Cube, Triangle, BVH, UNKNOW
 };
 
 struct BVH {
@@ -48,7 +48,7 @@ struct BVH {
         range_t.x = -FLT_MAX;
         range_t.y = +FLT_MAX;
         
-        if (!boundingBOX.hit_keep_range(ray, range_t))
+        if (!boundingBOX.hit(ray, range_t))
             return false;
         
         bool hit_left;
@@ -106,18 +106,19 @@ struct BVH {
     
     static void work(std::vector<BVH>& bvh_list) {
         
-        auto old_size = bvh_list.size();
+        auto old_size = (uint32_t)bvh_list.size();
         
         std::vector<uint> index_list;
         
-        for (int i=0; i<bvh_list.size(); i++) {
+        for (int i=0; i<old_size; i++) {
             index_list.push_back(i);
         }
         
-        BVH::make(bvh_list, index_list, 0, index_list.size());
+        BVH::make(bvh_list, index_list, 0, (uint32_t)index_list.size());
         
         auto root = bvh_list.back();
         bvh_list.pop_back();
+        root.parent = 0;
         
         bvh_list.insert(bvh_list.begin(), root);
         
@@ -179,21 +180,19 @@ struct BVH {
         newBVH.left = left + 1;
         newBVH.right = right + 1;
         
-        bvh_list[left].parent = bvh_list.size()+1;
-        bvh_list[right].parent = bvh_list.size()+1;
+        bvh_list[left].parent = (uint32_t)bvh_list.size()+1;
+        bvh_list[right].parent = (uint32_t)bvh_list.size()+1;
         
-        if (left != 0 || right != 0) {
-            newBVH.shape = ShapeType::BVH;
-            
-            auto& leftBOX = bvh_list[left].boundingBOX;
-            auto& rightBOX = bvh_list[right].boundingBOX;
-            
-            newBVH.boundingBOX = AABB::make(leftBOX, rightBOX);
-            
-            bvh_list.emplace_back(newBVH);
-        }
+        newBVH.shape = ShapeType::BVH;
         
-        return bvh_list.size() - 1;
+        auto& leftBOX = bvh_list[left].boundingBOX;
+        auto& rightBOX = bvh_list[right].boundingBOX;
+        
+        newBVH.boundingBOX = AABB::make(leftBOX, rightBOX);
+        
+        bvh_list.emplace_back(newBVH);
+        
+        return (uint32_t)bvh_list.size() - 1;
     }
     
     static inline void build(const AABB& box, const float4x4& model_matrix,

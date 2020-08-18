@@ -19,9 +19,9 @@ float4x4 matrix4x4_scale(float sx, float sy, float sz);
 float4x4 matrix4x4_rotation(float radians, float3 axis);
 float4x4 matrix4x4_translation(float tx, float ty, float tz);
 
-void prepareCubeList(std::vector<Cube>& list);
-void prepareCornellBox(std::vector<Square>& list);
-void prepareSphereList(std::vector<Sphere>& list);
+void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials);
+void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materials);
+void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materials);
 
 void prepareCamera(struct Camera* pointer, float2 viewSize, float2 rotate);
 
