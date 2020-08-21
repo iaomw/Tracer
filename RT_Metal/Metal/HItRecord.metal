@@ -7,10 +7,6 @@ bool emit(thread HitRecord& hitRecord, thread float3& color, constant Material* 
             color = materials[hitRecord.material].textureInfo.albedo;
             return true;
         }
-        case MaterialType::Metal:
-        case MaterialType::Lambert:
-        case MaterialType::Isotropic:
-        case MaterialType::Dielectric:
         default:{
             return false;
         }

@@ -34,7 +34,7 @@ bool scatter(thread Ray& ray,
             
         case MaterialType::Dielectric: {
             
-            auto theIOR = hitRecord.front? (1.0/material.parameter) : material.parameter;
+            auto theIOR = hitRecord.f? (1.0/material.parameter) : material.parameter;
             
             auto unit_direction = ray.direction;
             auto cos_theta = min(dot(-unit_direction, normal), 1.0);
@@ -78,9 +78,9 @@ bool scatter(thread Ray& ray,
             float rayProbability = 1.0f;
             auto throughput = float3(1.0);
             
-            auto theIOR = hitRecord.front? (1.0/material.parameter) : material.parameter;
+            auto theIOR = hitRecord.f? (1.0/material.parameter) : material.parameter;
             
-            if (!hitRecord.front) {
+            if (!hitRecord.f) {
                 throughput *= exp(-material.refractionColor * hitRecord.t);
             }
             
@@ -91,8 +91,8 @@ bool scatter(thread Ray& ray,
             if (specularProb > 0.0f) {
                 
                 specularProb = fresnel(
-                        hitRecord.front? 1.0 : material.parameter,
-                        !hitRecord.front? 1.0 : material.parameter,
+                        hitRecord.f? 1.0 : material.parameter,
+                        !hitRecord.f? 1.0 : material.parameter,
                         normal, ray.direction, material.specularProb, 1.0f);
                         //ray.direction, hitRecord.n, hitRecord.material.specularProb, 1.0f);
                 
@@ -132,10 +132,10 @@ bool scatter(thread Ray& ray,
             auto diffuseDir = normal + randomUnit(seed);
             auto specularDir = reflect(ray.direction, normal);
             
-            specularDir = normalize(mix(specularDir, diffuseDir, material.specularRoughness * material.specularRoughness));
+            specularDir = normalize(mix(specularDir, diffuseDir, pow(material.specularRoughness, 2)));
             
             auto refractionDir = refract(ray.direction, normal, theIOR);
-            refractionDir = normalize(mix(refractionDir, normalize(-normal + randomUnit(seed)), material.refractionRoughness * material.refractionRoughness));
+            refractionDir = normalize(mix(refractionDir, normalize(-normal + randomUnit(seed)), pow(material.refractionRoughness, 2)));
                 
             auto direction = mix(diffuseDir, specularDir, doSpecular);
             direction = mix(direction, refractionDir, doRefraction);

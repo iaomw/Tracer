@@ -322,11 +322,11 @@ typedef struct  {
             //BVH::build(meshBox, meshTransform, ShapeType::Mesh, 0, bvh_list);
                 
             auto index_ptr = (uint32_t*)testMesh.submeshes.firstObject.indexBuffer.map.bytes;
-            auto vertex_ptr = (VertexStrut*)testMesh.vertexBuffers.firstObject.map.bytes;
+            auto vertex_ptr = (MeshStrut*)testMesh.vertexBuffers.firstObject.map.bytes;
             
             auto vertexCount = testMesh.submeshes.firstObject.indexCount;
             
-            float scale = 40.0; float offset = 278;
+            float scale = 30; float offset = 278;
             for (uint32_t i=0; i<vertexCount; i+=3) {
                 
                 auto index_a = index_ptr[i];
@@ -361,10 +361,10 @@ typedef struct  {
                 box.maxi = simd_make_float3(max_x, max_y, max_z);
                 box.mini = simd_make_float3(min_x, min_y, min_z);
                 
-                BVH::build(box, matrix_identity_float4x4, ShapeType::Triangle, i/3, bvh_list);
+                BVH::buildNode(box, matrix_identity_float4x4, ShapeType::Triangle, i/3, bvh_list);
             }
         
-                BVH::work(bvh_list);
+                BVH::buildTree(bvh_list);
                 
                 _mesh_buffer =  [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
                                                      length: testMesh.vertexBuffers.firstObject.length

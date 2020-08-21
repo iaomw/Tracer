@@ -4,139 +4,37 @@
 #include "AABB.hh"
 #include "HitRecord.hh"
 
-#ifdef __METAL_VERSION__
-
-#else
-
-inline double random_double() {
-    // Returns a random real in [0,1).
-    return rand() / (RAND_MAX + 1.0);
-}
-
-inline double random_double(double min, double max) {
-    // Returns a random real in [min,max).
-    return min + (max-min)*random_double();
-}
-
-inline int random_int(int min, int max) {
-    // Returns a random integer in [min,max].
-    return static_cast<int>(random_double(min, max+1));
-}
-
-#endif
-
-enum struct BVHStatus {
-    TracingLeft, TracingRight
-};
-
 enum struct ShapeType {
     Sphere, Square, Cube, Triangle, BVH, UNKNOW
+};
+
+struct BucketInfo {
+    uint count = 0;
+    AABB bbox;
 };
 
 struct BVH {
     uint parent=0, left=0, right=0; // index in BVH array
     
-    ShapeType shape = ShapeType::UNKNOW;
     uint shapeIndex = 0;
+    ShapeType shape = ShapeType::UNKNOW;
     
     AABB boundingBOX;
     
 #ifdef __METAL_VERSION__
-
-    bool hit(constant BVH* listBVH, thread Ray& ray, float2 range_t, thread HitRecord& rec) constant {
-        
-        range_t.x = -FLT_MAX;
-        range_t.y = +FLT_MAX;
-        
-        if (!boundingBOX.hit(ray, range_t))
-            return false;
-        
-        bool hit_left;
-        bool hit_right;
-        
-        uint index_pick = 0;
-        uint index_left = left;
-        uint index_right = right;
-        
-        do {
-            auto pickNode = &listBVH[index_pick];
-            
-            index_pick = 0;
-            index_left = pickNode->left;
-            index_right = pickNode->left;
-            
-            hit_left = false;
-            hit_right = false;
-            
-            if (index_left != 0) {
-                auto leftNode = &listBVH[index_left];
-                hit_left = leftNode->boundingBOX.hit(ray, range_t, rec);
-                
-                if (hit_left) {
-                    range_t.y = rec.t;
-                    index_pick = index_left;
-                }
-            }
-            
-            if (index_right != 0) {
-                auto rightNode = &listBVH[index_right];
-                hit_right = rightNode->boundingBOX.hit(ray, range_t, rec);
-                
-                if (hit_right) {
-                    range_t.y = rec.t;
-                    index_pick = index_right;
-                }
-            }
-            
-        } while(index_pick != 0);
-        
-        if (hit_left || hit_right ) {
-            // hit test on shape index_pick
-        }
-        
-        return false;
-    }
-    
 #else
     
     static bool box_compare(const AABB& a, const AABB& b, int axis) {
 
-        return a.mini[axis] < b.mini[axis];
+        return a.centroid()[axis] < b.centroid()[axis];
     }
     
-    static void work(std::vector<BVH>& bvh_list) {
-        
-        auto old_size = (uint32_t)bvh_list.size();
-        
-        std::vector<uint> index_list;
-        
-        for (int i=0; i<old_size; i++) {
-            index_list.push_back(i);
-        }
-        
-        BVH::make(bvh_list, index_list, 0, (uint32_t)index_list.size());
-        
-        auto root = bvh_list.back();
-        bvh_list.pop_back();
-        root.parent = 0;
-        
-        bvh_list.insert(bvh_list.begin(), root);
-        
-        for (int i=old_size; i<bvh_list.size(); i++) {
-            if( bvh_list[i].parent == bvh_list.size()) {
-                bvh_list[i].parent = 0;
-            }
-        }
-    }
-    
-    static uint make(std::vector<BVH>& bvh_list,
+    static uint make(std::vector<BVH>&  bvh_list,
                      std::vector<uint>& index_list,
                      
-                     uint start, uint end) {
-        
-        uint axis = random_int(0, 2);
-        
-        auto comparator = [&](const uint a, const uint b) -> bool {
+                     uint start, uint end)
+    {
+        auto comparator = [&](const uint a, const uint b, uint axis) -> bool {
             
             auto& node_a = bvh_list[a];
             auto& node_b = bvh_list[b];
@@ -158,7 +56,13 @@ struct BVH {
             let index_a = index_list[start];
             let index_b = index_list[start+1];
             
-            if (comparator(index_a, index_a)) {
+            let centroid_a = bvh_list[index_a].boundingBOX.centroid();
+            let centroid_b = bvh_list[index_b].boundingBOX.centroid();
+            
+            let cbox = AABB::make(centroid_a, centroid_b);
+            auto dim = cbox.maximumExtent();
+            
+            if (comparator(index_a, index_a, dim)) {
                 left = index_a;
                 right = index_b;
             } else {
@@ -168,9 +72,95 @@ struct BVH {
             
         } else {
             
-            std::sort(index_list.begin()+start, index_list.begin()+end, comparator);
+            AABB cbox; // = AABB::make(a_centroid, b_centroid);
             
-            auto mid = start + span / 2;
+            for (int i=start; i<end; i++) {
+                 
+                auto i_centroid = bvh_list[index_list[i]].boundingBOX.centroid();
+                cbox = AABB::make(cbox, i_centroid);
+            }
+            
+            auto dim = cbox.maximumExtent();
+            
+            const uint nBuckets = 12;
+            BucketInfo buckets[nBuckets];
+            
+            for (int i=start; i<end; ++i) {
+                auto& primi = bvh_list[index_list[i]];
+                auto centroid = primi.boundingBOX.centroid();
+                
+                uint b = nBuckets * cbox.relative(centroid)[dim];
+                b = std::min(b, nBuckets-1);
+                
+                buckets[b].bbox = AABB::make(buckets[b].bbox, primi.boundingBOX);
+                buckets[b].count++;
+            }
+            
+            float cost[nBuckets-1];
+            
+            for (int i=0; i<(nBuckets-1); ++i) {
+                
+                AABB b0, b1; int count0=0, count1=0;
+                
+                for (int j=0; j<=i; ++j) {
+                    b0 = AABB::make(b0, buckets[j].bbox);
+                    count0 += buckets[j].count;
+                }
+                for (int j=i+1; j<nBuckets; ++j) {
+                    b1 = AABB::make(b1, buckets[j].bbox);
+                    count1 += buckets[j].count;
+                }
+                
+                cost[i] = (count0 * b0.surfaceArea() + count1 * b1.surfaceArea()) / cbox.surfaceArea();
+            }
+            
+            float minCost = cost[0];
+            int minCostSplitBucket = 0;
+            for (int i=1; i<(nBuckets-1); ++i) {
+                if (cost[i] < minCost) {
+                    minCost = cost[i];
+                    minCostSplitBucket = i;
+                }
+            }
+            
+           // float leafCost = span;
+            //uint maxPrimiUnderNode = 255;
+            
+            //if (span > maxPrimiUnderNode || minCost < leafCost) {
+                
+                auto pmid = std::partition(
+                                index_list.begin()+start,
+                                index_list.begin()+end,
+                                           
+                       [=](const uint index) {
+                    
+                    auto& primi = bvh_list[index];
+                    auto centroid = primi.boundingBOX.centroid();
+                
+                    uint b = nBuckets * cbox.relative(centroid)[dim];
+                    b = std::min(b, nBuckets - 1);
+                    
+                    return b <= minCostSplitBucket;
+                       
+                });
+            //}
+            
+            
+            uint mid = (uint)(pmid - index_list.begin());
+            
+            if (mid <= start || mid >= end) {
+                
+                auto comp = [&](const uint a, const uint b) -> bool {
+                    return comparator(a, b, dim);
+                };
+                
+                std::sort(index_list.begin()+start, index_list.begin()+end, comp);
+                mid = start + span / 2;
+            }
+            
+            //std::sort(index_list.begin()+start, index_list.begin()+end, comp);
+            //mid = start + span / 2;
+            
             left = BVH::make(bvh_list, index_list, start, mid);
             right = BVH::make(bvh_list, index_list, mid, end);
         }
@@ -195,12 +185,38 @@ struct BVH {
         return (uint32_t)bvh_list.size() - 1;
     }
     
-    static inline void build(const AABB& box, const float4x4& model_matrix,
-                             ShapeType shapeType, uint shapeIndex,
-                             std::vector<BVH>& bvh_list)
+    static void buildTree(std::vector<BVH>& bvh_list)
     {
         
-        float3 ele[] { box.mini, box.maxi };
+        auto old_size = (uint32_t)bvh_list.size();
+        
+        std::vector<uint> index_list;
+        
+        for (int i=0; i<old_size; i++) {
+            index_list.push_back(i);
+        }
+        
+        BVH::make(bvh_list, index_list, 0, (uint32_t)index_list.size());
+        
+        auto root = bvh_list.back();
+        bvh_list.pop_back();
+        root.parent = 0;
+        
+        bvh_list.insert(bvh_list.begin(), root);
+        
+        for (int i=old_size; i<bvh_list.size(); i++) {
+            if( bvh_list[i].parent == bvh_list.size()) {
+                bvh_list[i].parent = 0;
+            }
+        }
+    }
+    
+    static inline void buildNode(const AABB& box, const float4x4& model_matrix,
+                                 ShapeType shapeType, uint shapeIndex,
+                                 std::vector<BVH>& bvh_list)
+    {
+        
+        packed_float3 ele[] { box.mini, box.maxi };
         
         float3 newMINI = float3(FLT_MAX);
         float3 newMAXI = float3(-FLT_MAX);

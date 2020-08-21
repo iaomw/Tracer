@@ -8,20 +8,20 @@
 
 struct HitRecord {
     float t;
-    float3 p;
+    packed_float3 p;
     
-    bool front;
-    float3 n;
+    bool f;
+    packed_float3 n;
     float2 uv;
         
-    uint32_t material;
+    uint material;
     
     float3 normal() {
-        return front? n:-n;
+        return f? n:-n;
     }
     
     void checkFace(const thread Ray& ray) {
-        front = (dot(ray.direction, n) < 0);
+        f = (dot(ray.direction, n) < 0);
     }
 };
 
@@ -90,7 +90,7 @@ struct Triangle {
         
         //t = abs(t);
     
-        if (t >= range_t.y || t < FLT_MIN) { return false; }
+        if (t > range_t.y || t < range_t.x) { return false; }
     
         range_t.y = t;
         
@@ -99,7 +99,7 @@ struct Triangle {
     
         hitRecord.uv = u * x_b.uv + v * x_c.uv + w * x_a.uv;
         hitRecord.n = u * x_b.n + v * x_c.n + w * x_a.n;
-        hitRecord.n = normalize(hitRecord.n);
+        //hitRecord.n = normalize(hitRecord.n);
         
         hitRecord.checkFace(ray);
         

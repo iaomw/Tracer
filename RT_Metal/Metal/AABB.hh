@@ -8,6 +8,50 @@ struct AABB {
     float3 mini;
     float3 maxi;
     
+    AABB() {
+        mini = { FLT_MAX, FLT_MAX, FLT_MAX };
+        maxi = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+    }
+    
+    inline float3 diagonal() const {
+        return maxi - mini;
+    }
+    
+    float surfaceArea() const {
+        auto d = diagonal();
+        return 2 * (d.x * d.y + d.x * d.z + d.y * d.z);
+    }
+    
+    float volume() const {
+        auto d = diagonal();
+        return d.x * d.y * d.z;
+    }
+    
+    float3 relative(float3 p) const {
+        auto d = diagonal();
+        return (p - mini) / d;
+    }
+    
+    uint maximumExtent() const {
+        
+        auto d = diagonal();
+        
+        if (d.x > d.y && d.x > d.z) {
+            return 0;
+        }
+        
+        if (d.y > d.z)
+            return 1;
+        else
+            return 2;
+    }
+    
+    float3 centroid() const {
+        
+        auto d = diagonal() / 2;
+        return mini + d;
+    }
+    
 #ifdef __METAL_VERSION__
     
     // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms/
@@ -18,9 +62,15 @@ struct AABB {
         auto ts = (mini - ray.origin) * inverse;
         auto te = (maxi - ray.origin) * inverse;
 
-        float tmin = max3( min(ts[0], te[0]), min(ts[1], te[1]), min(ts[2], te[2]));
-        float tmax = min3( max(ts[0], te[0]), max(ts[1], te[1]), max(ts[2], te[2]));
+        //float tmin = max3( min(ts[0], te[0]), min(ts[1], te[1]), min(ts[2], te[2]));
+        //float tmax = min3( max(ts[0], te[0]), max(ts[1], te[1]), max(ts[2], te[2]));
         
+        auto a = min(ts, te);
+        auto b = max(ts, te);
+        
+        float tmin = max3(a.x, a.y, a.z);
+        float tmax = min3(b.x, b.y, b.z);
+
         tmin = max(tmin, range_t.x);
         tmax = min(tmax, range_t.y);
 
@@ -52,9 +102,15 @@ struct AABB {
         auto ts = (mini - ray.origin) * inverse;
         auto te = (maxi - ray.origin) * inverse;
 
-        float tmin = max3( min(ts[0], te[0]), min(ts[1], te[1]), min(ts[2], te[2]));
-        float tmax = min3( max(ts[0], te[0]), max(ts[1], te[1]), max(ts[2], te[2]));
+        //float tmin = max3( min(ts[0], te[0]), min(ts[1], te[1]), min(ts[2], te[2]));
+        //float tmax = min3( max(ts[0], te[0]), max(ts[1], te[1]), max(ts[2], te[2]));
         
+        auto a = min(ts, te);
+        auto b = max(ts, te);
+        
+        float tmin = max3(a.x, a.y, a.z);
+        float tmax = min3(b.x, b.y, b.z);
+
         tmin = max(tmin, range_t.x);
         tmax = min(tmax, range_t.y);
 
@@ -78,11 +134,7 @@ struct AABB {
 //            if (tmax <= tmin || tmax < 0) { return false; }
 //        }
 //
-//        range_t.x = tmin;
-//        range_t.y = tmax;
-//
 //        t = (tmin < 0)? tmax : tmin;
-//
 //        return true;
     }
     
@@ -134,7 +186,7 @@ struct AABB {
     
 #else
     
-    static AABB make(float3& a, float3& b) {
+    static AABB make(const float3& a, const float3& b) {
         
         auto mini = simd_make_float3(fminf(a.x, b.x),
                                       fminf(a.y, b.y),
@@ -158,8 +210,25 @@ struct AABB {
         auto big = simd_make_float3(fmaxf(box_s.maxi.x, box_e.maxi.x),
                                     fmaxf(box_s.maxi.y, box_e.maxi.y),
                                     fmaxf(box_s.maxi.z, box_e.maxi.z));
+        
+        AABB r; r.mini = small; r.maxi = big;
 
-        return AABB::make(small, big);
+        return r; // AABB::make(small, big);
+    }
+    
+    static AABB make(AABB& box_s, float3 fff) {
+        
+        auto small = simd_make_float3(fminf(box_s.mini.x, fff.x),
+                                      fminf(box_s.mini.y, fff.y),
+                                      fminf(box_s.mini.z, fff.z));
+        
+        auto big = simd_make_float3(fmaxf(box_s.maxi.x, fff.x),
+                                    fmaxf(box_s.maxi.y, fff.y),
+                                    fmaxf(box_s.maxi.z, fff.z));
+        
+        AABB r; r.mini = small; r.maxi = big;
+
+        return r; //AABB::make(small, big);
     }
     
 #endif

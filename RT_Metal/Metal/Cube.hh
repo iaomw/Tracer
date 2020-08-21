@@ -10,7 +10,7 @@ struct Cube {
     float4x4 inverse_matrix;
     
     AABB box;
-    uint32_t material;
+    uint material;
     AABB boundingBOX;
     
 #ifdef __METAL_VERSION__

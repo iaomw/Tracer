@@ -3,13 +3,14 @@
 
 #include "Common.hh"
 
+#ifdef __METAL_VERSION__
+
 struct Ray {
-    float3 origin;
-    float3 direction;
+    packed_float3 origin;
+    packed_float3 direction;
     //Float time;
     //const Medium *medium;
     
-#ifdef __METAL_VERSION__
     Ray();
     
     Ray(float3 o, float3 d) {
@@ -20,9 +21,9 @@ struct Ray {
     float3 pointAt(float t) const {
         return origin + direction * t;
     }
-#endif
-    
 };
+
+#endif
 
 //struct RayDifferential {
 //    Ray ray;

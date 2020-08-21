@@ -277,15 +277,15 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     gloss.specularRoughness = 0.0;
     gloss.specularColor = simd_make_float3(0.3f, 1.0f, 0.3f);
     gloss.parameter = 1.1f;
-    //gloss.refractionProb = 1.0f;
-    //gloss.refractionRoughness = 0.0;
-    //gloss.refractionColor = simd_make_float3(0.0f, 0.5f, 1.0f);
+    gloss.refractionProb = 0.0f;
+    gloss.refractionRoughness = 0.0;
+    gloss.refractionColor = simd_make_float3(0.0f, 0.5f, 1.0f);
     
     for(auto i : {0, 1, 2, 3, 4, 5} ) {
         
         sphere = MakeSphere(40, simd_make_float3(0 + 100 * i, 400, 300));
-        gloss.specularRoughness = i * 0.2;
-        //gloss.refractionRoughness = i * 0.2;
+        gloss.specularRoughness = fmax(FLT_MIN, i * 0.2);
+        gloss.refractionRoughness = fmax(FLT_MIN, i * 0.2);
         
         auto m_index = (uint32_t)materials.size();
         materials.push_back(gloss);
@@ -313,7 +313,6 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     
     let rotH = matrix4x4_rotation(rotate.x * hfov * 10, viewUp);
     let rotV = matrix4x4_rotation(rotate.y * vfov * 10,  simd_make_float3(1, 0, 0));
-    //let rotV = matrix4x4_rotation(rotate.y * vfov * 10, simd_mul(rotH, simd_make_float4(1, 0, 0, 0)).xyz);
     
     lookFrom = lookAt + simd_mul(simd_mul(rotH, rotV), offset).xyz;
     

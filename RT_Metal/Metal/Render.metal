@@ -146,7 +146,7 @@ fragmentShader( RasterizerData input [[stage_in]],
     float mapped = clamp(CETone(mix_luma, 1.0f), 0.0, 0.96);
     float expose = 1.0 - mapped;
     
-    tex_color.rgb = ACESTone(tex_color.rgb, 0.5);
+    tex_color.rgb = ACESTone(tex_color.rgb, expose * 0.5);
     tex_color.rgb = LinearToSRGB(tex_color.rgb);
     
     return tex_color;
@@ -184,7 +184,7 @@ float3 traceBVH(float depth, thread Ray& ray,
         uint the_index = 0;
         uint tested_index = UINT_MAX;
         
-        uint32_t stack_mark = 0;
+        uint64_t stack_mark = 0;
         uint32_t stack_level = 0;
         
         float ttt = INFINITY;
@@ -337,8 +337,7 @@ float3 traceBVH(float depth, thread Ray& ray,
                 } // switch
                 
                 tested_index = selected_index;
-                //auto center = (bvh_box.maxi + bvh_box.mini) / 2;
-                //auto half_diagonal = (bvh_box.maxi - bvh_box.mini) / 2;
+                
             } while (tested_index != 0);
         }
 

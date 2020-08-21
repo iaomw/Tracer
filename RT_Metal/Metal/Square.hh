@@ -17,7 +17,7 @@ struct Square {
     float4x4 normal_matrix;
     float4x4 inverse_matrix;
     
-    uint32_t material;
+    uint material;
     AABB boundingBOX;
     
 #ifdef __METAL_VERSION__
