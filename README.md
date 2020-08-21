@@ -1,18 +1,20 @@
 # Tracer
 This is simply a repository for my **Ray Tracing** code.
 
-![](Captures/capture_h.jpg)
-![](Captures/capture_g.jpg)
-![](Captures/capture_f.png)
-![](Captures/capture_e.png)
+![](Captures/capture_l.jpg)
+![](Captures/capture_k.jpg)
+![](Captures/capture_j.jpg)
+![](Captures/capture_i.jpg)
 
 ### Bigger things to-do:
 - [x] [Ray Tracing: In One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 - [x] [Ray Tracing: The Next Week](https://raytracing.github.io/books/RayTracingTheNextWeek.html)
 - [x] [Ray Tracing: The Rest of Your Life](https://raytracing.github.io/books/RayTracingTheRestOfYourLife.html)
 - [ ] [Metal API](https://developer.apple.com/documentation/metal)
-    - [ ] Compute kernel BVH & SVGF
-    - [ ] MPS Acceleration & SVGF
+    - [ ] Spatiotemporal Variance-Guided Filtering
+    - [ ] MPS Acceleration & Denoise
+    - [x] Surface Area Heuristic BVH on CPU
+    - [x] Stackless BVH backtrace on GPU
     - [x] pcg-random
 - [ ] [**Physically Based Rendering** __*third edition*__](http://www.pbr-book.org/)
     - [ ] Volume Rendering
