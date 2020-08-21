@@ -10,13 +10,12 @@ enum struct TextureType { Constant, Checker, Noise, Image };
 struct TextureInfo {
     
     enum TextureType type;
-    
     uint textureIndex;
     float3 albedo;
     
 #ifdef __METAL_VERSION__
     
-    float3 value(constant texture2d<half, access::sample> *texture, float2 uv, float3 p) {
+    float3 value(constant texture2d<half, access::sample> *texture, float2 uv, float3 p) constant {
         
         switch (type) {
             case TextureType::Constant:

@@ -17,14 +17,12 @@ struct Square {
     float4x4 normal_matrix;
     float4x4 inverse_matrix;
     
+    uint material;
     AABB boundingBOX;
-    Material material;
     
 #ifdef __METAL_VERSION__
     
     bool hit_test(const thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) constant {
-        
-        //if (!boundingBOX.hit(ray, range_t)) {return false;}
         
         auto t = (value_k-ray.origin[axis_k]) / ray.direction[axis_k];
         if (t<range_t.x || t>range_t.y) { return false; }

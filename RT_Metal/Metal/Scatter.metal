@@ -3,12 +3,12 @@
 bool scatter(thread Ray& ray,
              thread HitRecord& hitRecord,
              thread ScatRecord& scatRecord,
-             thread pcg32_random_t* seed)
+             thread pcg32_random_t* seed,
+             
+             constant Material* materials )
 {
-    auto material = hitRecord.material;
     auto normal = hitRecord.normal();
-    
-    auto attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+    constant auto& material = materials[hitRecord.material];
     
     switch(material.type) {
             
@@ -17,7 +17,7 @@ bool scatter(thread Ray& ray,
             auto direction = normal + randomUnit(seed);
             
             ray = Ray(hitRecord.p, direction);
-            scatRecord.attenuation = attenuation;
+            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             return true;
         }
             
@@ -28,13 +28,13 @@ bool scatter(thread Ray& ray,
             auto direction = reflected + fuzz;
             
             ray = Ray(hitRecord.p, direction);
-            scatRecord.attenuation = attenuation;
+            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             return true;
         }
             
         case MaterialType::Dielectric: {
             
-            auto theIOR = hitRecord.front? (1.0/material.parameter) : material.parameter;
+            auto theIOR = hitRecord.f? (1.0/material.parameter) : material.parameter;
             
             auto unit_direction = ray.direction;
             auto cos_theta = min(dot(-unit_direction, normal), 1.0);
@@ -44,7 +44,7 @@ bool scatter(thread Ray& ray,
                 auto reflected = reflect(unit_direction, normal);
                 
                 ray = Ray(hitRecord.p, reflected);
-                scatRecord.attenuation = attenuation;
+                scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
                 return true;
             }
 
@@ -53,14 +53,14 @@ bool scatter(thread Ray& ray,
                 auto reflected = reflect(unit_direction, normal);
                 
                 ray = Ray(hitRecord.p, reflected);
-                scatRecord.attenuation = attenuation;
+                scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
                 return true;
             }
 
             auto refracted = refract(unit_direction, normal, theIOR);
             
             ray = Ray(hitRecord.p, refracted);
-            scatRecord.attenuation = attenuation;
+            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             return true;
         }
         case MaterialType::Diffuse: {
@@ -69,7 +69,7 @@ bool scatter(thread Ray& ray,
         case MaterialType::Isotropic: {
             
             ray = Ray(hitRecord.p, randomInUnitSphereFFF(seed));
-            scatRecord.attenuation = attenuation;
+            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             return true;
         }
             
@@ -78,25 +78,25 @@ bool scatter(thread Ray& ray,
             float rayProbability = 1.0f;
             auto throughput = float3(1.0);
             
-            auto theIOR = hitRecord.front? (1.0/material.parameter) : material.parameter;
+            auto theIOR = hitRecord.f? (1.0/material.parameter) : material.parameter;
             
-            if (!hitRecord.front) {
-                throughput *= exp(-hitRecord.material.refractionColor * hitRecord.t);
+            if (!hitRecord.f) {
+                throughput *= exp(-material.refractionColor * hitRecord.t);
             }
             
             // apply fresnel
-            float specularProb = hitRecord.material.specularProb;
-            float refractionProb = hitRecord.material.refractionProb;
+            float specularProb = material.specularProb;
+            float refractionProb = material.refractionProb;
             
             if (specularProb > 0.0f) {
                 
                 specularProb = fresnel(
-                        hitRecord.front? 1.0 : hitRecord.material.parameter,
-                        !hitRecord.front? 1.0 : hitRecord.material.parameter,
-                        normal, ray.direction, hitRecord.material.specularProb, 1.0f);
+                        hitRecord.f? 1.0 : material.parameter,
+                        !hitRecord.f? 1.0 : material.parameter,
+                        normal, ray.direction, material.specularProb, 1.0f);
                         //ray.direction, hitRecord.n, hitRecord.material.specularProb, 1.0f);
                 
-                refractionProb *= (1.0f - specularProb) / (1.0f - hitRecord.material.specularProb);
+                refractionProb *= (1.0f - specularProb) / (1.0f - material.specularProb);
             }
             
             auto doSpecular = 0.0f;
@@ -132,10 +132,10 @@ bool scatter(thread Ray& ray,
             auto diffuseDir = normal + randomUnit(seed);
             auto specularDir = reflect(ray.direction, normal);
             
-            specularDir = normalize(mix(specularDir, diffuseDir, hitRecord.material.specularRoughness * hitRecord.material.specularRoughness));
+            specularDir = normalize(mix(specularDir, diffuseDir, pow(material.specularRoughness, 2)));
             
             auto refractionDir = refract(ray.direction, normal, theIOR);
-            refractionDir = normalize(mix(refractionDir, normalize(-normal + randomUnit(seed)), hitRecord.material.refractionRoughness *  hitRecord.material.refractionRoughness));
+            refractionDir = normalize(mix(refractionDir, normalize(-normal + randomUnit(seed)), pow(material.refractionRoughness, 2)));
                 
             auto direction = mix(diffuseDir, specularDir, doSpecular);
             direction = mix(direction, refractionDir, doRefraction);
@@ -145,8 +145,8 @@ bool scatter(thread Ray& ray,
             
             if (doRefraction == 0.0f) {
                 
-                scatRecord.attenuation *= mix(hitRecord.material.textureInfo.albedo,
-                                              hitRecord.material.specularColor,
+                scatRecord.attenuation *= mix(material.textureInfo.albedo,
+                                              material.specularColor,
                                               doSpecular);
             }
             

@@ -11,12 +11,19 @@ struct Sphere {
     float4x4 normal_matrix;
     float4x4 inverse_matrix;
     
+    uint material;
     AABB boundingBOX;
-    Material material;
     
 #ifdef __METAL_VERSION__
     
     void sphereUV(thread float3& p, thread float2& uv) constant {
+        auto phi = atan2(p.z, p.x);
+        auto theta = asin(p.y);
+        uv[0] = 1-(phi + M_PI_F) / (2*M_PI_F);
+        uv[1] = (theta + M_PI_2_F) / M_PI_F;
+    }
+    
+    void sphereUV(thread packed_float3& p, thread float2& uv) constant {
         auto phi = atan2(p.z, p.x);
         auto theta = asin(p.y);
         uv[0] = 1-(phi + M_PI_F) / (2*M_PI_F);

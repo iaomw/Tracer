@@ -17,6 +17,8 @@
 bool scatter(thread Ray& ray,
              thread HitRecord& hitRecord,
              thread ScatRecord& scatRecord,
-             thread pcg32_random_t* seed);
+             thread pcg32_random_t* seed,
+             
+             constant Material* materials);
 
 #endif /* MetalObject_h */
