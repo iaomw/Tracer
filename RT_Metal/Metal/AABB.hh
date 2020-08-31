@@ -17,6 +17,11 @@ struct AABB {
         return maxi - mini;
     }
     
+    float3 centroid() const {
+        auto d = diagonal() / 2;
+        return mini + d;
+    }
+    
     float surfaceArea() const {
         auto d = diagonal();
         return 2 * (d.x * d.y + d.x * d.z + d.y * d.z);
@@ -44,12 +49,6 @@ struct AABB {
             return 1;
         else
             return 2;
-    }
-    
-    float3 centroid() const {
-        
-        auto d = diagonal() / 2;
-        return mini + d;
     }
     
 #ifdef __METAL_VERSION__

@@ -130,7 +130,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     materials.emplace_back(metal);
     
     auto bigger = MakeCube(simd_make_float3(0, 0, 0),
-                           simd_make_float3(165, 330, 165), metal_index);
+                           simd_make_float3(165, 330, 165), 14);
     
     auto translate = matrix4x4_translation(265, 0, 295);
     auto rotate = matrix4x4_rotation(M_PI*15/180, simd_make_float3(0, 1, 0));

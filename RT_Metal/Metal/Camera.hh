@@ -23,7 +23,7 @@ struct Camera {
 void CoordinateSystem(const thread float3& a, thread float3& b, thread float3& c);
 
 #ifdef __METAL_VERSION__
-Ray castRay(constant Camera* camera, float s, float t, thread pcg32_random_t* seed);
+Ray castRay(constant Camera* camera, float s, float t, thread pcg32_t* seed);
 #endif
 
 #endif /* Camera_h */

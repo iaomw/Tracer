@@ -103,7 +103,7 @@ struct Triangle {
         
         hitRecord.checkFace(ray);
         
-        hitRecord.material = 8;
+        hitRecord.material = 14;
          
         return true;
     }

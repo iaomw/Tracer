@@ -13,11 +13,19 @@
 #include "Sphere.hh"
 
 #include "HitRecord.hh"
-    
+
 bool scatter(thread Ray& ray,
+             thread pcg32_t* seed,
              thread HitRecord& hitRecord,
              thread ScatRecord& scatRecord,
-             thread pcg32_random_t* seed,
+             
+             thread texture2d<float, access::sample> &texAO,
+             thread texture2d<float, access::sample> &texAlbedo,
+             thread texture2d<float, access::sample> &texMetallic,
+             thread texture2d<float, access::sample> &texNormal,
+             thread texture2d<float, access::sample> &texRoughness,
+             
+             thread texture2d<uint32_t, access::sample> &xRNG,
              
              constant Material* materials);
 

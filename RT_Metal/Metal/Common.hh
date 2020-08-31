@@ -9,7 +9,6 @@
         constexpr sampler textureSampler (mag_filter::linear, min_filter::linear, mip_filter::linear);
 
         #define metal_constant constant
-
     #else
 
         #define let __auto_type const

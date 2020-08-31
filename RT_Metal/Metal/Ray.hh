@@ -6,8 +6,8 @@
 #ifdef __METAL_VERSION__
 
 struct Ray {
-    packed_float3 origin;
-    packed_float3 direction;
+    float3 origin;
+    float3 direction;
     //Float time;
     //const Medium *medium;
     

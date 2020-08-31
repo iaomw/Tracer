@@ -146,7 +146,7 @@ fragmentShader( RasterizerData input [[stage_in]],
     float mapped = clamp(CETone(mix_luma, 1.0f), 0.0, 0.96);
     float expose = 1.0 - mapped;
     
-    tex_color.rgb = ACESTone(tex_color.rgb, expose * 0.5);
+    tex_color.rgb = ACESTone(tex_color.rgb, 0.5);
     tex_color.rgb = LinearToSRGB(tex_color.rgb);
     
     return tex_color;
@@ -154,20 +154,26 @@ fragmentShader( RasterizerData input [[stage_in]],
 
 float3 traceBVH(float depth, thread Ray& ray,
                          
-                         thread texture2d<half, access::sample> &ambientHDR,
-                         thread texture2d<half, access::sample> &textureTest,
-                         
-                         constant Sphere* sphere_list,
-                         constant Square* square_list,
-                         constant Cube* cube_list,
-                         
-                         constant uint32_t* tirIndex,
-                         constant Triangle* tirList,
-                         constant BVH* bvh_list,
+                        thread texture2d<float, access::sample> &ambientHDR,
                 
-                         constant  Material* materials,
+                        thread texture2d<float, access::sample> &texAO,
+                        thread texture2d<float, access::sample> &texAlbedo,
+                        thread texture2d<float, access::sample> &texMetallic,
+                        thread texture2d<float, access::sample> &texNormal,
+                        thread texture2d<float, access::sample> &texRoughness,
+                
+                        thread texture2d<uint32_t, access::sample> &xRNG,
+                        
+                        constant Sphere* sphere_list,
+                        constant Square* square_list,
+                        constant Cube* cube_list,
                          
-                         thread pcg32_random_t* seed)
+                        constant uint32_t* tirIndex,
+                        constant Triangle* tirList,
+                        constant BVH* bvh_list,
+                
+                        constant Material* materials,
+                        thread pcg32_t* seed)
 {
     HitRecord hitRecord;
     ScatRecord scatRecord;
@@ -179,7 +185,7 @@ float3 traceBVH(float depth, thread Ray& ray,
 
     do {
         
-        range_t = float2(0.01, INFINITY);
+        range_t = float2(0.001, INFINITY);
             
         uint the_index = 0;
         uint tested_index = UINT_MAX;
@@ -345,8 +351,8 @@ float3 traceBVH(float depth, thread Ray& ray,
             float3 sphereVector = ray.origin + 1000000 * ray.direction;
             float2 uv = SampleSphericalMap(normalize(sphereVector));
             auto ambient = ambientHDR.sample(textureSampler, uv);
-            //return ratio * float3(ambient.rgb);
-            color = ratio * float3(ambient.rgb);
+            ambient = pow(ambient, 2.2);
+            color = ratio * ambient.rgb;
             break;
         }
         
@@ -357,7 +363,8 @@ float3 traceBVH(float depth, thread Ray& ray,
             break;
         }
         
-        if ( !scatter(ray, hitRecord, scatRecord, seed, materials) ) {
+        if ( !scatter(ray, seed, hitRecord, scatRecord,
+                      texAO, texAlbedo, texMetallic, texNormal, texRoughness, xRNG, materials) ) {
             //return float3(1, 0, 1);
             color = float3(0);
             break;
@@ -394,7 +401,7 @@ float3 traceColor(float depth, thread Ray& ray,
                   
                          constant  Material* materials,
                          
-                         thread pcg32_random_t* seed)
+                         thread pcg32_t* seed)
 {
     HitRecord hitRecord;
     ScatRecord scatRecord;
@@ -461,11 +468,11 @@ float3 traceColor(float depth, thread Ray& ray,
             break;
         }
         
-        if ( !scatter(ray, hitRecord, scatRecord, seed, materials) ) {
-            //return float3(1, 0, 1);
-            color = float3(0);
-            break;
-        }
+//        if ( !scatter(ray, hitRecord, scatRecord, seed, materials) ) {
+//            //return float3(1, 0, 1);
+//            color = float3(0);
+//            break;
+//        }
         
         ratio *= scatRecord.attenuation;
         
@@ -483,14 +490,21 @@ float3 traceColor(float depth, thread Ray& ray,
 }
 
 kernel void
-tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
-             texture2d<half, access::write> outTexture [[texture(1)]],
+tracerKernel(texture2d<float, access::read>     inTexture  [[texture(0)]],
+             texture2d<float, access::write>    outTexture [[texture(1)]],
              
-             texture2d<uint32_t, access::read>  inRNG  [[texture(2)]],
-             texture2d<uint32_t, access::write> outRNG [[texture(3)]],
+             texture2d<uint32_t, access::read>      inRNG  [[texture(2)]],
+             texture2d<uint32_t, access::write>     outRNG [[texture(3)]],
              
-             texture2d<half, access::sample>  textureHDR [[texture(4)]],
-             texture2d<half, access::sample> textureTest [[texture(5)]],
+             texture2d<float, access::sample>   textureHDR [[texture(4)]],
+             
+             texture2d<float, access::sample>        texAO [[texture(5)]],
+             texture2d<float, access::sample>    texAlbedo [[texture(6)]],
+             texture2d<float, access::sample>  texMetallic [[texture(7)]],
+             texture2d<float, access::sample>    texNormal [[texture(8)]],
+             texture2d<float, access::sample> texRoughness [[texture(9)]],
+             
+             texture2d<uint32_t, access::sample>       xRNG [[texture(10)]],
              
              uint2 thread_pos  [[thread_position_in_grid]],
              
@@ -521,7 +535,7 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     uint64_t rng_state = (uint64_t(rr) << 32) | gg;
     uint64_t rng_inc = (uint64_t(bb) << 32) | aa;
     
-    pcg32_random_t rng = { rng_inc, rng_state };
+    pcg32_t rng = { rng_inc, rng_state };
     
     auto cached_color = float3(inTexture.read(thread_pos).rgb);
     auto frame_count = sceneMeta->frame_count;
@@ -534,10 +548,16 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
     auto v = float(thread_pos.y)/outTexture.get_height();
     
     auto ray = castRay(camera, u, v, &rng);
-    auto color = traceBVH(32, ray,
     //auto color = traceColor(32, ray,
-                            textureHDR,
-                            textureTest,
+    auto color = traceBVH(32, ray, textureHDR,
+                          
+                            texAO,
+                            texAlbedo,
+                            texMetallic,
+                            texNormal,
+                            texRoughness,
+                          
+                            xRNG,
                             
                             sphere_list,
                             square_list,
@@ -553,10 +573,7 @@ tracerKernel(texture2d<half, access::read>  inTexture  [[texture(0)]],
 
     float3 result = (cached_color.rgb * frame_count + color) / (frame_count + 1);
     
-    auto hhhh = half4(1.0);
-    hhhh.rgb = half3(result);
-    
-    outTexture.write(hhhh, thread_pos);
+    outTexture.write(float4(result, 1), thread_pos);
     
     gg = rng.state;
     rr = rng.state >> 32;

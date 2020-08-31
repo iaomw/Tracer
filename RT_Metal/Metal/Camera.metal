@@ -11,7 +11,7 @@ void CoordinateSystem(const thread float3& a, thread float3& b, thread float3& c
     c = cross(a, b);
 }
 
-Ray castRay(constant Camera* camera, float s, float t, thread pcg32_random_t* seed) {
+Ray castRay(constant Camera* camera, float s, float t, thread pcg32_t* seed) {
     auto rd = camera->lenRadius * randomInUnitDiskFF(seed);
     //auto rd = 0.005 * randomInUnitDiskFF(seed);
     auto offset = camera->u*rd.x + camera->v*rd.y;
