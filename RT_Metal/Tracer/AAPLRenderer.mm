@@ -159,6 +159,10 @@ typedef struct  {
                             length:sizeof(struct Sphere)*sphere_list.size()
                             options: MTLResourceStorageModeManaged];
         
+        Material pbr;
+        pbr.type = MaterialType::PBR;
+        materials.emplace_back(pbr);
+        
         _material_buffer = [_device newBufferWithBytes:materials.data()
                                                 length:sizeof(struct Material)*materials.size()
                                                options:MTLResourceStorageModeManaged];
@@ -181,7 +185,7 @@ typedef struct  {
         
         let td = [[MTLTextureDescriptor alloc] init];
         td.textureType = MTLTextureType2D;
-        td.pixelFormat = MTLPixelFormatRGBA16Float; //MTLPixelFormatBGRA8Unorm;
+        td.pixelFormat = MTLPixelFormatRGBA32Float; //MTLPixelFormatBGRA8Unorm;
         td.width = width;
         td.height = height;
         td.mipmapLevelCount = mipCount;
@@ -266,16 +270,20 @@ typedef struct  {
         let mdlAO = [MDLTexture textureNamed:@"coatball/tex_ao.png"];
         _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
         
-        let mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
+        //let mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
+        let mdlAlbedo = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_basecolor.png"];
         _textureAlbedo = [loader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
         
-        let mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
+        //let mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
+        let mdlMetallic = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_metallic.png"];
         _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
         
-        let mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
+        //let mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
+        let mdlNormal = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_normal.png"];
         _textureNormal = [loader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
         
-        let mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
+        //let mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
+        let mdlRoughness = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_roughness.png"];
         _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
         
             if(!_textureHDR)
@@ -329,7 +337,7 @@ typedef struct  {
 //                }
         
                 //for (int i=0; i<0; i++) {
-//                for (int i=0; i<cornell_box.size(); i++) {
+//                for (int i=4; i<cornell_box.size(); i++) {
 //                    auto& square = cornell_box[i];
 //                    BVH::buildNode(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
 //                }
@@ -345,7 +353,7 @@ typedef struct  {
             
             auto vertexCount = testMesh.submeshes.firstObject.indexCount;
             
-            float scale = 40; float offset = 278;
+            float scale = 30; float offset = 278;
             for (uint32_t i=0; i<vertexCount; i+=3) {
                 
                 auto index_a = index_ptr[i];
@@ -360,7 +368,9 @@ typedef struct  {
                     
                     ele->vx *= scale;
                     ele->vy *= scale;
-                    ele->vz *= scale;
+                    ele->vz *= -scale;
+                    
+                    ele->nz *= -1;
                     
                     ele->vx += offset;
                     ele->vy += offset;
@@ -442,7 +452,8 @@ typedef struct  {
         if (self->_dragging) {
             self->_scene_meta.frame_count = 0;
         } else {
-            self->_scene_meta.frame_count += 1;
+            let fcount = self->_scene_meta.frame_count;
+            self->_scene_meta.frame_count = fmin(10000000, fcount+1);
         }
         
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{

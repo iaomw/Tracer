@@ -16,27 +16,29 @@ float NDF(const thread float3& h, float roughness) {
 float GX(const thread float3& wo, const thread float3& wi, float roughness) {
     // Schlick, remap roughness and k
 
-    if (wo.z >= 0 || wi.z <= 0)
+    if (wo.z <= 0 || wi.z <= 0)
         return 0;
-
-    float k = pow(roughness + 1, 2) / 8.f;
     
-    k = pow(roughness, 4);
+    float k = pow(roughness, 2) / 2;
     
-    float G1_wo = wo.z / (wo.z*(1 - k) + k);
-    float G1_wi = wi.z / (wi.z*(1 - k) + k);
+    auto oz = max(0.0, wo.z);
+    auto iz = max(0.0, wi.z);
+    
+    float G1_wo = oz / (oz * (1 - k) + k);
+    float G1_wi = iz / (iz * (1 - k) + k);
     return G1_wo * G1_wi;
 }
 
 // Fresnel
-float3 FX(const thread float3& wi, const thread float3& h, const thread float3 albedo, float metallic) {
+float3 FX(const thread float3& wi, const thread float3& wh, const thread float3 albedo, float metallic) {
     // Schlick’s approximation
     // use a Spherical Gaussian approximation to replace the power.
     // slightly more efficient to calculate and the difference is imperceptible
     
+    float HoWi = abs(dot(wh, wi));
+    
     float3 F0 = mix(float3(0.04f), albedo, metallic);
-    float HoWi = dot(h, wi);
-    return F0 + (float3(1.0f) - F0) * pow(2.0f, (-5.55473f * HoWi - 6.98316f) * HoWi);
+    return F0 + (1.0 - F0) * pow(2.0f, (-5.55473f * HoWi - 6.98316f) * HoWi);
 }
 
 // cook torrance BRDF
@@ -85,29 +87,6 @@ float3 F(const thread float3& wo, const thread float3& wi, const thread float3& 
     auto diffuse = albedo / M_PI_F;
     return ambientOcclusion * ((1 - metallic)*diffuse +
         CT_BRDF(wo, wi, albedo, metallic, roughness));
-}
-
-static float3 SchlickFresnel(float3 r0, float radians)
-{
-    // -- The common Schlick Fresnel approximation
-    float exponential = pow(1.0f - radians, 5.0f);
-    return r0 + (1.0f - r0) * exponential;
-}
-
-// Calculation in view space
-float3 detailedTexNormal(float3 normal_vspace, float3 tNormal, float2 uv, float3 position)
-{
-    float3 dPosX  = dfdx(position.xyz);
-    float3 dPosY  = dfdy(position.xyz);
-    float3 dTexX = dfdx(float3(uv, 0));
-    float3 dTexY = dfdy(float3(uv, 0));
-
-    float3 normal = normalize(normal_vspace);
-    float3 tangent = normalize(dPosX * dTexY.y - dPosY * dTexX.y);
-    float3 binormal = -normalize(cross(normal, tangent));
-    float3x3 TBN = float3x3(tangent, binormal, normal);
-
-    return normalize(TBN * tNormal);
 }
 
 bool scatter(thread Ray& ray,
@@ -192,18 +171,18 @@ bool scatter(thread Ray& ray,
             return true;
         }
             
-        case MaterialType::Specular: {
+        case MaterialType::PBR: {
             
-            float ao = texAO.sample(textureSampler, hitRecord.uv).r;
+            float ao = texAO.sample(textureSampler, hitRecord.uv, 0).r;
             
-            float3 albedo = texAlbedo.sample(textureSampler, hitRecord.uv).rgb;
-            albedo = pow(albedo, 2.2); //albedo = float3(1.0);
+            float3 albedo = texAlbedo.sample(textureSampler, hitRecord.uv, 0).rgb;
+            //albedo = pow(albedo, 2.2); //albedo = float3(1.0);
             
-            float metallic = texMetallic.sample(textureSampler, hitRecord.uv).r;
-            float3 tNormal = texNormal.sample(textureSampler, hitRecord.uv).xyz;
+            float metallic = texMetallic.sample(textureSampler, hitRecord.uv, 0).r;
+            float3 tNormal = texNormal.sample(textureSampler, hitRecord.uv, 0).xyz;
             tNormal = normalize(tNormal * 2 - 1);
             
-            float roughness = texRoughness.sample(textureSampler, hitRecord.uv).r;
+            float roughness = texRoughness.sample(textureSampler, hitRecord.uv, 0).r;
             roughness = max(roughness, 0.001);
             
             float3 nx, ny;
@@ -219,10 +198,10 @@ bool scatter(thread Ray& ray,
         
             auto pSpecular = 1/(2-metallic);
             
-            auto r0 = randomF(seed) * 0.5;
+            auto r0 = randomF(seed);
             auto r1 = randomF(seed);
             
-            if (randomF(seed) > 1) {
+            if (randomF(seed) > pSpecular) {
                 
                 float sinTheta = sqrt(r0);
                 float cosTheta = sqrt(1-r0);
@@ -246,7 +225,7 @@ bool scatter(thread Ray& ray,
                 
                 auto x = sin(theta) * cos(phi);
                 auto y = sin(theta) * sin(phi);
-                auto z = cos(theta) * 1;
+                auto z = cos(theta);
                 
                 //wo = transpose(stw) * (ray.direction);
                 wh = normalize( {x, y, z} );
@@ -256,14 +235,14 @@ bool scatter(thread Ray& ray,
             if (wi.z <= 0 || dot(wh, wi) <= 0) { return false; }
         
             auto D = NDF(wh, roughness);
-            auto G = GX(wo, wi, roughness);
+            auto G = GX(-wo, wi, roughness);
             auto F = FX(wi, wh, albedo, metallic);
             
             float denominator = 4.0f * abs(wo.z * wi.z);
             
             auto specular = D * G * F / max(FLT_MIN, denominator);
             
-            auto diffuse = albedo / M_PI_F;
+            auto diffuse = albedo; // / M_PI_F;
             
             auto kS = F;
             auto kD = (1 - metallic) * (1.0f - kS);
@@ -271,10 +250,14 @@ bool scatter(thread Ray& ray,
             ray = Ray(hitRecord.p, stw * wi);
             scatRecord.attenuation = (kD * diffuse + specular) * ao;
             
+            //scatRecord.attenuation = G;
             //auto pdf = PDF(wh, roughness);
             //scatRecord.attenuation /= abs(pdf);
             
             return true;
+        }
+            
+        case MaterialType::Specular: {
             
             float rayProbability = 1.0f;
             auto throughput = float3(1.0);
