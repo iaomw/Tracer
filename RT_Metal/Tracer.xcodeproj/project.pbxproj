@@ -197,6 +197,7 @@
 		57DD355D241EEC110094632B = {
 			isa = PBXGroup;
 			children = (
+				570DF00824CF979500421890 /* vulture_hide_4k.hdr */,
 				57483ED524FEC232002F7ECA /* goldscuffed */,
 				57C64C7724E149BD0054AB8C /* coatball */,
 				5789DEB524F0C2CE008F0A71 /* meshes */,
@@ -221,7 +222,6 @@
 		57DD3568241EEC110094632B /* Tracer */ = {
 			isa = PBXGroup;
 			children = (
-				570DF00824CF979500421890 /* vulture_hide_4k.hdr */,
 				571C09612439269400DA0BAC /* Tracer.hh */,
 				571C095F2439267700DA0BAC /* Tracer.mm */,
 				57C64C7A24E1549A0054AB8C /* AAPLMesh.h */,

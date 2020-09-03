@@ -54,19 +54,22 @@ class TracerViewController: NSViewController {
     let kRightArrowKeyCode: UInt16  = 124
     let kDownArrowKeyCode:  UInt16  = 125
     let kUpArrowKeyCode:    UInt16  = 126
+    let kSpaceKeyCode:      UInt16  = 049
     
     override func keyDown(with event: NSEvent) {
         
         switch event.keyCode {
 
         case kLeftArrowKeyCode:
-            metalRender?.drag(simd_float2(1, 0), state: true)
+            metalRender?.drag(simd_float2( 1,  0), state: false)
         case kRightArrowKeyCode:
-            metalRender?.drag(simd_float2(-1, 0), state: true)
+            metalRender?.drag(simd_float2(-1,  0), state: false)
         case kDownArrowKeyCode:
-            metalRender?.drag(simd_float2(0, 1), state: true)
+            metalRender?.drag(simd_float2( 0,  1), state: false)
         case kUpArrowKeyCode:
-            metalRender?.drag(simd_float2(0, -1), state: true)
+            metalRender?.drag(simd_float2( 0, -1), state: false)
+        case kSpaceKeyCode:
+            metalRender?.drag(simd_float2( 0,  0), state: false)
         default:
             break
         }

@@ -74,10 +74,7 @@ typedef struct  {
     id<MTLTexture> _textureARNG;
     id<MTLTexture> _textureBRNG;
     
-    id<MTLTexture> _textureXRNG;
-    
     id<MTLTexture> _textureHDR;
-    id<MTLTexture> _textureTest;
     
     id<MTLTexture> _textureAO;
     id<MTLTexture> _textureAlbedo;
@@ -208,8 +205,6 @@ typedef struct  {
         _textureARNG = [_device newTextureWithDescriptor:tdr];
         _textureBRNG = [_device newTextureWithDescriptor:tdr];
         
-        _textureXRNG = [_device newTextureWithDescriptor:tdr];
-        
         UInt32 count = width * height * 4;
         UInt32* seeds = (UInt32*)malloc(count*sizeof(UInt32));
 
@@ -234,17 +229,6 @@ typedef struct  {
                           destinationSlice: 0
                           destinationLevel: 0
                          destinationOrigin: {0,0,0}];
-        //[blitCommandEncoder endEncoding];
-        
-        [blitCommandEncoder copyFromBuffer: _sourceBuffer
-                              sourceOffset: 0
-                         sourceBytesPerRow: sizeof(UInt32)*4 * width
-                       sourceBytesPerImage: sizeof(UInt32)*4 * width * height
-                                sourceSize: { width, height, 1 }
-                                 toTexture: _textureXRNG
-                          destinationSlice: 0
-                          destinationLevel: 0
-                         destinationOrigin: {0,0,0}];
         [blitCommandEncoder endEncoding];
 
         // Add a completion handler and commit the command buffer.
@@ -260,12 +244,23 @@ typedef struct  {
         NSDictionary *textureLoaderOptions = @ {
                     //MTKTextureLoaderOptionAllocateMipmaps: @YES,
                     //MTKTextureLoaderOptionGenerateMipmaps: @YES,
+                    MTKTextureLoaderOptionSRGB: @(NO),//[NSNumber numberWithBool:YES],
                     MTKTextureLoaderOptionTextureUsage : @(MTLTextureUsageShaderRead),
                     MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
                     MTKTextureLoaderOptionOrigin: MTKTextureLoaderOriginFlippedVertically };
         
-        let mdlHDR = [MDLTexture textureNamed:@"vulture_hide_4k.hdr"];
-        _textureHDR = [loader newTextureWithMDLTexture:mdlHDR options:textureLoaderOptions error:&ERROR];
+        let pathHDR = [NSBundle.mainBundle pathForResource:@"vulture_hide_4k" ofType:@"hdr"];
+        let urlHDR = [[NSURL alloc] initFileURLWithPath:pathHDR];
+        
+        #if TARGET_OS_OSX
+            let imageData = [[[NSImage alloc] initWithContentsOfURL:urlHDR] TIFFRepresentation];
+        #else
+            //let imageData = [[NSData alloc] initWithContentsOfFile:path];
+            let image = [[UIImage alloc] initWithContentsOfFile:path];
+            let imageData = UIImagePNGRepresentation(image);
+        #endif
+        
+        _textureHDR = [loader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
         
         let mdlAO = [MDLTexture textureNamed:@"coatball/tex_ao.png"];
         _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
@@ -288,13 +283,11 @@ typedef struct  {
         
             if(!_textureHDR)
             {
-                NSLog(@"Failed to create the texture from %@", mdlHDR);
+                NSLog(@"Failed to create the texture from %@", _textureHDR);
                 return nil;
             }
-                
-        let allocator = [[MTKMeshBufferAllocator alloc] initWithDevice:_device];
-        
-        let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
+            
+        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/bunny" ofType:@"obj"];
         let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
                 
             MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);
@@ -316,7 +309,8 @@ typedef struct  {
             modelIOVertexDescriptor.attributes[2].format = MDLVertexFormatFloat2;
             
             modelIOVertexDescriptor.layouts[0].stride = 32;
-                
+        
+        let allocator = [[MTKMeshBufferAllocator alloc] initWithDevice:_device];
         let testAsset = [[MDLAsset alloc] initWithURL:modelURL
                                     vertexDescriptor:modelIOVertexDescriptor
                                      bufferAllocator:allocator]; // preserveTopology: NO
@@ -351,10 +345,10 @@ typedef struct  {
             auto index_ptr = (uint32_t*)testMesh.submeshes.firstObject.indexBuffer.map.bytes;
             auto vertex_ptr = (MeshStrut*)testMesh.vertexBuffers.firstObject.map.bytes;
             
-            auto vertexCount = testMesh.submeshes.firstObject.indexCount;
+            auto indexCount = testMesh.submeshes.firstObject.indexCount;
             
-            float scale = 30; float offset = 278;
-            for (uint32_t i=0; i<vertexCount; i+=3) {
+            float scale = 300; float offset = 278;
+            for (uint i=0; i<indexCount; i+=3) {
                 
                 auto index_a = index_ptr[i];
                 auto index_b = index_ptr[i+1];
@@ -373,7 +367,7 @@ typedef struct  {
                     ele->nz *= -1;
                     
                     ele->vx += offset;
-                    ele->vy += offset;
+                    ele->vy += 0;//offset;
                     ele->vz += offset;
                 }
                 
@@ -397,7 +391,7 @@ typedef struct  {
                 BVH::buildTree(bvh_list);
                 let time_e = [[NSDate date] timeIntervalSince1970];
                 NSLog(@"End processing BVH");
-                NSLog(@"Cost %fs", time_e - time_s);
+                NSLog(@"BVH Costing %fs", time_e - time_s);
                 
                 _mesh_buffer =  [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
                                                      length: testMesh.vertexBuffers.firstObject.length
@@ -448,20 +442,21 @@ typedef struct  {
     
     //__weak AAPLRenderer *weakSelf = self;
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-        
+        // not on main thread
         if (self->_dragging) {
             self->_scene_meta.frame_count = 0;
         } else {
             let fcount = self->_scene_meta.frame_count;
-            self->_scene_meta.frame_count = fmin(10000000, fcount+1);
+            self->_scene_meta.frame_count = fcount + 1;
         }
         
+        [self drag:simd_make_float2(1, 0) state:NO];
+        
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
-            
-            #if TARGET_OS_IPHONE
-                [self->_view setNeedsDisplay];
-            #else
+            #if TARGET_OS_OSX
                 self->_view.needsDisplay = YES;
+            #else
+                [self->_view setNeedsDisplay];
             #endif
         }];
     }];
@@ -482,9 +477,10 @@ typedef struct  {
     [computeEncoder setTexture:_textureMetallic atIndex:7];
     [computeEncoder setTexture:_textureNormal atIndex:8];
     [computeEncoder setTexture:_textureRoughness atIndex:9];
-    [computeEncoder setTexture:_textureXRNG atIndex:10];
     
-    memcpy(_scene_meta_buffer.contents, &_scene_meta, sizeof(SceneComplex));
+    if (self->_scene_meta.frame_count > 3 || self->_scene_meta.frame_count < 1) {
+        memcpy(_scene_meta_buffer.contents, &_scene_meta, sizeof(SceneComplex));
+    }
     [computeEncoder setBuffer:_scene_meta_buffer offset:0 atIndex:0];
     
     memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));

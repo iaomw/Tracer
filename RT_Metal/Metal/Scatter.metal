@@ -1,11 +1,9 @@
 #include "Scatter.hh"
 
 // Normal Distribution Function
-float NDF(const thread float3& h, float roughness) {
+float DX(const thread float3& h, float a2) {
     //  GGX / Trowbridge-Reitz
     
-    float a1 = roughness;
-    float a2 = a1 * a1;
     float NoH = abs(h.z);
     
     float d = (NoH * a2 - NoH) * NoH + 1;
@@ -13,13 +11,12 @@ float NDF(const thread float3& h, float roughness) {
 }
 
 // Geometry Function
-float GX(const thread float3& wo, const thread float3& wi, float roughness) {
+float GX(const thread float3& wo, const thread float3& wi, float a2) {
     // Schlick, remap roughness and k
 
-    if (wo.z <= 0 || wi.z <= 0)
-        return 0;
+//    if (wo.z <= 0 || wi.z <= 0) return 0;
     
-    float k = pow(roughness, 2) / 2;
+    float k = a2 / 2;
     
     auto oz = max(0.0, wo.z);
     auto iz = max(0.0, wi.z);
@@ -27,6 +24,17 @@ float GX(const thread float3& wo, const thread float3& wi, float roughness) {
     float G1_wo = oz / (oz * (1 - k) + k);
     float G1_wi = iz / (iz * (1 - k) + k);
     return G1_wo * G1_wi;
+}
+
+float SmithGGXMaskingShadowing(float3 wi, float3 wo, float a2)
+{
+    float dotNL = max(0.0, wi.z);
+    float dotNV = max(0.0, wo.z);
+
+    float denomA = dotNV * sqrt(a2 + (1.0f - a2) * dotNL * dotNL);
+    float denomB = dotNL * sqrt(a2 + (1.0f - a2) * dotNV * dotNV);
+
+    return 2.0f * dotNL * dotNV / (denomA + denomB);
 }
 
 // Fresnel
@@ -45,7 +53,7 @@ float3 FX(const thread float3& wi, const thread float3& wh, const thread float3 
 float3 CT_BRDF(const thread float3& wo, const thread float3& wi, float3 albedo, float metallic, float roughness)
 {
     float3 h = normalize(wo + wi);
-    return NDF(h, roughness) * FX(wi, h, albedo, metallic) * GX(wo, wi, roughness) / (4 * wo.z*wi.z);
+    return DX(h, roughness) * FX(wi, h, albedo, metallic) * GX(wo, wi, roughness) / (4 * wo.z*wi.z);
 }
 
 // 采样 BRDF
@@ -68,7 +76,7 @@ float3 Sample_f(const thread float3& wo, thread float3& wi, thread float& pd, th
 //        pd = 0;
 //        return float3(0);
 //    }
-    pd = NDF(h, roughness) / 4.0f;
+    pd = DX(h, roughness) / 4.0f;
 
     float3 diffuse = albedo / M_PI_F;
     return ambientOcclusion * ((1 - metallic)*diffuse +
@@ -77,7 +85,7 @@ float3 Sample_f(const thread float3& wo, thread float3& wi, thread float& pd, th
 
 // 概率密度函数 probability density function
 float PDF(const thread float3& wh, const float roughness) {
-    return NDF(wh, roughness) * abs(wh.z);
+    return DX(wh, roughness) * abs(wh.z);
 }
 
 // BRDF
@@ -94,15 +102,13 @@ bool scatter(thread Ray& ray,
              thread HitRecord& hitRecord,
              thread ScatRecord& scatRecord,
              
+             constant Material* materials,
+             
              thread texture2d<float, access::sample> &texAO,
              thread texture2d<float, access::sample> &texAlbedo,
              thread texture2d<float, access::sample> &texMetallic,
              thread texture2d<float, access::sample> &texNormal,
-             thread texture2d<float, access::sample> &texRoughness,
-             
-             thread texture2d<uint32_t, access::sample> &xRNG,
-             
-             constant Material* materials)
+             thread texture2d<float, access::sample> &texRoughness )
 {
     auto normal = hitRecord.normal();
     auto materialID = hitRecord.material;
@@ -173,14 +179,14 @@ bool scatter(thread Ray& ray,
             
         case MaterialType::PBR: {
             
-            float ao = texAO.sample(textureSampler, hitRecord.uv, 0).r;
+            float ao = 1.0; //texAO.sample(textureSampler, hitRecord.uv, 0).r;
             
             float3 albedo = texAlbedo.sample(textureSampler, hitRecord.uv, 0).rgb;
-            //albedo = pow(albedo, 2.2); //albedo = float3(1.0);
+            albedo = pow(albedo, 2.2); //albedo = float3(1.0);
             
             float metallic = texMetallic.sample(textureSampler, hitRecord.uv, 0).r;
             float3 tNormal = texNormal.sample(textureSampler, hitRecord.uv, 0).xyz;
-            tNormal = normalize(tNormal * 2 - 1);
+            tNormal = normalize(tNormal * 2.0 - 1.0);
             
             float roughness = texRoughness.sample(textureSampler, hitRecord.uv, 0).r;
             roughness = max(roughness, 0.001);
@@ -194,12 +200,15 @@ bool scatter(thread Ray& ray,
             stw = { nx, ny, normal };
             
             float3 wi, wh;
-            float3 wo = transpose(stw) * (ray.direction);
+            float3 wo = transpose(stw) * (-ray.direction);
         
-            auto pSpecular = 1/(2-metallic);
+            auto pSpecular = 1.0 / (2.0 - metallic);
             
             auto r0 = randomF(seed);
             auto r1 = randomF(seed);
+            
+            auto a1 = roughness;
+            auto a2 = a1 * a1;
             
             if (randomF(seed) > pSpecular) {
                 
@@ -216,9 +225,6 @@ bool scatter(thread Ray& ray,
                 wh = normalize(wo + wi); // not specular
                 
             } else {
-            
-                auto a1 = roughness;
-                auto a2 = a1 * a1;
                 
                 auto theta = acos(sqrt((1-r0) / ((a2-1)*r0+1)));
                 auto phi = 2 * M_PI_F * r1;
@@ -227,22 +233,23 @@ bool scatter(thread Ray& ray,
                 auto y = sin(theta) * sin(phi);
                 auto z = cos(theta);
                 
-                //wo = transpose(stw) * (ray.direction);
                 wh = normalize( {x, y, z} );
-                wi = reflect(wo, wh);
+                wi = reflect(-wo, wh);
             }
             
             if (wi.z <= 0 || dot(wh, wi) <= 0) { return false; }
         
-            auto D = NDF(wh, roughness);
-            auto G = GX(-wo, wi, roughness);
+            auto D = DX(wh, a2);
+            auto G = GX(wo, wi, a2);
             auto F = FX(wi, wh, albedo, metallic);
             
-            float denominator = 4.0f * abs(wo.z * wi.z);
+            //auto G1 = SmithGGXMasking(wi, wo, a2);
+            //auto G2 = SmithGGXMaskingShadowing(wi, wo, a2);
             
-            auto specular = D * G * F / max(FLT_MIN, denominator);
-            
-            auto diffuse = albedo; // / M_PI_F;
+            float denominator = max(FLT_MIN, 4.0f * wo.z * wi.z);
+
+            auto specular = D * G * F / denominator;
+            auto diffuse = albedo / M_PI_F;
             
             auto kS = F;
             auto kD = (1 - metallic) * (1.0f - kS);

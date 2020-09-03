@@ -19,14 +19,12 @@ bool scatter(thread Ray& ray,
              thread HitRecord& hitRecord,
              thread ScatRecord& scatRecord,
              
+             constant Material* materials,
+             
              thread texture2d<float, access::sample> &texAO,
              thread texture2d<float, access::sample> &texAlbedo,
              thread texture2d<float, access::sample> &texMetallic,
              thread texture2d<float, access::sample> &texNormal,
-             thread texture2d<float, access::sample> &texRoughness,
-             
-             thread texture2d<uint32_t, access::sample> &xRNG,
-             
-             constant Material* materials);
+             thread texture2d<float, access::sample> &texRoughness );
 
 #endif /* MetalObject_h */

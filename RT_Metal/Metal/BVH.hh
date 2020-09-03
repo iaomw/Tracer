@@ -15,8 +15,8 @@ struct BucketInfo {
 
 struct BVH {
     uint parent=0, left=0, right=0; // index in BVH array
-    
     uint shapeIndex = 0;
+    
     ShapeType shape = ShapeType::UNKNOW;
     
     AABB boundingBOX;
@@ -24,7 +24,7 @@ struct BVH {
 #ifdef __METAL_VERSION__
 #else
     
-    static bool box_compare(const AABB& a, const AABB& b, int axis) {
+    static inline bool box_compare(const AABB& a, const AABB& b, int axis) {
 
         return a.centroid()[axis] < b.centroid()[axis];
     }
