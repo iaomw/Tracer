@@ -331,10 +331,10 @@ typedef struct  {
 //                }
         
                 //for (int i=0; i<0; i++) {
-//                for (int i=4; i<cornell_box.size(); i++) {
-//                    auto& square = cornell_box[i];
-//                    BVH::buildNode(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
-//                }
+                for (int i=4; i<cornell_box.size(); i++) {
+                    auto& square = cornell_box[i];
+                    BVH::buildNode(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
+                }
                 
             //let bBox = newMesh.boundingBox;
             //float3 minB = (float3)bBox.minBounds;
@@ -450,7 +450,7 @@ typedef struct  {
             self->_scene_meta.frame_count = fcount + 1;
         }
         
-        [self drag:simd_make_float2(1, 0) state:NO];
+        //[self drag:simd_make_float2(1, 0) state:NO];
         
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
             #if TARGET_OS_OSX

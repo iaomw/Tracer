@@ -13,9 +13,6 @@ float DX(const thread float3& h, float a2) {
 // Geometry Function
 float GX(const thread float3& wo, const thread float3& wi, float a2) {
     // Schlick, remap roughness and k
-
-//    if (wo.z <= 0 || wi.z <= 0) return 0;
-    
     float k = a2 / 2;
     
     auto oz = max(0.0, wo.z);
@@ -49,52 +46,9 @@ float3 FX(const thread float3& wi, const thread float3& wh, const thread float3 
     return F0 + (1.0 - F0) * pow(2.0f, (-5.55473f * HoWi - 6.98316f) * HoWi);
 }
 
-// cook torrance BRDF
-float3 CT_BRDF(const thread float3& wo, const thread float3& wi, float3 albedo, float metallic, float roughness)
-{
-    float3 h = normalize(wo + wi);
-    return DX(h, roughness) * FX(wi, h, albedo, metallic) * GX(wo, wi, roughness) / (4 * wo.z*wi.z);
-}
-
-// 采样 BRDF
-// pd 是 probability density
-float3 Sample_f(const thread float3& wo, thread float3& wi, thread float& pd, thread pcg32_t* seed,
-                const thread float3& albedo, float roughness, float metallic, float ambientOcclusion)
-{
-    // 根据 NDF 采样 h
-    float Xi1 = randomF(seed);
-    float Xi2 = randomF(seed);
-    
-    float alpha = roughness * roughness;
-    float cosTheta2 = (1 - Xi1) / (Xi1*(alpha*alpha - 1) + 1);
-    float cosTheta = sqrt(cosTheta2);
-    float sinTheta = sqrt(1 - cosTheta2);
-    float phi = 2 * M_PI_F * Xi2;
-    float3 h(sinTheta*cos(phi), sinTheta*sin(phi), cosTheta);
-    wi = reflect(-wo, h);
-//    if (wi.z <= 0) {
-//        pd = 0;
-//        return float3(0);
-//    }
-    pd = DX(h, roughness) / 4.0f;
-
-    float3 diffuse = albedo / M_PI_F;
-    return ambientOcclusion * ((1 - metallic)*diffuse +
-        CT_BRDF(wo, wi, albedo, metallic, roughness));
-}
-
 // 概率密度函数 probability density function
 float PDF(const thread float3& wh, const float roughness) {
     return DX(wh, roughness) * abs(wh.z);
-}
-
-// BRDF
-float3 F(const thread float3& wo, const thread float3& wi, const thread float3& albedo,
-    float roughness, float metallic, float ambientOcclusion)
-{
-    auto diffuse = albedo / M_PI_F;
-    return ambientOcclusion * ((1 - metallic)*diffuse +
-        CT_BRDF(wo, wi, albedo, metallic, roughness));
 }
 
 bool scatter(thread Ray& ray,
@@ -116,12 +70,34 @@ bool scatter(thread Ray& ray,
     
     switch(material.type) {
             
+        case MaterialType::Diffuse: { return false; }
+            
         case MaterialType::Lambert: {
             
-            auto direction = normal + randomUnit(seed);
+            float3 nx, ny;
+            CoordinateSystem(normal, nx, ny);
+            float3x3 stw = { nx, ny, normal };
+
+            auto r0 = randomF(seed);
+            auto r1 = randomF(seed);
+
+            float sinTheta = sqrt( max(r0, kEpsilon) );
+            float cosTheta = sqrt( max(1-r0, kEpsilon) );
+
+            float phi = 2.0 * M_PI_F * r1;
+
+            float x = sinTheta * cos(phi);
+            float y = sinTheta * sin(phi);
+            float z = cosTheta;
+
+            float3 wi = { x, y, z };
+            auto direction = stw * wi;
+            
+            //auto direction = normal + randomUnit(seed);
             
             ray = Ray(hitRecord.p, direction);
             scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+            //scatRecord.attenuation /= M_PI_F;
             return true;
         }
             
@@ -167,9 +143,7 @@ bool scatter(thread Ray& ray,
             scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             return true;
         }
-        case MaterialType::Diffuse: {
-            return false;
-        }
+            
         case MaterialType::Isotropic: {
             
             ray = Ray(hitRecord.p, randomInUnitSphereFFF(seed));
@@ -207,13 +181,16 @@ bool scatter(thread Ray& ray,
             auto r0 = randomF(seed);
             auto r1 = randomF(seed);
             
+            r0 = max(r0, FLT_EPSILON);
+            auto rr0 = max(1-r0, FLT_EPSILON);
+            
             auto a1 = roughness;
             auto a2 = a1 * a1;
             
-            if (randomF(seed) > pSpecular) {
+            if (randomF(seed) > 1) {
                 
                 float sinTheta = sqrt(r0);
-                float cosTheta = sqrt(1-r0);
+                float cosTheta = sqrt(rr0);
                 
                 float phi = 2.0 * M_PI_F * r1;
                 
@@ -226,7 +203,7 @@ bool scatter(thread Ray& ray,
                 
             } else {
                 
-                auto theta = acos(sqrt((1-r0) / ((a2-1)*r0+1)));
+                auto theta = acos(sqrt(rr0/((a2-1)*r0+1)));
                 auto phi = 2 * M_PI_F * r1;
                 
                 auto x = sin(theta) * cos(phi);
@@ -237,7 +214,7 @@ bool scatter(thread Ray& ray,
                 wi = reflect(-wo, wh);
             }
             
-            if (wi.z <= 0 || dot(wh, wi) <= 0) { return false; }
+            if (wi.z <= 0 || wo.z <=0) { return false; }
         
             auto D = DX(wh, a2);
             auto G = GX(wo, wi, a2);
@@ -252,7 +229,7 @@ bool scatter(thread Ray& ray,
             auto diffuse = albedo / M_PI_F;
             
             auto kS = F;
-            auto kD = (1 - metallic) * (1.0f - kS);
+            auto kD = (1.0 - metallic) * (1.0 - kS);
 
             ray = Ray(hitRecord.p, stw * wi);
             scatRecord.attenuation = (kD * diffuse + specular) * ao;

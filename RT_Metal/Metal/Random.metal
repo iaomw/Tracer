@@ -37,10 +37,12 @@ float randomF(float mini, float maxi, thread pcg32_t* rng) {
 }
 
 float3 randomUnit(thread pcg32_t* rng) {
+    
+    auto a = randomF(rng) * 2 * M_PI_F;
     auto z = randomF(rng) * 2.0 - 1.0;
-    auto a = randomF(rng) * 2*M_PI_F;
-    auto r = sqrt(1-z*z);
-    return float3(r*cos(a), r*sin(a), z);
+    auto r = sqrt(max(FLT_EPSILON, 1-z*z));
+    
+    return { r*cos(a), r*sin(a), z };
 }
 
 float2 randomInUnitDiskFF(thread pcg32_t* rng) {
@@ -63,7 +65,7 @@ float3 randomInUnitSphereFFF(thread pcg32_t* rng) {
 }
 
 float3 randomInHemisphere(const thread float3& normal, thread pcg32_t* rng) {
-    float3 direction = randomInUnitSphereFFF(rng);
+    float3 direction = randomUnit(rng);
     if (dot(normal, direction) > 0) {
         return direction;
     } else {

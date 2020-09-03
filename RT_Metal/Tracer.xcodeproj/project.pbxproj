@@ -76,6 +76,7 @@
 		571FF88A246367E4002DDF02 /* AAPLRenderer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AAPLRenderer.mm; sourceTree = "<group>"; };
 		571FF88C246367FC002DDF02 /* AAPLRenderer.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AAPLRenderer.hh; sourceTree = "<group>"; };
 		571FF88D24639A81002DDF02 /* Common.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Common.hh; sourceTree = "<group>"; };
+		572B8F692501136900F5B7E9 /* BxDF.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = BxDF.hh; sourceTree = "<group>"; };
 		573DD1082432B9D900B09B0A /* Render.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Render.metal; sourceTree = "<group>"; };
 		573DD10A24335D6D00B09B0A /* Render.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Render.hh; sourceTree = "<group>"; };
 		573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Tracer-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -154,6 +155,7 @@
 			isa = PBXGroup;
 			children = (
 				571FF88D24639A81002DDF02 /* Common.hh */,
+				572B8F692501136900F5B7E9 /* BxDF.hh */,
 				5759E67224DB483D00C8A2D7 /* Ray.hh */,
 				5759E67324DB492500C8A2D7 /* Camera.hh */,
 				5759E67424DB496600C8A2D7 /* Camera.metal */,

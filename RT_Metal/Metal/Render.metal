@@ -340,7 +340,6 @@ float3 traceBVH(float depth, thread Ray& ray, thread pcg32_t* seed,
             float3 sphereVector = ray.origin + 1000000 * ray.direction;
             float2 uv = SampleSphericalMap(normalize(sphereVector));
             auto ambient = texHDR.sample(textureSampler, uv);
-            //ambient = pow(ambient, 2.2);
             color = ratio * ambient.rgb;
             break;
         }

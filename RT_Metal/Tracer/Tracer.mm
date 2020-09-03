@@ -175,7 +175,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
 void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materials) {
     
     Material light; light.type= MaterialType::Diffuse;
-    light.textureInfo.albedo = simd_make_float3(21, 21, 21);
+    light.textureInfo.albedo = simd_make_float3(11, 11, 11);
     
     auto light_index = (uint32_t)materials.size();
     materials.emplace_back(light);
@@ -312,7 +312,7 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     let offset = simd_make_float4(lookFrom - lookAt, 0.0f);
     
     let rotH = matrix4x4_rotation(rotate.x * hfov * 10, viewUp);
-    let rotV = matrix4x4_rotation(rotate.y * vfov * 10,  simd_make_float3(1, 0, 0));
+    let rotV = matrix4x4_rotation(rotate.y * vfov * 10, simd_make_float3(1, 0, 0));
     
     lookFrom = lookAt + simd_mul(simd_mul(rotH, rotV), offset).xyz;
     

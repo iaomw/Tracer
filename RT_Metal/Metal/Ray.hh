@@ -2,6 +2,7 @@
 #define Ray_h
 
 #include "Common.hh"
+#include "BxDF.hh"
 
 #ifdef __METAL_VERSION__
 
