@@ -175,49 +175,49 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
 void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materials) {
     
     Material light; light.type= MaterialType::Diffuse;
-    light.textureInfo.albedo = simd_make_float3(11, 11, 11);
+    light.textureInfo.albedo = float3(7);
     
     auto light_index = (uint32_t)materials.size();
     materials.emplace_back(light);
     
     Material red; red.type = MaterialType::Lambert;
     red.textureInfo.type = TextureType::Constant;
-    red.textureInfo.albedo = simd_make_float3(0.65, 0.05, 0.05);
+    red.textureInfo.albedo = { 0.65, 0.05, 0.05 };
     
     auto red_index = (uint32_t)materials.size();
     materials.emplace_back(red);
     
     Material green; green.type = MaterialType::Lambert;
     green.textureInfo.type = TextureType::Constant;
-    green.textureInfo.albedo = simd_make_float3(0.05, 0.65, 0.05);
+    green.textureInfo.albedo = {0.05, 0.65, 0.05};
     
     auto green_index = (uint32_t)materials.size();
     materials.emplace_back(green);
     
     Material white; white.type = MaterialType::Lambert;
     white.textureInfo.type = TextureType::Checker;
-    white.textureInfo.albedo = simd_make_float3(0.73, 0.73, 0.73);
+    white.textureInfo.albedo = 0.73;
     
     auto white_index = (uint32_t)materials.size();
     materials.emplace_back(white);
     
-    auto lightSource = MakeSquare(0, simd_make_float2(200, 355), 2, simd_make_float2(200, 355), 1, 554);
+    auto lightSource = MakeSquare(0, float2{200, 355}, 2, float2{200, 355}, 1, 554);
     //auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
     lightSource.material = light_index;
 
-    auto right = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, 800); //flip
+    auto right = MakeSquare(1, float2{0, 555}, 2, float2{0, 555}, 0, 800); //flip
     right.material = red_index;
 
-    auto left = MakeSquare(1, simd_make_float2(0, 555), 2, simd_make_float2(0, 555), 0, -245);
+    auto left = MakeSquare(1, float2{0, 555}, 2, float2{0, 555}, 0, -245);
     left.material = green_index;
 
-    auto top = MakeSquare(0, simd_make_float2(-245, 800), 2, simd_make_float2(0, 555), 1, 555);
+    auto top = MakeSquare(0, float2{-245, 800}, 2, float2{0, 555}, 1, 555);
     top.material = white_index;
 
-    auto bottom = MakeSquare(0, simd_make_float2(-245, 800), 2, simd_make_float2(0, 555), 1, 0);
+    auto bottom = MakeSquare(0, float2{-245, 800}, 2, float2{0, 555}, 1, 0);
     bottom.material = white_index;
 
-    auto back =  MakeSquare(0, simd_make_float2(-245, 800), 1, simd_make_float2(0, 555), 2, 555);
+    auto back =  MakeSquare(0, float2{-245, 800}, 1, float2{0, 555}, 2, 555);
     back.material = white_index;
 
     list.emplace_back(left);
@@ -233,28 +233,28 @@ void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materia
 void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materials) {
     
     Material glass; glass.type = MaterialType::Dielectric;
-    glass.textureInfo.albedo = simd_make_float3(1.0, 1.0, 1.0);
+    glass.textureInfo.albedo = { 1.0, 1.0, 1.0 };
     glass.textureInfo.type = TextureType::Noise;
     glass.parameter = 1.5;
     
     auto glass_index = (uint32_t)materials.size();
     materials.emplace_back(glass);
     
-    auto sphere = MakeSphere(64, simd_make_float3(200, 250, 200));
+    auto sphere = MakeSphere(64, float3{200, 250, 200});
     sphere.material = glass_index;
     list.emplace_back(sphere);
     
     Material specu; specu.type = MaterialType::Specular;
     
-    specu.textureInfo.albedo = simd_make_float3(0.9f, 0.25f, 0.25f);
+    specu.textureInfo.albedo = { 0.9, 0.25, 0.25 };
     specu.textureInfo.type = TextureType::Constant;
     specu.specularProb = 0.02f;
     specu.specularRoughness = 0.0;
-    specu.specularColor = simd_make_float3(1.0f, 1.0f, 1.0f) * 0.8f;
+    specu.specularColor = { 1.0f, 1.0f, 1.0f };
     specu.parameter = 1.1f;
     specu.refractionProb = 1.0f;
     specu.refractionRoughness = 0.0;
-    specu.refractionColor = simd_make_float3(0.0f, 0.5f, 1.0f);
+    specu.refractionColor = { 0.0f, 0.5f, 1.0f };
     
     for(auto i : {0, 1, 2, 3, 4, 5} ) {
         
@@ -275,15 +275,15 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     gloss.textureInfo.type = TextureType::Constant;
     gloss.specularProb = 1.0f;
     gloss.specularRoughness = 0.0;
-    gloss.specularColor = simd_make_float3(0.3f, 1.0f, 0.3f);
+    gloss.specularColor = {0.3f, 1.0f, 0.3f};
     gloss.parameter = 1.1f;
     gloss.refractionProb = 0.0f;
     gloss.refractionRoughness = 0.0;
-    gloss.refractionColor = simd_make_float3(0.0f, 0.5f, 1.0f);
+    gloss.refractionColor = {0.0f, 0.5f, 1.0f};
     
     for(auto i : {0, 1, 2, 3, 4, 5} ) {
         
-        sphere = MakeSphere(40, simd_make_float3(0 + 100 * i, 400, 300));
+        sphere = MakeSphere(40, simd_make_float3(0 + 100 * i, 500, 400));
         gloss.specularRoughness = fmax(FLT_MIN, i * 0.2);
         gloss.refractionRoughness = fmax(FLT_MIN, i * 0.2);
         

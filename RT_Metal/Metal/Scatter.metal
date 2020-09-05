@@ -3,11 +3,11 @@
 // Normal Distribution Function
 float DX(const thread float3& h, float a2) {
     //  GGX / Trowbridge-Reitz
-    
-    float NoH = abs(h.z);
+    float NoH = h.z;
     
     float d = (NoH * a2 - NoH) * NoH + 1;
-    return a2 / (d * d * M_PI_F);
+    //return a2 / (d * d * M_PI_F);
+    return a2 / max(FLT_EPSILON, d * d * M_PI_F);
 }
 
 // Geometry Function
@@ -15,35 +15,23 @@ float GX(const thread float3& wo, const thread float3& wi, float a2) {
     // Schlick, remap roughness and k
     float k = a2 / 2;
     
-    auto oz = max(0.0, wo.z);
-    auto iz = max(0.0, wi.z);
+    auto oz = wo.z; //max(0.0, wo.z);
+    auto iz = wi.z; //max(0.0, wi.z);
     
     float G1_wo = oz / (oz * (1 - k) + k);
     float G1_wi = iz / (iz * (1 - k) + k);
     return G1_wo * G1_wi;
 }
 
-float SmithGGXMaskingShadowing(float3 wi, float3 wo, float a2)
-{
-    float dotNL = max(0.0, wi.z);
-    float dotNV = max(0.0, wo.z);
-
-    float denomA = dotNV * sqrt(a2 + (1.0f - a2) * dotNL * dotNL);
-    float denomB = dotNL * sqrt(a2 + (1.0f - a2) * dotNV * dotNV);
-
-    return 2.0f * dotNL * dotNV / (denomA + denomB);
-}
-
 // Fresnel
-float3 FX(const thread float3& wi, const thread float3& wh, const thread float3 albedo, float metallic) {
+float3 FX(const thread float3& wo, const thread float3& albedo, float metallic) {
     // Schlick’s approximation
-    // use a Spherical Gaussian approximation to replace the power.
-    // slightly more efficient to calculate and the difference is imperceptible
     
-    float HoWi = abs(dot(wh, wi));
+    auto F0 = mix(0.04f, albedo, metallic);
+    //return F0 + (1.0-F0) * pow(1.0-HoWi, 5.0);
     
-    float3 F0 = mix(float3(0.04f), albedo, metallic);
-    return F0 + (1.0 - F0) * pow(2.0f, (-5.55473f * HoWi - 6.98316f) * HoWi);
+    auto ex = (-5.55473f * wo.z - 6.98316f) * wo.z;
+    return F0 + (1.0 - F0) * pow(2.0f, ex);
 }
 
 // 概率密度函数 probability density function
@@ -153,7 +141,7 @@ bool scatter(thread Ray& ray,
             
         case MaterialType::PBR: {
             
-            float ao = 1.0; //texAO.sample(textureSampler, hitRecord.uv, 0).r;
+            //float ao = 1.0; //texAO.sample(textureSampler, hitRecord.uv, 0).r;
             
             float3 albedo = texAlbedo.sample(textureSampler, hitRecord.uv, 0).rgb;
             albedo = pow(albedo, 2.2); //albedo = float3(1.0);
@@ -173,10 +161,10 @@ bool scatter(thread Ray& ray,
             CoordinateSystem(normal, nx, ny);
             stw = { nx, ny, normal };
             
-            float3 wi, wh;
-            float3 wo = transpose(stw) * (-ray.direction);
+            float3 nextDir, microNormal;
+            float3 fixedDir = transpose(stw) * (-ray.direction);
         
-            auto pSpecular = 1.0 / (2.0 - metallic);
+            auto pSpecular = 1 / (2 - metallic);
             
             auto r0 = randomF(seed);
             auto r1 = randomF(seed);
@@ -187,7 +175,7 @@ bool scatter(thread Ray& ray,
             auto a1 = roughness;
             auto a2 = a1 * a1;
             
-            if (randomF(seed) > 1) {
+            if (randomF(seed) > pSpecular) {
                 
                 float sinTheta = sqrt(r0);
                 float cosTheta = sqrt(rr0);
@@ -198,32 +186,38 @@ bool scatter(thread Ray& ray,
                 float y = sinTheta * sin(phi);
                 float z = cosTheta;
                 
-                wi = { x, y, z };
-                wh = normalize(wo + wi); // not specular
+                nextDir = { x, y, z };
+                microNormal = normalize(fixedDir + nextDir); // not specular
+                
+                ray = Ray(hitRecord.p, stw * nextDir);
+                scatRecord.attenuation = albedo / (1.0-pSpecular);
+                auto pdf = nextDir.z;// / M_PI_F;
+                scatRecord.attenuation /= pdf;
+                
+                return true;
                 
             } else {
-                
-                auto theta = acos(sqrt(rr0/((a2-1)*r0+1)));
+                auto tmp = rr0 / ((a2 - 1) * r0 + 1);
+                auto cosTheta = sqrt(tmp);
+                auto sinTheta = sqrt(max(FLT_EPSILON, 1.0-tmp));
+                //auto theta = acos(sqrt(rr0/((a2-1)*r0+1)));
                 auto phi = 2 * M_PI_F * r1;
                 
-                auto x = sin(theta) * cos(phi);
-                auto y = sin(theta) * sin(phi);
-                auto z = cos(theta);
+                auto x = sinTheta * cos(phi);
+                auto y = sinTheta * sin(phi);
+                auto z = cosTheta;
                 
-                wh = normalize( {x, y, z} );
-                wi = reflect(-wo, wh);
+                microNormal = normalize( {x, y, z} );
+                nextDir = reflect(-fixedDir, microNormal);
             }
             
-            if (wi.z <= 0 || wo.z <=0) { return false; }
+            if (nextDir.z <= 0 || fixedDir.z <=0) { return false; }
         
-            auto D = DX(wh, a2);
-            auto G = GX(wo, wi, a2);
-            auto F = FX(wi, wh, albedo, metallic);
+            auto D = DX(microNormal, a2);
+            auto G = GX(fixedDir, nextDir, a2);
+            auto F = FX(fixedDir, albedo, metallic);
             
-            //auto G1 = SmithGGXMasking(wi, wo, a2);
-            //auto G2 = SmithGGXMaskingShadowing(wi, wo, a2);
-            
-            float denominator = max(FLT_MIN, 4.0f * wo.z * wi.z);
+            float denominator = max(FLT_MIN, fixedDir.z * nextDir.z * 4);
 
             auto specular = D * G * F / denominator;
             auto diffuse = albedo / M_PI_F;
@@ -231,12 +225,15 @@ bool scatter(thread Ray& ray,
             auto kS = F;
             auto kD = (1.0 - metallic) * (1.0 - kS);
 
-            ray = Ray(hitRecord.p, stw * wi);
-            scatRecord.attenuation = (kD * diffuse + specular) * ao;
+            ray = Ray(hitRecord.p, stw * nextDir);
+            scatRecord.attenuation = kD * diffuse + specular;
             
-            //scatRecord.attenuation = G;
-            //auto pdf = PDF(wh, roughness);
-            //scatRecord.attenuation /= abs(pdf);
+            //auto diffusePD = wi.z / M_PI_F;
+            //auto specularPD = D * microNormal.z / (dot(nextDir, microNormal) * 4);
+            
+            scatRecord.attenuation /= pSpecular;
+            //scatRecord.attenuation *= localNextDir.z;
+            //scatRecord.attenuation /= D ;
             
             return true;
         }
