@@ -27,4 +27,18 @@ bool scatter(thread Ray& ray,
              thread texture2d<float, access::sample> &texNormal,
              thread texture2d<float, access::sample> &texRoughness );
 
+template <ShapeType st>
+struct BBBBB {};
+
+template <>
+struct BBBBB <ShapeType::Sphere> {};
+
+template <typename XXX>
+inline float3 testXXX(constant XXX& sample, float2 uv, float3 p) {
+    
+    //decltype(sample.albedo) result = 0;
+    //return result;
+    return sample.value(nullptr, uv, p);
+}
+
 #endif /* MetalObject_h */

@@ -84,7 +84,8 @@ bool scatter(thread Ray& ray,
             //auto direction = normal + randomUnit(seed);
             
             ray = Ray(hitRecord.p, direction);
-            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+            //scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+            scatRecord.attenuation = testXXX(material.textureInfo, hitRecord.uv, hitRecord.p);
             //scatRecord.attenuation /= M_PI_F;
             return true;
         }
@@ -229,11 +230,11 @@ bool scatter(thread Ray& ray,
             scatRecord.attenuation = kD * diffuse + specular;
             
             //auto diffusePD = wi.z / M_PI_F;
-            //auto specularPD = D * microNormal.z / (dot(nextDir, microNormal) * 4);
+            //auto specularPD = D * microNormal.z /
+            //(dot(nextDir, microNormal) * 4);
             
             scatRecord.attenuation /= pSpecular;
             //scatRecord.attenuation *= localNextDir.z;
-            //scatRecord.attenuation /= D ;
             
             return true;
         }

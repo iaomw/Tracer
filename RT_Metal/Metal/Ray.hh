@@ -2,7 +2,6 @@
 #define Ray_h
 
 #include "Common.hh"
-#include "BxDF.hh"
 
 #ifdef __METAL_VERSION__
 
@@ -14,9 +13,8 @@ struct Ray {
     
     Ray();
     
-    Ray(float3 o, float3 d) {
-        origin = o;
-        direction = metal::normalize(d);
+    Ray(float3 o, float3 d): origin(o) {
+        direction = normalize(d);
     }
     
     float3 pointAt(float t) const {

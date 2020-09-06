@@ -115,7 +115,7 @@ typedef struct  {
         
         _vertex_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: MTLResourceStorageModeManaged];
         
-        uint width = 1920;
+        uint width = 1940;
         uint height = 1080;
         
         _scene_meta.frame_count = 0;
@@ -265,20 +265,20 @@ typedef struct  {
         let mdlAO = [MDLTexture textureNamed:@"coatball/tex_ao.png"];
         _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
         
-        let mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
-        //let mdlAlbedo = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_basecolor.png"];
+        //let mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
+        let mdlAlbedo = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_basecolor.png"];
         _textureAlbedo = [loader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
         
-        let mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
-        //let mdlMetallic = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_metallic.png"];
+        //let mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
+        let mdlMetallic = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_metallic.png"];
         _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
         
-        let mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
-        //let mdlNormal = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_normal.png"];
+        //let mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
+        let mdlNormal = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_normal.png"];
         _textureNormal = [loader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
         
-        let mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
-        //let mdlRoughness = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_roughness.png"];
+        //let mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
+        let mdlRoughness = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_roughness.png"];
         _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
         
             if(!_textureHDR)
@@ -286,8 +286,8 @@ typedef struct  {
                 NSLog(@"Failed to create the texture from %@", _textureHDR);
                 return nil;
             }
-        let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
-        //let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/bunny" ofType:@"obj"];
+        //let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
+        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/bunny" ofType:@"obj"];
         let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
                 
             MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);
@@ -320,10 +320,10 @@ typedef struct  {
                 
         std::vector<BVH> bvh_list;
                 
-//                for (int i=1; i<sphere_list.size(); i++) {
-//                    auto& sphere = sphere_list[i];
-//                    BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
-//                }
+                for (int i=1; i<sphere_list.size(); i++) {
+                    auto& sphere = sphere_list[i];
+                    BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
+                }
         
 //                for (int i=0; i<cube_list.size()-1; i++) {
 //                    auto& cube = cube_list[i];
@@ -331,7 +331,7 @@ typedef struct  {
 //                }
         
                 for (int i=4; i<5; i++) {
-                //for (int i=4; i<cornell_box.size(); i++) {
+                //for (int i=0; i<cornell_box.size(); i++) {
                     auto& square = cornell_box[i];
                     BVH::buildNode(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
                 }
@@ -346,7 +346,7 @@ typedef struct  {
             let maxAxis = meshBox.maximumExtent();
             let maxDime = meshBox.diagonal()[maxAxis];
             
-            auto meshScale = 500.0 / maxDime;
+            auto meshScale = 400.0 / maxDime;
             auto meshOffset = float3(278)-centroid;
             meshOffset.y = 20 - minB.y * meshScale;
         

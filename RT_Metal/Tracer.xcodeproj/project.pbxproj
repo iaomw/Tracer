@@ -57,6 +57,8 @@
 		57874FEA24DDFF0500080AB7 /* vulture_hide_4k.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 570DF00824CF979500421890 /* vulture_hide_4k.hdr */; };
 		5789DEB624F0C2CF008F0A71 /* meshes in Resources */ = {isa = PBXBuildFile; fileRef = 5789DEB524F0C2CE008F0A71 /* meshes */; };
 		5789DEB724F0C2CF008F0A71 /* meshes in Resources */ = {isa = PBXBuildFile; fileRef = 5789DEB524F0C2CE008F0A71 /* meshes */; };
+		578BE286250557E000FB56F1 /* BXDF.metal in Sources */ = {isa = PBXBuildFile; fileRef = 578BE285250557E000FB56F1 /* BXDF.metal */; };
+		578BE28725055CB600FB56F1 /* BXDF.metal in Sources */ = {isa = PBXBuildFile; fileRef = 578BE285250557E000FB56F1 /* BXDF.metal */; };
 		5792A15024F3D790002E6968 /* uv_test in Resources */ = {isa = PBXBuildFile; fileRef = 5792A14F24F3D790002E6968 /* uv_test */; };
 		5792A15124F3D790002E6968 /* uv_test in Resources */ = {isa = PBXBuildFile; fileRef = 5792A14F24F3D790002E6968 /* uv_test */; };
 		57C64C7824E149BD0054AB8C /* coatball in Resources */ = {isa = PBXBuildFile; fileRef = 57C64C7724E149BD0054AB8C /* coatball */; };
@@ -76,7 +78,7 @@
 		571FF88A246367E4002DDF02 /* AAPLRenderer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AAPLRenderer.mm; sourceTree = "<group>"; };
 		571FF88C246367FC002DDF02 /* AAPLRenderer.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AAPLRenderer.hh; sourceTree = "<group>"; };
 		571FF88D24639A81002DDF02 /* Common.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Common.hh; sourceTree = "<group>"; };
-		572B8F692501136900F5B7E9 /* BxDF.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = BxDF.hh; sourceTree = "<group>"; };
+		572B8F692501136900F5B7E9 /* BXDF.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = BXDF.hh; sourceTree = "<group>"; };
 		573DD1082432B9D900B09B0A /* Render.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Render.metal; sourceTree = "<group>"; };
 		573DD10A24335D6D00B09B0A /* Render.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Render.hh; sourceTree = "<group>"; };
 		573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Tracer-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -110,6 +112,7 @@
 		57874FC924DDF37200080AB7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		57874FCB24DDF37200080AB7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		5789DEB524F0C2CE008F0A71 /* meshes */ = {isa = PBXFileReference; lastKnownFileType = folder; path = meshes; sourceTree = "<group>"; };
+		578BE285250557E000FB56F1 /* BXDF.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BXDF.metal; sourceTree = "<group>"; };
 		5792A14F24F3D790002E6968 /* uv_test */ = {isa = PBXFileReference; lastKnownFileType = folder; path = uv_test; sourceTree = "<group>"; };
 		57C64C7724E149BD0054AB8C /* coatball */ = {isa = PBXFileReference; lastKnownFileType = folder; path = coatball; sourceTree = "<group>"; };
 		57C64C7A24E1549A0054AB8C /* AAPLMesh.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = AAPLMesh.h; sourceTree = "<group>"; };
@@ -155,7 +158,8 @@
 			isa = PBXGroup;
 			children = (
 				571FF88D24639A81002DDF02 /* Common.hh */,
-				572B8F692501136900F5B7E9 /* BxDF.hh */,
+				572B8F692501136900F5B7E9 /* BXDF.hh */,
+				578BE285250557E000FB56F1 /* BXDF.metal */,
 				5759E67224DB483D00C8A2D7 /* Ray.hh */,
 				5759E67324DB492500C8A2D7 /* Camera.hh */,
 				5759E67424DB496600C8A2D7 /* Camera.metal */,
@@ -354,6 +358,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				578BE28725055CB600FB56F1 /* BXDF.metal in Sources */,
 				57874FD424DDFECC00080AB7 /* Ray.hh in Sources */,
 				57874FD524DDFECC00080AB7 /* Camera.hh in Sources */,
 				57874FD624DDFECC00080AB7 /* Camera.metal in Sources */,
@@ -400,6 +405,7 @@
 				5749BCA32435005B002B60E4 /* Scatter.metal in Sources */,
 				57DD356C241EEC110094632B /* TracerViewController.swift in Sources */,
 				5759E67524DB496600C8A2D7 /* Camera.metal in Sources */,
+				578BE286250557E000FB56F1 /* BXDF.metal in Sources */,
 				57DD356A241EEC110094632B /* AppDelegate.swift in Sources */,
 				5759E68424DCAC1E00C8A2D7 /* Noise.metal in Sources */,
 				57C64C7C24E1549B0054AB8C /* AAPLMesh.m in Sources */,
