@@ -11,12 +11,13 @@ void CoordinateSystem(const thread float3& a, thread float3& b, thread float3& c
     c = cross(a, b);
 }
 
-Ray castRay(constant Camera* camera, float s, float t, thread pcg32_t* seed) {
-    auto rd = camera->lenRadius * randomInUnitDiskFF(seed);
-    //auto rd = 0.005 * randomInUnitDiskFF(seed);
-    auto offset = camera->u*rd.x + camera->v*rd.y;
-    auto origin = camera->lookFrom + offset;
-    auto sample = camera->cornerLowLeft + camera->horizontal*s + camera->vertical*t;
-    Ray ray = Ray(origin, sample - origin);
-    return ray;
-}
+//
+//Ray castRay(constant Camera* camera, float s, float t, thread pcg32_t* seed) {
+//    auto rd = camera->lenRadius * randomUnitInDisk(seed);
+//    //auto rd = 0.005 * randomInUnitDiskFF(seed);
+//    auto offset = camera->u*rd.x + camera->v*rd.y;
+//    auto origin = camera->lookFrom + offset;
+//    auto sample = camera->cornerLowLeft + camera->horizontal*s + camera->vertical*t;
+//    Ray ray = Ray(origin, sample - origin);
+//    return ray;
+//}

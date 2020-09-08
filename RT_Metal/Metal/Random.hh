@@ -30,8 +30,8 @@ float randomF(thread pcg32_t* rng);
 float randomF(float mini, float maxi, thread pcg32_t* rng);
 
 float3 randomUnit(thread pcg32_t* rng);
-float2 randomInUnitDiskFF(thread pcg32_t* rng);
-float3 randomInUnitSphereFFF(thread pcg32_t* rng);
-float3 randomInHemisphere(const thread float3& normal, thread pcg32_t* rng);
+float2 randomUnitInDisk(thread pcg32_t* rng);
+float3 randomUnitInSphere(thread pcg32_t* rng);
+float3 randomUnitInHemisphere(const thread float3& normal, thread pcg32_t* rng);
 
 #endif /* Random_h */

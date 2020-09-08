@@ -230,14 +230,6 @@ typedef struct  {
                           destinationLevel: 0
                          destinationOrigin: {0,0,0}];
         [blitCommandEncoder endEncoding];
-
-        // Add a completion handler and commit the command buffer.
-        [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> cb) {
-            
-            self->_view.paused = YES;
-            self->_view.delegate = self;
-            self->_view.enableSetNeedsDisplay = YES;
-        }];
         
         MTKTextureLoader *loader = [[MTKTextureLoader alloc] initWithDevice: _device];
         
@@ -318,12 +310,12 @@ typedef struct  {
         [testMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0.0];
         //let voxelArray = [[MDLVoxelArray alloc] initWithAsset:testAsset divisions:1 patchRadius:0.2];
                 
-        std::vector<BVH> bvh_list;
+                std::vector<BVH> bvh_list;
                 
-                for (int i=1; i<sphere_list.size(); i++) {
-                    auto& sphere = sphere_list[i];
-                    BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
-                }
+//                for (int i=1; i<sphere_list.size(); i++) {
+//                    auto& sphere = sphere_list[i];
+//                    BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
+//                }
         
 //                for (int i=0; i<cube_list.size()-1; i++) {
 //                    auto& cube = cube_list[i];
@@ -420,6 +412,14 @@ typedef struct  {
                 _threadGroupGrid = MTLSizeMake(gridX, gridY, 1);
                 
         launchTime = [[NSDate date] timeIntervalSince1970];
+        
+        // Add a completion handler and commit the command buffer.
+        [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> cb) {
+            
+            self->_view.paused = YES;
+            self->_view.delegate = self;
+            self->_view.enableSetNeedsDisplay = YES;
+        }];
         
         [commandBuffer commit];
     }

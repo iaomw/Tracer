@@ -143,8 +143,9 @@ fragmentShader( RasterizerData input [[stage_in]],
     
     return tex_color;
 }
- 
-float3 traceBVH(float depth, thread Ray& ray, thread pcg32_t* seed,
+
+template <typename XSampler>
+float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                 
                 constant Material* materials,
                          
@@ -158,7 +159,7 @@ float3 traceBVH(float depth, thread Ray& ray, thread pcg32_t* seed,
                 
                 constant Sphere* sphere_list,
                 constant Square* square_list,
-                constant Cube* cube_list,
+                constant Cube*   cube_list,
                  
                 constant uint32_t* tirIndex,
                 constant Triangle* tirList,
@@ -340,29 +341,26 @@ float3 traceBVH(float depth, thread Ray& ray, thread pcg32_t* seed,
             float3 sphereVector = ray.origin + 1000000 * ray.direction;
             float2 uv = SampleSphericalMap(normalize(sphereVector));
             auto ambient = texHDR.sample(textureSampler, uv);
-            color = ratio * ambient.rgb;
-            break;
+            return ratio * ambient.rgb;
         }
         
         float3 emit_color;
         if ( emit(hitRecord, emit_color, materials) ) {
-            //return ratio * emit_color;
-            color = ratio * emit_color;
-            break;
+            return ratio * emit_color;
         }
         
-        if ( !scatter(ray, seed, hitRecord, scatRecord, materials,
+        if ( !scatter(ray, xsampler, hitRecord, scatRecord, materials,
                       texAO, texAlbedo, texMetallic, texNormal, texRoughness) ) {
             //return float3(1, 0, 1);
-            color = float3(0);
-            break;
+            return float3(0);
         }
         
         ratio *= scatRecord.attenuation;
         
         { // Russian Roulette
             float p = max3(ratio.r, ratio.g, ratio.b);
-            if (randomF(seed) > p)
+            //thread auto& rng = xsampler.rng;
+            if (xsampler.random() > p)
                 break;
             // Add the energy we 'lose' by randomly terminating paths
             ratio *= 1.0f / p;
@@ -527,7 +525,6 @@ tracerKernel(texture2d<float, access::read>     inTexture  [[texture(0)]],
     auto frame_count = sceneMeta->frame_count;
     
     //if (frame_count < 2) { frame_count = 0; }
-    
     //auto float_time = float(sceneMeta->running_time);
     //auto int_time = uint32_t(1000*sceneMeta->running_time);
     //auto pixelPisition = input.texCoord*float2(sceneMeta->view_size);
@@ -535,10 +532,13 @@ tracerKernel(texture2d<float, access::read>     inTexture  [[texture(0)]],
     auto u = float(thread_pos.x)/outTexture.get_width();
     auto v = float(thread_pos.y)/outTexture.get_height();
     
-    auto ray = castRay(camera, u, v, &rng);
-    //auto color = traceColor(32, ray,
-    auto color = traceBVH(32, ray, &rng,
-                          materials, texHDR,
+    float3 color; RandomSampler rs = { &rng };
+    auto ray = castRay(camera, u, v, &rs);
+    
+    //uint2 vsize = { inTexture.get_width(), inTexture.get_height()};
+    //auto ss = pbrt::SobolSampler(rng, frame_count, thread_pos, vsize);
+    
+    color = traceBVH(32, ray, rs, materials, texHDR,
                           
                             texAO,
                             texAlbedo,
@@ -553,11 +553,11 @@ tracerKernel(texture2d<float, access::read>     inTexture  [[texture(0)]],
                             meshIndex,
                             meshList,
                             bvh_list );
-
+    
     float3 result = (cached_color.rgb * frame_count + color) / (frame_count + 1);
     
     outTexture.write(float4(result, 1.0), thread_pos);
-    
+
     gg = rng.state;
     rr = rng.state >> 32;
     
