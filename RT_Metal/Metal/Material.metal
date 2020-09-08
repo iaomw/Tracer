@@ -19,7 +19,7 @@ float fresnel(float n1, float n2, float3 normal, float3 incident, float f0, floa
             // Total internal reflection
             if (sinT2 > 1.0)
                 return f90;
-            cosX = sqrt(1.0-sinT2);
+            cosX = sqrt(max(FLT_EPSILON, 1.0-sinT2));
         }
         float x = 1.0-cosX;
         float ret = r0+(1.0-r0)*x*x*x*x*x;

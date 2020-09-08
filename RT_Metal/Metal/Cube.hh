@@ -35,7 +35,7 @@ struct Cube {
         return true;
     }
     
-    bool hit_medium(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord, thread pcg32_random_t* seed) constant {
+    bool hit_medium(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord, thread pcg32_t* seed) constant {
         
         auto origin = inverse_matrix * float4(ray.origin, 1.0);
         auto direction = inverse_matrix * float4(ray.direction, 0.0);

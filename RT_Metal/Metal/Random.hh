@@ -9,7 +9,7 @@ struct pcg_state_setseq_64 {    // Internals are *Private*.
                                 // selected. Must *always* be odd.
 };
 
-typedef struct pcg_state_setseq_64 pcg32_random_t;
+typedef struct pcg_state_setseq_64 pcg32_t;
 
 // If you *must* statically initialize it, here's one.
 
@@ -20,18 +20,18 @@ typedef struct pcg_state_setseq_64 pcg32_random_t;
 //     Seed the rng.  Specified in two parts, state initializer and a
 //     sequence selection constant (a.k.a. stream id)
 
-void pcg32_srandom_r(thread pcg32_random_t* rng, uint64_t initstate, uint64_t initseq);
+void pcg32_srandom_r(thread pcg32_t* rng, uint64_t initstate, uint64_t initseq);
 
-uint32_t pcg32_random_r(thread pcg32_random_t* rng);
+uint32_t pcg32_random_r(thread pcg32_t* rng);
 
-uint32_t pcg32_boundedrand_r(thread pcg32_random_t* rng, uint32_t bound);
+uint32_t pcg32_boundedrand_r(thread pcg32_t* rng, uint32_t bound);
 
-float randomF(thread pcg32_random_t* rng);
-float randomF(float mini, float maxi, thread pcg32_random_t* rng);
+float randomF(thread pcg32_t* rng);
+float randomF(float mini, float maxi, thread pcg32_t* rng);
 
-float3 randomUnit(thread pcg32_random_t* rng);
-float2 randomInUnitDiskFF(thread pcg32_random_t* rng);
-float3 randomInUnitSphereFFF(thread pcg32_random_t* rng);
-float3 randomInHemisphere(const thread float3& normal, thread pcg32_random_t* rng);
+float3 randomUnit(thread pcg32_t* rng);
+float2 randomUnitInDisk(thread pcg32_t* rng);
+float3 randomUnitInSphere(thread pcg32_t* rng);
+float3 randomUnitInHemisphere(const thread float3& normal, thread pcg32_t* rng);
 
 #endif /* Random_h */

@@ -75,7 +75,12 @@ typedef struct  {
     id<MTLTexture> _textureBRNG;
     
     id<MTLTexture> _textureHDR;
-    id<MTLTexture> _textureTest;
+    
+    id<MTLTexture> _textureAO;
+    id<MTLTexture> _textureAlbedo;
+    id<MTLTexture> _textureMetallic;
+    id<MTLTexture> _textureNormal;
+    id<MTLTexture> _textureRoughness;
     
     MTLSize _threadGroupSize;
     MTLSize _threadGroupGrid;
@@ -110,7 +115,7 @@ typedef struct  {
         
         _vertex_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: MTLResourceStorageModeManaged];
         
-        uint width = 1920;
+        uint width = 1940;
         uint height = 1080;
         
         _scene_meta.frame_count = 0;
@@ -151,6 +156,10 @@ typedef struct  {
                             length:sizeof(struct Sphere)*sphere_list.size()
                             options: MTLResourceStorageModeManaged];
         
+        Material pbr;
+        pbr.type = MaterialType::PBR;
+        materials.emplace_back(pbr);
+        
         _material_buffer = [_device newBufferWithBytes:materials.data()
                                                 length:sizeof(struct Material)*materials.size()
                                                options:MTLResourceStorageModeManaged];
@@ -173,7 +182,7 @@ typedef struct  {
         
         let td = [[MTLTextureDescriptor alloc] init];
         td.textureType = MTLTextureType2D;
-        td.pixelFormat = MTLPixelFormatRGBA16Float; //MTLPixelFormatBGRA8Unorm;
+        td.pixelFormat = MTLPixelFormatRGBA32Float; //MTLPixelFormatBGRA8Unorm;
         td.width = width;
         td.height = height;
         td.mipmapLevelCount = mipCount;
@@ -221,52 +230,56 @@ typedef struct  {
                           destinationLevel: 0
                          destinationOrigin: {0,0,0}];
         [blitCommandEncoder endEncoding];
-
-        // Add a completion handler and commit the command buffer.
-        [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> cb) {
-            
-            self->_view.paused = YES;
-            self->_view.delegate = self;
-            self->_view.enableSetNeedsDisplay = YES;
-        }];
         
         MTKTextureLoader *loader = [[MTKTextureLoader alloc] initWithDevice: _device];
-                
+        
+        NSDictionary *textureLoaderOptions = @ {
+                    //MTKTextureLoaderOptionAllocateMipmaps: @YES,
+                    //MTKTextureLoaderOptionGenerateMipmaps: @YES,
+                    MTKTextureLoaderOptionSRGB: @(NO),//[NSNumber numberWithBool:YES],
+                    MTKTextureLoaderOptionTextureUsage : @(MTLTextureUsageShaderRead),
+                    MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
+                    MTKTextureLoaderOptionOrigin: MTKTextureLoaderOriginFlippedVertically };
+        
         let pathHDR = [NSBundle.mainBundle pathForResource:@"vulture_hide_4k" ofType:@"hdr"];
         let urlHDR = [[NSURL alloc] initFileURLWithPath:pathHDR];
         
-        NSDictionary *textureLoaderOptions = @ {
-            
-                    MTKTextureLoaderOptionTextureUsage : @(MTLTextureUsageShaderRead),
-                    MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
-
-                    MTKTextureLoaderOptionOrigin: MTKTextureLoaderOriginFlippedVertically };
-        
-        let pathTest = [NSBundle.mainBundle pathForResource:@"coatball/uv_test" ofType:@"png"];
-        let urlTest = [[NSURL alloc] initFileURLWithPath:pathTest];
-    
-        #if TARGET_OS_IPHONE
-        
-            let image = [[UIImage alloc] initWithContentsOfFile:path];
-            //let imageData = [[NSData alloc] initWithContentsOfFile:path];
-            let imageData = UIImagePNGRepresentation(image);
-        #else
+        #if TARGET_OS_OSX
             let imageData = [[[NSImage alloc] initWithContentsOfURL:urlHDR] TIFFRepresentation];
-            let testData =  [[[NSImage alloc] initWithContentsOfURL:urlTest] TIFFRepresentation];
+        #else
+            //let imageData = [[NSData alloc] initWithContentsOfFile:path];
+            let image = [[UIImage alloc] initWithContentsOfFile:path];
+            let imageData = UIImagePNGRepresentation(image);
         #endif
-                
+        
         _textureHDR = [loader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
-        _textureTest = [loader newTextureWithData:testData options:textureLoaderOptions error:&ERROR];
+        
+        let mdlAO = [MDLTexture textureNamed:@"coatball/tex_ao.png"];
+        _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
+        
+        //let mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
+        let mdlAlbedo = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_basecolor.png"];
+        _textureAlbedo = [loader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
+        
+        //let mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
+        let mdlMetallic = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_metallic.png"];
+        _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
+        
+        //let mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
+        let mdlNormal = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_normal.png"];
+        _textureNormal = [loader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
+        
+        //let mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
+        let mdlRoughness = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_roughness.png"];
+        _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
         
             if(!_textureHDR)
             {
-                NSLog(@"Failed to create the texture from %@", urlHDR.absoluteString);
+                NSLog(@"Failed to create the texture from %@", _textureHDR);
                 return nil;
             }
-                
-        let allocator = [[MTKMeshBufferAllocator alloc] initWithDevice:_device];
-        
-        let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
+        //let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
+        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/bunny" ofType:@"obj"];
         let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
                 
             MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);
@@ -288,46 +301,52 @@ typedef struct  {
             modelIOVertexDescriptor.attributes[2].format = MDLVertexFormatFloat2;
             
             modelIOVertexDescriptor.layouts[0].stride = 32;
-                
+        
+        let allocator = [[MTKMeshBufferAllocator alloc] initWithDevice:_device];
         let testAsset = [[MDLAsset alloc] initWithURL:modelURL
                                     vertexDescriptor:modelIOVertexDescriptor
                                      bufferAllocator:allocator]; // preserveTopology: NO
         let testMesh = (MDLMesh *) [testAsset objectAtIndex:0];
         [testMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0.0];
+        //let voxelArray = [[MDLVoxelArray alloc] initWithAsset:testAsset divisions:1 patchRadius:0.2];
                 
-            //[[MDLVoxelArray alloc] init]
+                std::vector<BVH> bvh_list;
                 
-        std::vector<BVH> bvh_list;
+//                for (int i=1; i<sphere_list.size(); i++) {
+//                    auto& sphere = sphere_list[i];
+//                    BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
+//                }
+        
+//                for (int i=0; i<cube_list.size()-1; i++) {
+//                    auto& cube = cube_list[i];
+//                    BVH::buildNode(cube.boundingBOX, cube.model_matrix, ShapeType::Cube, i, bvh_list);
+//                }
+        
+                for (int i=4; i<5; i++) {
+                //for (int i=0; i<cornell_box.size(); i++) {
+                    auto& square = cornell_box[i];
+                    BVH::buildNode(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
+                }
                 
-        //        for (int i=0; i<sphere_list.size(); i++) {
-        //            auto& sphere = sphere_list[i];
-        //            BVH::build(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
-        //        }
-        //
-        //        for (int i=0; i<cube_list.size(); i++) {
-        //            auto& cube = cube_list[i];
-        //            BVH::build(cube.boundingBOX, cube.model_matrix, ShapeType::Cube, i, bvh_list);
-        //        }
-        //
-        //        //for (int i=0; i<0; i++) {
-        //        for (int i=4; i<cornell_box.size(); i++) {
-        //            auto& square = cornell_box[i];
-        //            BVH::build(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
-        //        }
-                
-            //let bBox = newMesh.boundingBox;
-            //float3 minB = (float3)bBox.minBounds;
-            //float3 maxB = (float3)bBox.maxBounds;
-            //let meshBox = AABB::make(minB, maxB);
-            //BVH::build(meshBox, meshTransform, ShapeType::Mesh, 0, bvh_list);
-                
+            let bBox = testMesh.boundingBox;
+            let minB = (float3)bBox.minBounds;
+            let maxB = (float3)bBox.maxBounds;
+        
+            let meshBox = AABB::make(minB, maxB);
+            let centroid = meshBox.centroid();
+            
+            let maxAxis = meshBox.maximumExtent();
+            let maxDime = meshBox.diagonal()[maxAxis];
+            
+            auto meshScale = 400.0 / maxDime;
+            auto meshOffset = float3(278)-centroid;
+            meshOffset.y = 20 - minB.y * meshScale;
+        
             auto index_ptr = (uint32_t*)testMesh.submeshes.firstObject.indexBuffer.map.bytes;
             auto vertex_ptr = (MeshStrut*)testMesh.vertexBuffers.firstObject.map.bytes;
-            
-            auto vertexCount = testMesh.submeshes.firstObject.indexCount;
-            
-            float scale = 30; float offset = 278;
-            for (uint32_t i=0; i<vertexCount; i+=3) {
+            auto index_count = testMesh.submeshes.firstObject.indexCount;
+        
+            for (uint i=0; i<index_count; i+=3) {
                 
                 auto index_a = index_ptr[i];
                 auto index_b = index_ptr[i+1];
@@ -339,13 +358,15 @@ typedef struct  {
                 
                 for (auto ele : { vertex_a, vertex_b, vertex_c }) {
                     
-                    ele->vx *= scale;
-                    ele->vy *= scale;
-                    ele->vz *= scale;
+                    ele->vx *= meshScale;
+                    ele->vy *= meshScale;
+                    ele->vz *= -meshScale;
                     
-                    ele->vx += offset;
-                    ele->vy += offset;
-                    ele->vz += offset;
+                    ele->nz *= -1;
+                    
+                    ele->vx += meshOffset.x;
+                    ele->vy += meshOffset.y;
+                    ele->vz += meshOffset.z;
                 }
                 
                 auto max_x = std::max( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
@@ -358,13 +379,18 @@ typedef struct  {
                 
                 AABB box;
                 
-                box.maxi = simd_make_float3(max_x, max_y, max_z);
-                box.mini = simd_make_float3(min_x, min_y, min_z);
+                box.maxi = { max_x, max_y, max_z };
+                box.mini = { min_x, min_y, min_z };
                 
                 BVH::buildNode(box, matrix_identity_float4x4, ShapeType::Triangle, i/3, bvh_list);
             }
-        
+                NSLog(@"Begin processing BVH");
+                let time_s = [[NSDate date] timeIntervalSince1970];
                 BVH::buildTree(bvh_list);
+                let time_e = [[NSDate date] timeIntervalSince1970];
+                NSLog(@"Time cost %fs", time_e - time_s);
+                NSLog(@"End processing BVH");
+                
                 
                 _mesh_buffer =  [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
                                                      length: testMesh.vertexBuffers.firstObject.length
@@ -386,6 +412,14 @@ typedef struct  {
                 _threadGroupGrid = MTLSizeMake(gridX, gridY, 1);
                 
         launchTime = [[NSDate date] timeIntervalSince1970];
+        
+        // Add a completion handler and commit the command buffer.
+        [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> cb) {
+            
+            self->_view.paused = YES;
+            self->_view.delegate = self;
+            self->_view.enableSetNeedsDisplay = YES;
+        }];
         
         [commandBuffer commit];
     }
@@ -415,19 +449,21 @@ typedef struct  {
     
     //__weak AAPLRenderer *weakSelf = self;
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-        
+        // not on main thread
         if (self->_dragging) {
             self->_scene_meta.frame_count = 0;
         } else {
-            self->_scene_meta.frame_count += 1;
+            let fcount = self->_scene_meta.frame_count;
+            self->_scene_meta.frame_count = fcount + 1;
         }
         
+        //[self drag:simd_make_float2(1, 0) state:NO];
+        
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
-            
-            #if TARGET_OS_IPHONE
-                [self->_view setNeedsDisplay];
-            #else
+            #if TARGET_OS_OSX
                 self->_view.needsDisplay = YES;
+            #else
+                [self->_view setNeedsDisplay];
             #endif
         }];
     }];
@@ -442,9 +478,16 @@ typedef struct  {
     [computeEncoder setTexture:_textureBRNG atIndex: 2 + (_scene_meta.frame_count+1) % 2];
     
     [computeEncoder setTexture:_textureHDR atIndex:4];
-    [computeEncoder setTexture:_textureTest atIndex:5];
     
-    memcpy(_scene_meta_buffer.contents, &_scene_meta, sizeof(SceneComplex));
+    [computeEncoder setTexture:_textureAO atIndex:5];
+    [computeEncoder setTexture:_textureAlbedo atIndex:6];
+    [computeEncoder setTexture:_textureMetallic atIndex:7];
+    [computeEncoder setTexture:_textureNormal atIndex:8];
+    [computeEncoder setTexture:_textureRoughness atIndex:9];
+    
+    if (self->_scene_meta.frame_count > 3 || self->_scene_meta.frame_count < 1) {
+        memcpy(_scene_meta_buffer.contents, &_scene_meta, sizeof(SceneComplex));
+    }
     [computeEncoder setBuffer:_scene_meta_buffer offset:0 atIndex:0];
     
     memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));

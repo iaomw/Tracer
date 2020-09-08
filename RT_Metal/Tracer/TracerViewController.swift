@@ -26,6 +26,11 @@ class TracerViewController: NSViewController {
         
         metalRender = AAPLRenderer(metalKitView: self.metalView)
         
+        NSEvent.addLocalMonitorForEvents(matching: .keyUp) { (event) -> NSEvent? in
+            self.keyUp(with: event)
+            return event
+        }
+        
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { (event) -> NSEvent? in
             self.keyDown(with: event)
             return event
@@ -50,26 +55,35 @@ class TracerViewController: NSViewController {
         metalRender?.drag(delta, state: false)
     }
     
-    let kLeftArrowKeyCode:  UInt16  = 123
+    
     let kRightArrowKeyCode: UInt16  = 124
+    let kLeftArrowKeyCode:  UInt16  = 123
     let kDownArrowKeyCode:  UInt16  = 125
     let kUpArrowKeyCode:    UInt16  = 126
+    let kSpaceKeyCode:      UInt16  = 049
     
     override func keyDown(with event: NSEvent) {
         
         switch event.keyCode {
 
         case kLeftArrowKeyCode:
-            metalRender?.drag(simd_float2(1, 0), state: true)
+            metalRender?.drag(simd_float2( 1,  0), state: false)
         case kRightArrowKeyCode:
-            metalRender?.drag(simd_float2(-1, 0), state: true)
+            metalRender?.drag(simd_float2(-1,  0), state: false)
         case kDownArrowKeyCode:
-            metalRender?.drag(simd_float2(0, 1), state: true)
+            metalRender?.drag(simd_float2( 0,  1), state: false)
         case kUpArrowKeyCode:
-            metalRender?.drag(simd_float2(0, -1), state: true)
+            metalRender?.drag(simd_float2( 0, -1), state: false)
+        case kSpaceKeyCode:
+            metalRender?.drag(simd_float2( 0,  0), state: false)
         default:
             break
         }
+    }
+    
+    override func keyUp(with event: NSEvent) {
+        
+        metalRender?.drag(simd_float2( 0,  0), state: true)
     }
 }
 

@@ -4,7 +4,7 @@
 #include "Common.hh"
 #include "Texture.hh"
 
-enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic, Specular };
+enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic, Specular, PBR };
 
 struct Material {
     enum MaterialType type;
@@ -21,6 +21,10 @@ struct Material {
     float3  refractionColor;
     
     struct TextureInfo textureInfo;
+    
+//    float albedo;
+//    float metallic;
+//    float roughness;
 };
 
 float schlick(float cosine, float ref_idx);

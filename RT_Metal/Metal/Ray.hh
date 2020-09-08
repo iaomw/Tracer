@@ -6,16 +6,15 @@
 #ifdef __METAL_VERSION__
 
 struct Ray {
-    packed_float3 origin;
-    packed_float3 direction;
+    float3 origin;
+    float3 direction;
     //Float time;
     //const Medium *medium;
     
     Ray();
     
-    Ray(float3 o, float3 d) {
-        origin = o;
-        direction = metal::normalize(d);
+    Ray(float3 o, float3 d): origin(o) {
+        direction = normalize(d);
     }
     
     float3 pointAt(float t) const {
