@@ -34,27 +34,26 @@
             float2 uv;
         };
 
-#if defined __cplusplus
-struct packed_float3 {
-    float x=0, y=0, z=0;
-    
-    packed_float3();
-    packed_float3(float3 v) {
-        x = v.x;
-        y = v.y;
-        z = v.z;
-    }
-    
-    float operator[](int i) const {
-       //Assert(i >= 0 && i <= 2);
-       if (i == 0) return x;
-       if (i == 1) return y;
-       return z;
-    }
-};
-#endif
+        #if defined __cplusplus
+        struct packed_float3 {
+            float x=0, y=0, z=0;
+            
+            packed_float3();
+            packed_float3(float3 v) {
+                x = v.x;
+                y = v.y;
+                z = v.z;
+            }
+            
+            float operator[](int i) const {
+               //Assert(i >= 0 && i <= 2);
+               if (i == 0) return x;
+               if (i == 1) return y;
+               return z;
+            }
+        };
+        #endif // __cplusplus
 
-
-    #endif
+    #endif // __METAL_VERSION__
 
 #endif /* Common_h */

@@ -12,6 +12,8 @@
 #include "Square.hh"
 #include "Sphere.hh"
 
+#include "BXDF.hh"
+
 #include "HitRecord.hh"
 #include "SobolSampler.hh"
 
@@ -47,6 +49,20 @@ float3 FX(const thread float3& wo, const thread float3& albedo, float metallic) 
     
     auto ex = (-5.55473f * wo.z - 6.98316f) * wo.z;
     return F0 + (1.0 - F0) * pow(2.0f, ex);
+}
+
+float DisneyDiffuse(const thread float3& wo, const thread float3& wi, const float IDotH, const float roughness)
+{
+//    if (mMetallic == 1.0f) return 0.0f;
+
+    float oneMinusCosL = 1.0f - wi.z;
+    float oneMinusCosLSqr = oneMinusCosL * oneMinusCosL;
+    float oneMinusCosV = 1.0f - wo.z;
+    float oneMinusCosVSqr = oneMinusCosV * oneMinusCosV;
+    float F_D90 = 0.5f + 2.0f * IDotH * IDotH * roughness;
+
+    return float(1.0/M_PI_F) * (1.0f + (F_D90 - 1.0f) * oneMinusCosLSqr * oneMinusCosLSqr * oneMinusCosL) *
+        (1.0f + (F_D90 - 1.0f) * oneMinusCosVSqr * oneMinusCosVSqr * oneMinusCosV);
 }
 
 template <typename XSampler>
@@ -91,9 +107,7 @@ bool scatter(thread Ray& ray,
 
             float3 wi = { x, y, z };
             auto direction = stw * wi;
-
-            //auto direction = normal + randomUnit(seed);
-
+            
             ray = Ray(hitRecord.p, direction);
             scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             //scatRecord.attenuation /= M_PI_F;
@@ -161,8 +175,9 @@ bool scatter(thread Ray& ray,
             float3 tNormal = texNormal.sample(textureSampler, hitRecord.uv, 0).xyz;
             tNormal = normalize(tNormal * 2.0 - 1.0);
             
-            float roughness = texRoughness.sample(textureSampler, hitRecord.uv, 0).r;
-            roughness = max(roughness, 0.001);
+            float rough = texRoughness.sample(textureSampler, hitRecord.uv, 0).r;
+            auto a1 = max(abs(rough), 0.001);
+            auto a2 = a1;//a1 * a1;
             
             float3 nx, ny;
             CoordinateSystem(normal, nx, ny);
@@ -183,9 +198,6 @@ bool scatter(thread Ray& ray,
             r0 = max(r0, FLT_EPSILON);
             auto rr0 = max(1-r0, FLT_EPSILON);
             
-            auto a1 = roughness;
-            auto a2 = a1 * a1;
-            
             if (xsampler.random() > pSpecular) {
                 
                 float sinTheta = sqrt(r0);
@@ -202,23 +214,27 @@ bool scatter(thread Ray& ray,
                 
                 ray = Ray(hitRecord.p, stw * nextDir);
                 scatRecord.attenuation = albedo / (1.0-pSpecular);
-                auto pdf = nextDir.z;// / M_PI_F;
-                scatRecord.attenuation /= pdf;
+                //auto pdf = nextDir.z;// / M_PI_F;
+                //scatRecord.attenuation /= pdf;
                 
                 return true;
                 
             } else {
-                auto tmp = rr0 / ((a2 - 1) * r0 + 1);
-                auto cosTheta = sqrt(tmp);
-                auto sinTheta = sqrt(max(FLT_EPSILON, 1.0-tmp));
-                //auto theta = acos(sqrt(rr0/((a2-1)*r0+1)));
-                auto phi = 2 * M_PI_F * r1;
                 
-                auto x = sinTheta * cos(phi);
-                auto y = sinTheta * sin(phi);
-                auto z = cosTheta;
+                float pdf;
+                microNormal = GGX_SampleVisibleNormal(fixedDir, r0, r1, &pdf, a2);
                 
-                microNormal = normalize( {x, y, z} );
+//                auto tmp = rr0 / ((a2 - 1) * r0 + 1);
+//                auto cosTheta = sqrt(tmp);
+//                auto sinTheta = sqrt(max(FLT_EPSILON, 1.0-tmp));
+//                //auto theta = acos(sqrt(rr0/((a2-1)*r0+1)));
+//                auto phi = 2 * M_PI_F * r1;
+//
+//                auto x = sinTheta * cos(phi);
+//                auto y = sinTheta * sin(phi);
+//                auto z = cosTheta;
+//
+//                microNormal = normalize( {x, y, z} );
                 nextDir = reflect(-fixedDir, microNormal);
             }
             
@@ -228,9 +244,9 @@ bool scatter(thread Ray& ray,
             auto G = GX(fixedDir, nextDir, a2);
             auto F = FX(fixedDir, albedo, metallic);
             
-            float denominator = max(FLT_MIN, fixedDir.z * nextDir.z * 4);
+            float deno = max(FLT_MIN, fixedDir.z * nextDir.z * 4);
 
-            auto specular = D * G * F / denominator;
+            auto specular = D * G * F / deno;
             auto diffuse = albedo / M_PI_F;
             
             auto kS = F;
@@ -240,96 +256,96 @@ bool scatter(thread Ray& ray,
             scatRecord.attenuation = kD * diffuse + specular;
             
             //auto diffusePD = wi.z / M_PI_F;
-            //auto specularPD = D * microNormal.z /
-            //(dot(nextDir, microNormal) * 4);
+            //auto specularPD = D * microNormal.z
+            // 1 / (dot(nextDir, microNormal) * 4);
             
             scatRecord.attenuation /= pSpecular;
-            //scatRecord.attenuation *= localNextDir.z;
+            //scatRecord.attenuation *= nextDir.z;
             
             return true;
         }
             
-//        case MaterialType::Specular: {
-//            
-//            float rayProbability = 1.0f;
-//            auto throughput = float3(1.0);
-//            
-//            auto theIOR = hitRecord.f? (1.0/material.parameter) : material.parameter;
-//            
-//            if (!hitRecord.f) {
-//                throughput *= exp(-material.refractionColor * hitRecord.t);
-//            }
-//            
-//            // apply fresnel
-//            float specularProb = material.specularProb;
-//            float refractionProb = material.refractionProb;
-//            
-//            if (specularProb > 0.0f) {
-//                
-//                specularProb = fresnel(
-//                        hitRecord.f? 1.0 : material.parameter,
-//                        !hitRecord.f? 1.0 : material.parameter,
-//                        normal, ray.direction, material.specularProb, 1.0f);
-//                        //ray.direction, hitRecord.n, hitRecord.material.specularProb, 1.0f);
-//                
-//                refractionProb *= (1.0f - specularProb) / (1.0f - material.specularProb);
-//            }
-//            
-//            auto doSpecular = 0.0f;
-//            auto doRefraction = 0.0f;
-//            auto raySelectRoll = xsampler.random();
-//            
-//            if (specularProb > 0.0f && raySelectRoll < specularProb)
-//            {
-//                doSpecular = 1.0f;
-//                rayProbability = specularProb;
-//            }
-//            else if (refractionProb > 0.0f && raySelectRoll < (specularProb + refractionProb))
-//            {
-//                doRefraction = 1.0f;
-//                rayProbability = refractionProb;
-//            }
-//            else
-//            {
-//                rayProbability = 1.0f - (specularProb + refractionProb);
-//            }
-//                 
-//            // numerical problems can cause rayProbability to become small enough to cause a divide by zero.
-//            rayProbability = max(rayProbability, 0.001f);
-//            
-//            auto origin = hitRecord.p + normal * 0.01;
-//            
-//            if (doRefraction == 1.0) {
-//                origin = hitRecord.p - normal * 0.01;
-//            } else {
-//                origin = hitRecord.p + normal * 0.01;
-//            }
-//            
-//            auto diffuseDir = normal + xsampler.sampleUnit();
-//            auto specularDir = reflect(ray.direction, normal);
-//            
-//            specularDir = normalize(mix(specularDir, diffuseDir, pow(material.specularRoughness, 2)));
-//            
-//            auto refractionDir = refract(ray.direction, normal, theIOR);
-//                refractionDir = normalize(mix(refractionDir, normalize(-normal + xsampler.sampleUnit()), pow(material.refractionRoughness, 2)));
-//                
-//            auto direction = mix(diffuseDir, specularDir, doSpecular);
-//            direction = mix(direction, refractionDir, doRefraction);
-//            
-//            ray = Ray(origin, direction);
-//            scatRecord.attenuation = throughput;
-//            
-//            if (doRefraction == 0.0f) {
-//                
-//                scatRecord.attenuation *= mix(material.textureInfo.albedo,
-//                                              material.specularColor,
-//                                              doSpecular);
-//            }
-//            
-//            scatRecord.attenuation /= rayProbability;
-//            
-//            return true;
-//        }
+        case MaterialType::Specular: {
+            
+            float rayProbability = 1.0f;
+            auto throughput = float3(1.0);
+            
+            auto theIOR = hitRecord.f? (1.0/material.parameter) : material.parameter;
+            
+            if (!hitRecord.f) {
+                throughput *= exp(-material.refractionColor * hitRecord.t);
+            }
+            
+            // apply fresnel
+            float specularProb = material.specularProb;
+            float refractionProb = material.refractionProb;
+            
+            if (specularProb > 0.0f) {
+                
+                specularProb = fresnel(
+                        hitRecord.f? 1.0 : material.parameter,
+                        !hitRecord.f? 1.0 : material.parameter,
+                        normal, ray.direction, material.specularProb, 1.0f);
+                        //ray.direction, hitRecord.n, hitRecord.material.specularProb, 1.0f);
+                
+                refractionProb *= (1.0f - specularProb) / (1.0f - material.specularProb);
+            }
+            
+            auto doSpecular = 0.0f;
+            auto doRefraction = 0.0f;
+            auto raySelectRoll = xsampler.random();
+            
+            if (specularProb > 0.0f && raySelectRoll < specularProb)
+            {
+                doSpecular = 1.0f;
+                rayProbability = specularProb;
+            }
+            else if (refractionProb > 0.0f && raySelectRoll < (specularProb + refractionProb))
+            {
+                doRefraction = 1.0f;
+                rayProbability = refractionProb;
+            }
+            else
+            {
+                rayProbability = 1.0f - (specularProb + refractionProb);
+            }
+                 
+            // numerical problems can cause rayProbability to become small enough to cause a divide by zero.
+            rayProbability = max(rayProbability, 0.001f);
+            
+            auto origin = hitRecord.p + normal * 0.01;
+            
+            if (doRefraction == 1.0) {
+                origin = hitRecord.p - normal * 0.01;
+            } else {
+                origin = hitRecord.p + normal * 0.01;
+            }
+            
+            auto diffuseDir = normal + xsampler.sampleUnit();
+            auto specularDir = reflect(ray.direction, normal);
+            
+            specularDir = normalize(mix(specularDir, diffuseDir, pow(material.specularRoughness, 2)));
+            
+            auto refractionDir = refract(ray.direction, normal, theIOR);
+                refractionDir = normalize(mix(refractionDir, normalize(-normal + xsampler.sampleUnit()), pow(material.refractionRoughness, 2)));
+                
+            auto direction = mix(diffuseDir, specularDir, doSpecular);
+            direction = mix(direction, refractionDir, doRefraction);
+            
+            ray = Ray(origin, direction);
+            scatRecord.attenuation = throughput;
+            
+            if (doRefraction == 0.0f) {
+                
+                scatRecord.attenuation *= mix(material.textureInfo.albedo,
+                                              material.specularColor,
+                                              doSpecular);
+            }
+            
+            scatRecord.attenuation /= rayProbability;
+            
+            return true;
+        }
             
         default: {return false;}
     }

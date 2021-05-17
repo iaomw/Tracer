@@ -85,7 +85,7 @@ float CETone(float color, float adapted_lum)
 }
 
 vertex RasterizerData
-vertexShader(uint vertexID [[vertex_id]],
+vertexShader(uint     vertexID                  [[vertex_id]],
              constant VertexWithUV *vertexArray [[buffer(VertexInputIndexVertices)]])
 {
     RasterizerData out;
@@ -476,10 +476,10 @@ float3 traceColor(float depth, thread Ray& ray,
 }
 
 kernel void
-tracerKernel(texture2d<float, access::read>     inTexture  [[texture(0)]],
-             texture2d<float, access::write>    outTexture [[texture(1)]],
+tracerKernel(texture2d<half, access::read>      inTexture [[texture(0)]],
+             texture2d<half, access::write>    outTexture [[texture(1)]],
              
-             texture2d<uint32_t, access::read>      inRNG  [[texture(2)]],
+             texture2d<uint32_t, access::read>       inRNG [[texture(2)]],
              texture2d<uint32_t, access::write>     outRNG [[texture(3)]],
              
              texture2d<float, access::sample>       texHDR [[texture(4)]],
@@ -521,18 +521,12 @@ tracerKernel(texture2d<float, access::read>     inTexture  [[texture(0)]],
     
     pcg32_t rng = { rng_inc, rng_state };
     
-    auto cached_color = inTexture.read(thread_pos).rgb;
-    auto frame_count = sceneMeta->frame_count;
-    
-    //if (frame_count < 2) { frame_count = 0; }
-    //auto float_time = float(sceneMeta->running_time);
-    //auto int_time = uint32_t(1000*sceneMeta->running_time);
-    //auto pixelPisition = input.texCoord*float2(sceneMeta->view_size);
-    
+    auto frame = sceneMeta->frame_count;
+        
     auto u = float(thread_pos.x)/outTexture.get_width();
     auto v = float(thread_pos.y)/outTexture.get_height();
     
-    float3 color; RandomSampler rs = { &rng };
+    float3 color; RandomSampler rs { &rng };
     auto ray = castRay(camera, u, v, &rs);
     
     //uint2 vsize = { inTexture.get_width(), inTexture.get_height()};
@@ -554,9 +548,11 @@ tracerKernel(texture2d<float, access::read>     inTexture  [[texture(0)]],
                             meshList,
                             bvh_list );
     
-    float3 result = (cached_color.rgb * frame_count + color) / (frame_count + 1);
+    float3 cached_color = float3( inTexture.read( thread_pos ).rgb );
     
-    outTexture.write(float4(result, 1.0), thread_pos);
+    float3 result = (cached_color.rgb * frame + color) / (frame + 1);
+    
+    outTexture.write(half4(half3(result), 1.0), thread_pos);
 
     gg = rng.state;
     rr = rng.state >> 32;
