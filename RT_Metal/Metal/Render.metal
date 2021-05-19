@@ -150,12 +150,8 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                 constant Material* materials,
                          
                 thread texture2d<float, access::sample> &texHDR,
-        
-                thread texture2d<float, access::sample> &texAO,
-                thread texture2d<float, access::sample> &texAlbedo,
-                thread texture2d<float, access::sample> &texMetallic,
-                thread texture2d<float, access::sample> &texNormal,
-                thread texture2d<float, access::sample> &texRoughness,
+                
+                constant PackPBR& packPBR,
                 
                 constant Sphere* sphere_list,
                 constant Square* square_list,
@@ -349,8 +345,7 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
             return ratio * emit_color;
         }
         
-        if ( !scatter(ray, xsampler, hitRecord, scatRecord, materials,
-                      texAO, texAlbedo, texMetallic, texNormal, texRoughness) ) {
+        if ( !scatter(ray, xsampler, hitRecord, scatRecord, materials, packPBR) ) {
             //return float3(1, 0, 1);
             return float3(0);
         }
@@ -371,139 +366,30 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
     return color;
 }
 
-
-float3 traceColor(float depth, thread Ray& ray,
-                         
-                         thread texture2d<half, access::sample> &ambientHDR,
-                         thread texture2d<half, access::sample> &textureTest,
-                         
-                         constant Sphere* sphere_list,
-                         constant Square* square_list,
-                         constant Cube* cube_list,
-                         
-                         constant uint32_t* meshIndex,
-                         constant Triangle* mesh,
-                         constant BVH* bvh_list,
-                  
-                         constant Material* materials,
-                         
-                         thread pcg32_t* seed)
-{
-    HitRecord hitRecord;
-    ScatRecord scatRecord;
-    
-    float2 range_t;
-    float3 ratio = float3(1.0);
-    
-    float3 color = float3(0);
-   
-    do {
-        
-        range_t = float2(0.01, INFINITY);
-
-//        for (int i=0; i<13; i++) {
-//            sphere_list[i].hit_test(ray, range_t, hitRecord);
-//        }
-
-        for (int i=0; i<6; i++) {
-            square_list[i].hit_test(ray, range_t, hitRecord);
-        }
-
-        for (int i=0; i<2; i++) {
-            cube_list[i].hit_test(ray, range_t, hitRecord);
-        }
-//
-//        for (int i=1; i<2; i++) {
-//            cube_list[1].hit_medium(ray, range_t, hitRecord, seed);
-//        }
-        
-        
-        //144045
-        //for (uint32_t i=0; i<372; i+=3) {
-        //for (uint32_t i=0; i<140448; i+=3) {
-//        for (uint32_t i=0; i<44045; i+=3) {
-//            auto index_a = meshIndex[i];
-//            auto index_b = meshIndex[i+1];
-//            auto index_c = meshIndex[i+2];
-//
-//            constant auto& ele_a = mesh[index_a];
-//            constant auto& ele_b = mesh[index_b];
-//            constant auto& ele_c = mesh[index_c];
-//
-//            auto done = Triangle::rayTriangleIntersect(ray, ele_a, ele_b, ele_c, range_t, hitRecord);
-//
-////            if (done) {
-////                auto hhhh = textureTest.sample(textureSampler, hitRecord.uv);
-////                hitRecord.material.textureInfo.albedo = float3(hhhh.xyz);
-////            }
-//        }
-
-        if ( isinf(range_t.y ) ) {
-            float3 sphereVector = ray.origin + 1000000 * ray.direction;
-            float2 uv = SampleSphericalMap(normalize(sphereVector));
-            auto ambient = ambientHDR.sample(textureSampler, uv);
-            //return ratio * float3(ambient.rgb);
-            color = ratio * float3(ambient.rgb);
-            break;
-        }
-        
-        float3 emit_color;
-        if ( emit(hitRecord, emit_color, materials) ) {
-            //return ratio * emit_color;
-            color = ratio * emit_color;
-            break;
-        }
-        
-//        if ( !scatter(ray, hitRecord, scatRecord, seed, materials) ) {
-//            //return float3(1, 0, 1);
-//            color = float3(0);
-//            break;
-//        }
-        
-        ratio *= scatRecord.attenuation;
-        
-        { // Russian Roulette
-            float p = max3(ratio.r, ratio.g, ratio.b);
-            if (randomF(seed) > p)
-                break;
-            // Add the energy we 'lose' by randomly terminating paths
-            ratio *= 1.0f / p;
-        }
-        
-    } while( (--depth) > 0 );
-    
-    return color;
-}
-
 kernel void
-tracerKernel(texture2d<half, access::read>      inTexture [[texture(0)]],
-             texture2d<half, access::write>    outTexture [[texture(1)]],
+tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
+             texture2d<half, access::write>     outTexture [[texture(1)]],
              
              texture2d<uint32_t, access::read>       inRNG [[texture(2)]],
              texture2d<uint32_t, access::write>     outRNG [[texture(3)]],
              
              texture2d<float, access::sample>       texHDR [[texture(4)]],
              
-             texture2d<float, access::sample>        texAO [[texture(5)]],
-             texture2d<float, access::sample>    texAlbedo [[texture(6)]],
-             texture2d<float, access::sample>  texMetallic [[texture(7)]],
-             texture2d<float, access::sample>    texNormal [[texture(8)]],
-             texture2d<float, access::sample> texRoughness [[texture(9)]],
-             
              uint2 thread_pos  [[thread_position_in_grid]],
              
              constant SceneComplex* sceneMeta [[buffer(0)]],
-             constant Camera* camera [[buffer(1)]],
+             constant Camera*          camera [[buffer(1)]],
 
              constant Sphere* sphere_list [[buffer(2)]],
              constant Square* square_list [[buffer(3)]],
-             constant Cube* cube_list [[buffer(4)]],
+             constant Cube*     cube_list [[buffer(4)]],
              
              constant uint32_t* meshIndex [[buffer(5)]],
-             constant Triangle* meshList [[buffer(6)]],
-             constant BVH* bvh_list [[buffer(7)]],
+             constant Triangle*  meshList [[buffer(6)]],
+             constant BVH*       bvh_list [[buffer(7)]],
              
-             constant Material* materials [[buffer(8)]] )
+             constant Material* materials [[buffer(8)]],
+             constant PackPBR&    packPBR [[buffer(9)]] )
 {
     // Check if the pixel is within the bounds of the output texture
     if((thread_pos.x >= outTexture.get_width()) || (thread_pos.y >= outTexture.get_height()))
@@ -532,13 +418,10 @@ tracerKernel(texture2d<half, access::read>      inTexture [[texture(0)]],
     //uint2 vsize = { inTexture.get_width(), inTexture.get_height()};
     //auto ss = pbrt::SobolSampler(rng, frame_count, thread_pos, vsize);
     
-    color = traceBVH(32, ray, rs, materials, texHDR,
-                          
-                            texAO,
-                            texAlbedo,
-                            texMetallic,
-                            texNormal,
-                            texRoughness,
+    color = traceBVH(32, ray, rs, materials,
+                            
+                            texHDR,
+                            packPBR,
                             
                             sphere_list,
                             square_list,
@@ -553,6 +436,7 @@ tracerKernel(texture2d<half, access::read>      inTexture [[texture(0)]],
     float3 result = (cached_color.rgb * frame + color) / (frame + 1);
     
     outTexture.write(half4(half3(result), 1.0), thread_pos);
+    //outTexture.write(half4(xxx), thread_pos);
 
     gg = rng.state;
     rr = rng.state >> 32;

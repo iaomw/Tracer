@@ -44,6 +44,8 @@ typedef struct
     id<MTLBuffer> _vertex_buffer;
     id<MTLCommandQueue> _commandQueue;
     
+    id<MTLBuffer> _kernelArgumentBuffer;
+    
     id<MTLBuffer> _cube_list_buffer;
     id<MTLBuffer> _cornell_box_buffer;
     id<MTLBuffer> _sphere_list_buffer;
@@ -78,8 +80,8 @@ typedef struct
     
     id<MTLTexture> _textureAO;
     id<MTLTexture> _textureAlbedo;
-    id<MTLTexture> _textureMetallic;
     id<MTLTexture> _textureNormal;
+    id<MTLTexture> _textureMetallic;
     id<MTLTexture> _textureRoughness;
     
     MTLSize _threadGroupSize;
@@ -112,6 +114,14 @@ typedef struct
 
         let defaultLibrary = [_device newDefaultLibrary];
         let kernelFunction = [defaultLibrary newFunctionWithName:@"tracerKernel"];
+        
+        let argumentEncoder = [kernelFunction newArgumentEncoderWithBufferIndex:9];
+        let argumentBufferLength = argumentEncoder.encodedLength;
+        
+        _kernelArgumentBuffer = [_device newBufferWithLength:argumentBufferLength options:0];
+        _kernelArgumentBuffer.label = @"Argument Buffer";
+        
+        [argumentEncoder setArgumentBuffer:_kernelArgumentBuffer offset:0];
         
         _computePipelineState = [_device newComputePipelineStateWithFunction:kernelFunction error:&ERROR];
         
@@ -269,19 +279,25 @@ typedef struct
         _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
         
         let mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
-        let mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
         let mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
+        let mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
         let mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
         
 //        let mdlAlbedo = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_basecolor.png"];
-//        let mdlMetallic = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_metallic.png"];
 //        let mdlNormal = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_normal.png"];
+//        let mdlMetallic = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_metallic.png"];
 //        let mdlRoughness = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_roughness.png"];
         
         _textureAlbedo = [loader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
-        _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
         _textureNormal = [loader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
+        _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
         _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
+        
+        [argumentEncoder setTexture:_textureAO atIndex:0];
+        [argumentEncoder setTexture:_textureAlbedo atIndex:1];
+        [argumentEncoder setTexture:_textureNormal atIndex:2];
+        [argumentEncoder setTexture:_textureMetallic atIndex:3];
+        [argumentEncoder setTexture:_textureRoughness atIndex:4];
         
             if(!_textureHDR)
             {
@@ -437,6 +453,8 @@ typedef struct
     return self;
 }
 
+static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3, 2} };
+
 #pragma mark - MetalKit View Delegate
 - (void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size
 {
@@ -480,20 +498,26 @@ typedef struct
     
     let computeEncoder = [commandBuffer computeCommandEncoder];
     [computeEncoder setComputePipelineState:_computePipelineState];
+ 
+    let tex_index = predefined_index[_scene_meta.frame_count % 2];
     
-    [computeEncoder setTexture:_textureA atIndex: _scene_meta.frame_count % 2];
-    [computeEncoder setTexture:_textureB atIndex: (_scene_meta.frame_count+1) % 2];
+    [computeEncoder setTexture:_textureA atIndex: tex_index[0]];
+    [computeEncoder setTexture:_textureB atIndex: tex_index[1]];
     
-    [computeEncoder setTexture:_textureARNG atIndex: 2 + _scene_meta.frame_count % 2];
-    [computeEncoder setTexture:_textureBRNG atIndex: 2 + (_scene_meta.frame_count+1) % 2];
+    [computeEncoder setTexture:_textureARNG atIndex: tex_index[2]];
+    [computeEncoder setTexture:_textureBRNG atIndex: tex_index[3]];
     
     [computeEncoder setTexture:_textureHDR atIndex:4];
     
-    [computeEncoder setTexture:_textureAO atIndex:5];
-    [computeEncoder setTexture:_textureAlbedo atIndex:6];
-    [computeEncoder setTexture:_textureMetallic atIndex:7];
-    [computeEncoder setTexture:_textureNormal atIndex:8];
-    [computeEncoder setTexture:_textureRoughness atIndex:9];
+    /*
+    [computeEncoder useResource:_textureAO usage:MTLResourceUsageSample];
+    [computeEncoder useResource:_textureAlbedo usage:MTLResourceUsageSample];
+    [computeEncoder useResource:_textureNormal usage:MTLResourceUsageSample];
+    [computeEncoder useResource:_textureMetallic usage:MTLResourceUsageSample];
+    [computeEncoder useResource:_textureRoughness usage:MTLResourceUsageSample];
+    */
+    
+    [computeEncoder setBuffer:_kernelArgumentBuffer offset:0 atIndex:9];
     
     if (self->_scene_meta.frame_count > 3 || self->_scene_meta.frame_count < 1) {
         memcpy(_scene_meta_buffer.contents, &_scene_meta, sizeof(SceneComplex));
@@ -526,7 +550,9 @@ typedef struct
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
     
-    MTLViewport viewport = {0, 0, _scene_meta.view_size.x, _scene_meta.view_size.y, 0, 1.0};
+    let& viewsize = _scene_meta.view_size;
+    
+    MTLViewport viewport {0, 0, viewsize.x, viewsize.y, 0, 1.0};
     
     [renderEncoder setViewport:viewport];
     [renderEncoder setRenderPipelineState:_renderPipelineState];
@@ -534,8 +560,8 @@ typedef struct
     [renderEncoder setVertexBuffer:_vertex_buffer offset:0 atIndex:0];
     
     [renderEncoder setFragmentBuffer:_scene_meta_buffer offset:0 atIndex:0];
-    [renderEncoder setFragmentTexture:_textureB atIndex: _scene_meta.frame_count % 2];
-    [renderEncoder setFragmentTexture:_textureA atIndex: (_scene_meta.frame_count+1) % 2];
+    [renderEncoder setFragmentTexture:_textureB atIndex: tex_index[0]];
+    [renderEncoder setFragmentTexture:_textureA atIndex: tex_index[1]];
     
     [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
     [renderEncoder endEncoding];

@@ -73,11 +73,7 @@ bool scatter(thread Ray& ray,
              
              constant Material* materials,
              
-             thread texture2d<float, access::sample> &texAO,
-             thread texture2d<float, access::sample> &texAlbedo,
-             thread texture2d<float, access::sample> &texMetallic,
-             thread texture2d<float, access::sample> &texNormal,
-             thread texture2d<float, access::sample> &texRoughness )
+             constant PackPBR& packPBR)
 {
     auto normal = hitRecord.normal();
     auto materialID = hitRecord.material;
@@ -168,14 +164,14 @@ bool scatter(thread Ray& ray,
             
             //float ao = 1.0; //texAO.sample(textureSampler, hitRecord.uv, 0).r;
             
-            float3 albedo = texAlbedo.sample(textureSampler, hitRecord.uv, 0).rgb;
+            float3 albedo = packPBR.texAlbedo.sample(textureSampler, hitRecord.uv, 0).rgb;
             albedo = pow(albedo, 2.2); //albedo = float3(1.0);
             
-            float metallic = texMetallic.sample(textureSampler, hitRecord.uv, 0).r;
-            float3 tNormal = texNormal.sample(textureSampler, hitRecord.uv, 0).xyz;
+            float metallic = packPBR.texMetallic.sample(textureSampler, hitRecord.uv, 0).r;
+            float3 tNormal = packPBR.texNormal.sample(textureSampler, hitRecord.uv, 0).xyz;
             tNormal = normalize(tNormal * 2.0 - 1.0);
             
-            float rough = texRoughness.sample(textureSampler, hitRecord.uv, 0).r;
+            float rough = packPBR.texRoughness.sample(textureSampler, hitRecord.uv, 0).r;
             auto a1 = max(abs(rough), 0.001);
             auto a2 = a1;//a1 * a1;
             
