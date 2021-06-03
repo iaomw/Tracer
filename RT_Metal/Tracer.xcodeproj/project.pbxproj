@@ -191,9 +191,9 @@
 				5759E67C24DB6D9500C8A2D7 /* Sphere.hh */,
 				5759E68224DCAA1C00C8A2D7 /* Noise.hh */,
 				5759E68324DCAC1E00C8A2D7 /* Noise.metal */,
-				573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */,
 				573DD10A24335D6D00B09B0A /* Render.hh */,
 				573DD1082432B9D900B09B0A /* Render.metal */,
+				573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */,
 			);
 			path = Metal;
 			sourceTree = "<group>";

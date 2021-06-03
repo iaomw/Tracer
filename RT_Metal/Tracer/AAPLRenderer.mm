@@ -76,16 +76,10 @@ typedef struct
     id<MTLTexture> _textureARNG;
     id<MTLTexture> _textureBRNG;
     
+    id<MTLTexture> _textureUV;
     id<MTLTexture> _textureHDR;
     
-    id<MTLTexture> _textureAO;
-    id<MTLTexture> _textureAlbedo;
-    id<MTLTexture> _textureNormal;
-    id<MTLTexture> _textureMetallic;
-    id<MTLTexture> _textureRoughness;
-    
-    MTLSize _threadGroupSize;
-    MTLSize _threadGroupGrid;
+    std::vector<id<MTLTexture>> texPBR;
 }
 
 - (nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view
@@ -115,13 +109,11 @@ typedef struct
         let defaultLibrary = [_device newDefaultLibrary];
         let kernelFunction = [defaultLibrary newFunctionWithName:@"tracerKernel"];
         
-        let argumentEncoder = [kernelFunction newArgumentEncoderWithBufferIndex:9];
-        let argumentBufferLength = argumentEncoder.encodedLength;
+        var argumentEncoder = [kernelFunction newArgumentEncoderWithBufferIndex:9];
+        let argumentBufferLength = argumentEncoder.encodedLength * 2;
         
         _kernelArgumentBuffer = [_device newBufferWithLength:argumentBufferLength options:0];
         _kernelArgumentBuffer.label = @"Argument Buffer";
-        
-        [argumentEncoder setArgumentBuffer:_kernelArgumentBuffer offset:0];
         
         _computePipelineState = [_device newComputePipelineStateWithFunction:kernelFunction error:&ERROR];
         
@@ -275,29 +267,61 @@ typedef struct
         
         _textureHDR = [loader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
         
+        let mdlUV = [MDLTexture textureNamed:@"uv_test/uv_test.png"];
+        let _textureUV = [loader newTextureWithMDLTexture:mdlUV options:textureLoaderOptions error:&ERROR];
+        
         let mdlAO = [MDLTexture textureNamed:@"coatball/tex_ao.png"];
-        _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
+        let _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
         
-        let mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
-        let mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
-        let mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
-        let mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
+        texPBR.emplace_back(_textureUV);
+        texPBR.emplace_back(_textureAO);
         
-//        let mdlAlbedo = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_basecolor.png"];
-//        let mdlNormal = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_normal.png"];
-//        let mdlMetallic = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_metallic.png"];
-//        let mdlRoughness = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_roughness.png"];
+        var mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
+        var mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
+        var mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
+        var mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
         
-        _textureAlbedo = [loader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
-        _textureNormal = [loader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
-        _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
-        _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
+        var _textureAlbedo = [loader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
+        var _textureNormal = [loader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
+        var _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
+        var _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
         
+        [argumentEncoder setArgumentBuffer:_kernelArgumentBuffer startOffset:0 arrayElement:0];
+
         [argumentEncoder setTexture:_textureAO atIndex:0];
         [argumentEncoder setTexture:_textureAlbedo atIndex:1];
         [argumentEncoder setTexture:_textureNormal atIndex:2];
         [argumentEncoder setTexture:_textureMetallic atIndex:3];
         [argumentEncoder setTexture:_textureRoughness atIndex:4];
+
+        [argumentEncoder setTexture:_textureUV atIndex:5];
+        
+        auto tmp = std::vector<id<MTLTexture>>{ _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
+        texPBR.insert(texPBR.end(), std::begin(tmp), std::end(tmp));
+                
+
+            mdlAlbedo = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_basecolor.png"];
+            mdlNormal = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_normal.png"];
+            mdlMetallic = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_metallic.png"];
+            mdlRoughness = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_roughness.png"];
+
+            _textureAlbedo = [loader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
+            _textureNormal = [loader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
+            _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
+            _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
+
+            [argumentEncoder setArgumentBuffer:_kernelArgumentBuffer startOffset:0 arrayElement:1];
+
+            [argumentEncoder setTexture:_textureAO atIndex:0];
+            [argumentEncoder setTexture:_textureAlbedo atIndex:1];
+            [argumentEncoder setTexture:_textureNormal atIndex:2];
+            [argumentEncoder setTexture:_textureMetallic atIndex:3];
+            [argumentEncoder setTexture:_textureRoughness atIndex:4];
+
+            [argumentEncoder setTexture:_textureUV atIndex:5];
+        
+            tmp = std::vector<id<MTLTexture>>{ _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
+            texPBR.insert(texPBR.end(), std::begin(tmp), std::end(tmp));
         
             if(!_textureHDR)
             {
@@ -305,8 +329,8 @@ typedef struct
                 return nil;
             }
         
-        let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
-        //let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/bunny" ofType:@"obj"];
+        //let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
+        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/teapot" ofType:@"obj"];
         let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
                 
             MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);
@@ -430,13 +454,6 @@ typedef struct
                                                    length: sizeof(struct BVH)*bvh_list.size()
                                                   options: CommonStorageMode];
                 
-                _threadGroupSize = MTLSizeMake(16, 16, 1);
-
-                unsigned long gridX = (_textureA.width + _threadGroupSize.width - 1)/_threadGroupSize.width;
-                unsigned long gridY = (_textureA.height + _threadGroupSize.height - 1)/_threadGroupSize.height;
-                
-                _threadGroupGrid = MTLSizeMake(gridX, gridY, 1);
-                
         launchTime = [[NSDate date] timeIntervalSince1970];
         
         // Add a completion handler and commit the command buffer.
@@ -509,13 +526,11 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     [computeEncoder setTexture:_textureHDR atIndex:4];
     
-    /*
-    [computeEncoder useResource:_textureAO usage:MTLResourceUsageSample];
-    [computeEncoder useResource:_textureAlbedo usage:MTLResourceUsageSample];
-    [computeEncoder useResource:_textureNormal usage:MTLResourceUsageSample];
-    [computeEncoder useResource:_textureMetallic usage:MTLResourceUsageSample];
-    [computeEncoder useResource:_textureRoughness usage:MTLResourceUsageSample];
-    */
+//    [computeEncoder useResource:_textureAO usage:MTLResourceUsageSample];
+//    [computeEncoder useResource:_textureAlbedo usage:MTLResourceUsageSample];
+//    [computeEncoder useResource:_textureNormal usage:MTLResourceUsageSample];
+//    [computeEncoder useResource:_textureMetallic usage:MTLResourceUsageSample];
+//    [computeEncoder useResource:_textureRoughness usage:MTLResourceUsageSample];
     
     [computeEncoder setBuffer:_kernelArgumentBuffer offset:0 atIndex:9];
     
@@ -537,14 +552,10 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     [computeEncoder setBuffer:_material_buffer offset:0 atIndex:8];
     
-    _threadGroupSize = MTLSizeMake(16, 16, 1);
+    let _threadGroupSize = MTLSizeMake(8, 8, 1);
+    let _gridSize = MTLSize {_textureA.width, _textureA.height, 1};
     
-    unsigned long gridX = (_textureA.width + _threadGroupSize.width - 1)/_threadGroupSize.width;
-    unsigned long gridY = (_textureA.height + _threadGroupSize.height - 1)/_threadGroupSize.height;
-    
-    _threadGroupGrid = MTLSizeMake(gridX, gridY, 1);
-    
-    [computeEncoder dispatchThreadgroups:_threadGroupGrid threadsPerThreadgroup:_threadGroupSize];
+    [computeEncoder dispatchThreads:_gridSize threadsPerThreadgroup:_threadGroupSize];
     [computeEncoder endEncoding];
     
     let renderPassDescriptor = _view.currentRenderPassDescriptor;

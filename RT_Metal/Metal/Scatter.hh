@@ -105,7 +105,7 @@ bool scatter(thread Ray& ray,
             auto direction = stw * wi;
             
             ray = Ray(hitRecord.p, direction);
-            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+            scatRecord.attenuation = material.textureInfo.value(&packPBR.texUV, hitRecord.uv, hitRecord.p);
             //scatRecord.attenuation /= M_PI_F;
             return true;
         }

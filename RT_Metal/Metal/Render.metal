@@ -389,13 +389,8 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
              constant BVH*       bvh_list [[buffer(7)]],
              
              constant Material* materials [[buffer(8)]],
-             constant PackPBR&    packPBR [[buffer(9)]] )
+             constant PackPBR*    packPBR [[buffer(9)]] )
 {
-    // Check if the pixel is within the bounds of the output texture
-    if((thread_pos.x >= outTexture.get_width()) || (thread_pos.y >= outTexture.get_height()))
-    {// Return early if the pixel is out of bounds
-        return;
-    }
     
     uint32_t rr = inRNG.read(thread_pos).r;
     uint32_t gg = inRNG.read(thread_pos).g;
@@ -421,7 +416,7 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
     color = traceBVH(32, ray, rs, materials,
                             
                             texHDR,
-                            packPBR,
+                            packPBR[1],
                             
                             sphere_list,
                             square_list,

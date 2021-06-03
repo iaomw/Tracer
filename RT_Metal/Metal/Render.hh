@@ -10,6 +10,8 @@ struct PackPBR {
     texture2d<float>    texNormal [[id(2)]];
     texture2d<float>  texMetallic [[id(3)]];
     texture2d<float> texRoughness [[id(4)]];
+    
+    texture2d<float>         texUV[[id(5)]];
 };
 
 #endif /* Render_h */
