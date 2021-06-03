@@ -393,48 +393,68 @@ typedef struct
             auto meshOffset = float3(278)-centroid;
             meshOffset.y = 20 - minB.y * meshScale;
         
-            auto index_ptr = (uint32_t*)testMesh.submeshes.firstObject.indexBuffer.map.bytes;
-            auto vertex_ptr = (MeshStrut*)testMesh.vertexBuffers.firstObject.map.bytes;
-            auto index_count = testMesh.submeshes.firstObject.indexCount;
+            auto vertex_ptr = (MeshStrut*) testMesh.vertexBuffers.firstObject.map.bytes;
         
-            for (uint i=0; i<index_count; i+=3) {
+            int totalIndexBufferLength = 0, triangleIndexOffset = 0;
+        
+            for(MDLSubmesh* submesh in testMesh.submeshes) {
                 
-                auto index_a = index_ptr[i];
-                auto index_b = index_ptr[i+1];
-                auto index_c = index_ptr[i+2];
+                auto index_ptr = (uint32_t*) submesh.indexBuffer.map.bytes;
+                auto index_count = submesh.indexCount;
                 
-                auto vertex_a = (vertex_ptr + index_a);
-                auto vertex_b = (vertex_ptr + index_b);
-                auto vertex_c = (vertex_ptr + index_c);
-                
-                for (auto ele : { vertex_a, vertex_b, vertex_c }) {
+                for (uint i=0; i<index_count; i+=3) {
                     
-                    ele->vx *= meshScale;
-                    ele->vy *= meshScale;
-                    ele->vz *= -meshScale;
+                    auto index_a = index_ptr[i];
+                    auto index_b = index_ptr[i+1];
+                    auto index_c = index_ptr[i+2];
                     
-                    ele->nz *= -1;
+                    auto vertex_a = (vertex_ptr + index_a);
+                    auto vertex_b = (vertex_ptr + index_b);
+                    auto vertex_c = (vertex_ptr + index_c);
                     
-                    ele->vx += meshOffset.x;
-                    ele->vy += meshOffset.y;
-                    ele->vz += meshOffset.z;
+                    for (auto ele : { vertex_a, vertex_b, vertex_c }) {
+                        
+                        ele->vx *= meshScale;
+                        ele->vy *= meshScale;
+                        ele->vz *= -meshScale;
+                        
+                        ele->nz *= -1;
+                        
+                        ele->vx += meshOffset.x;
+                        ele->vy += meshOffset.y;
+                        ele->vz += meshOffset.z;
+                    }
+                    
+                    auto max_x = std::max( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
+                    auto max_y = std::max( {vertex_a->vy, vertex_b->vy, vertex_c->vy} );
+                    auto max_z = std::max( {vertex_a->vz, vertex_b->vz, vertex_c->vz} );
+                    
+                    auto min_x = std::min( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
+                    auto min_y = std::min( {vertex_a->vy, vertex_b->vy, vertex_c->vy} );
+                    auto min_z = std::min( {vertex_a->vz, vertex_b->vz, vertex_c->vz} );
+                    
+                    AABB box;
+                    
+                    box.maxi = { max_x, max_y, max_z };
+                    box.mini = { min_x, min_y, min_z };
+                    
+                    let triangleIndex = triangleIndexOffset + i/3;
+                    
+                    BVH::buildNode(box, matrix_identity_float4x4, ShapeType::Triangle, triangleIndex, bvh_list);
                 }
                 
-                auto max_x = std::max( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
-                auto max_y = std::max( {vertex_a->vy, vertex_b->vy, vertex_c->vy} );
-                auto max_z = std::max( {vertex_a->vz, vertex_b->vz, vertex_c->vz} );
-                
-                auto min_x = std::min( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
-                auto min_y = std::min( {vertex_a->vy, vertex_b->vy, vertex_c->vy} );
-                auto min_z = std::min( {vertex_a->vz, vertex_b->vz, vertex_c->vz} );
-                
-                AABB box;
-                
-                box.maxi = { max_x, max_y, max_z };
-                box.mini = { min_x, min_y, min_z };
-                
-                BVH::buildNode(box, matrix_identity_float4x4, ShapeType::Triangle, i/3, bvh_list);
+                totalIndexBufferLength += submesh.indexBuffer.length; triangleIndexOffset += index_count/3;
             }
+        
+            char* totalIndexData = (char*)malloc(totalIndexBufferLength);
+        
+            int totalIndexOffset = 0;
+            for(MDLSubmesh* submesh in testMesh.submeshes) {
+                let length = submesh.indexBuffer.length;
+                memcpy(totalIndexData + totalIndexOffset, submesh.indexBuffer.map.bytes, length);
+                totalIndexOffset += length;
+            }
+        
                 NSLog(@"Begin processing BVH");
                 let time_s = [[NSDate date] timeIntervalSince1970];
                 BVH::buildTree(bvh_list);
@@ -442,9 +462,9 @@ typedef struct
                 NSLog(@"Time cost %fs", time_e - time_s);
                 NSLog(@"End processing BVH");
                 
-                _index_buffer = [_device newBufferWithBytes: [testMesh.submeshes.firstObject indexBuffer].map.bytes
-                                                     length: [testMesh.submeshes.firstObject indexBuffer].length
-                                                    options: CommonStorageMode];
+                _index_buffer = [_device newBufferWithBytes: totalIndexData //[testMesh.submeshes.firstObject indexBuffer].map.bytes
+                                                     length: totalIndexOffset //[testMesh.submeshes.firstObject indexBuffer].length
+                                                    options: CommonStorageMode]; free(totalIndexData);
                 
                 _mesh_buffer = [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
                                                     length: testMesh.vertexBuffers.firstObject.length
@@ -557,6 +577,17 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     [computeEncoder dispatchThreads:_gridSize threadsPerThreadgroup:_threadGroupSize];
     [computeEncoder endEncoding];
+    
+//    {
+//        let w = _computePipelineState.threadExecutionWidth
+//        let h = _computePipelineState.maxTotalThreadsPerThreadgroup / w
+//        let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
+//
+//        let threadgroupsPerGrid = MTLSize(width: (_textureA.width + w - 1) / w,
+//                                          height: (_textureA.height + h - 1) / h, depth: 1)
+//
+//        computeEncoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+//    }
     
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
