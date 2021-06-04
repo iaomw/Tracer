@@ -40,23 +40,25 @@ typedef struct
     BOOL _dragging;
     
     id<MTLDevice> _device;
-
-    id<MTLBuffer> _vertex_buffer;
     id<MTLCommandQueue> _commandQueue;
+    
+    id<MTLBuffer> _canvas_buffer;
     
     id<MTLBuffer> _argumentBufferPBR;
     id<MTLBuffer> _argumentBufferPri;
     id<MTLBuffer> _argumentBufferEnv;
     
-    id<MTLBuffer> _cube_list_buffer;
-    id<MTLBuffer> _square_list_buffer;
+    id<MTLBuffer> _material_buffer;
+    
     id<MTLBuffer> _sphere_list_buffer;
+    id<MTLBuffer> _square_list_buffer;
+    id<MTLBuffer> _cube_list_buffer;
     
     id<MTLBuffer> _bvh_buffer;
     id<MTLBuffer> _idx_buffer;
-    id<MTLBuffer> _mesh_buffer;
+    id<MTLBuffer> _tri_buffer;
     
-    id<MTLBuffer> _material_buffer;
+    id<MTLHeap> _heap;
    
     Camera _camera;
     float2 _camera_rotation;
@@ -80,7 +82,10 @@ typedef struct
     id<MTLTexture> _textureUVT;
     id<MTLTexture> _textureHDR;
     
-    std::vector<id<MTLTexture>> vectorPBR;
+    std::vector<id<MTLTexture>> vectorTexPBR;
+    std::vector<id<MTLTexture>> _vectorTexAll;
+    
+    std::vector<id<MTLBuffer>> _vectorBufferAll;
 }
 
 - (nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view
@@ -136,7 +141,7 @@ typedef struct
             let CommonStorageMode = MTLResourceStorageModeShared;
         #endif
         
-        _vertex_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: CommonStorageMode];
+        _canvas_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: CommonStorageMode];
         
         uint width = 1920;
         uint height = 1080;
@@ -280,14 +285,8 @@ typedef struct
         let mdlUVT = [MDLTexture textureNamed:@"uv_test/uv_test.png"];
         _textureUVT = [loader newTextureWithMDLTexture:mdlUVT options:textureLoaderOptions error:&ERROR];
         
-        [argumentEncoderEnv setArgumentBuffer:_argumentBufferEnv offset:0];
-        [argumentEncoderEnv setBuffer:_material_buffer offset:0 atIndex:2];
-
-        [argumentEncoderEnv setTexture:_textureHDR atIndex:0];
-        [argumentEncoderEnv setTexture:_textureUVT atIndex:1];
-        
         let mdlAO = [MDLTexture textureNamed:@"coatball/tex_ao.png"];
-        let _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
+        var _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
         
         var mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
         var mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
@@ -299,16 +298,8 @@ typedef struct
         var _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
         var _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
         
-        [argumentEncoderPBR setArgumentBuffer:_argumentBufferPBR startOffset:0 arrayElement:0];
-
-        [argumentEncoderPBR setTexture:_textureAO atIndex:0];
-        [argumentEncoderPBR setTexture:_textureAlbedo atIndex:1];
-        [argumentEncoderPBR setTexture:_textureNormal atIndex:2];
-        [argumentEncoderPBR setTexture:_textureMetallic atIndex:3];
-        [argumentEncoderPBR setTexture:_textureRoughness atIndex:4];
-        
-        auto tmp = std::vector<id<MTLTexture>>{ _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
-        vectorPBR.insert(vectorPBR.end(), std::begin(tmp), std::end(tmp));
+        auto tmp = std::vector<id<MTLTexture>>{ _textureAO, _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
+        vectorTexPBR.insert(vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
                 
 
             mdlAlbedo = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_basecolor.png"];
@@ -320,23 +311,18 @@ typedef struct
             _textureNormal = [loader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
             _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
             _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
-
-            [argumentEncoderPBR setArgumentBuffer:_argumentBufferPBR startOffset:0 arrayElement:1];
-
-            [argumentEncoderPBR setTexture:_textureAO atIndex:0];
-            [argumentEncoderPBR setTexture:_textureAlbedo atIndex:1];
-            [argumentEncoderPBR setTexture:_textureNormal atIndex:2];
-            [argumentEncoderPBR setTexture:_textureMetallic atIndex:3];
-            [argumentEncoderPBR setTexture:_textureRoughness atIndex:4];
         
-            tmp = std::vector<id<MTLTexture>>{ _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
-            vectorPBR.insert(vectorPBR.end(), std::begin(tmp), std::end(tmp));
+        tmp = std::vector<id<MTLTexture>>{ _textureAO, _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
+        vectorTexPBR.insert(vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
         
             if(!_textureHDR)
             {
                 NSLog(@"Failed to create the texture from %@", pathHDR);
                 return nil;
             }
+        
+        _vectorTexAll = {_textureHDR, _textureUVT};
+        _vectorTexAll.insert(_vectorTexAll.end(), std::begin(vectorTexPBR), std::end(vectorTexPBR));
         
         std::vector<BVH> bvh_list;
         
@@ -357,7 +343,7 @@ typedef struct
         }
         
         //let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
-        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/teapot" ofType:@"obj"];
+        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/bunny" ofType:@"obj"];
         let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
                 
             MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);
@@ -475,7 +461,7 @@ typedef struct
                                                    length: totalIndexOffset //[testMesh.submeshes.firstObject indexBuffer].length
                                                   options: CommonStorageMode]; free(totalIndexData);
                 
-                _mesh_buffer = [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
+                _tri_buffer = [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
                                                     length: testMesh.vertexBuffers.firstObject.length
                                                    options: CommonStorageMode];
                 
@@ -483,13 +469,63 @@ typedef struct
                                                    length: sizeof(struct BVH)*bvh_list.size()
                                                   options: CommonStorageMode];
         
+        
+        
+        _vectorBufferAll = { _cube_list_buffer, _square_list_buffer, _sphere_list_buffer,
+                                _bvh_buffer, _idx_buffer, _tri_buffer, _material_buffer };
+        
+        [self createHeap];
+        [self copyToHeap];
+        
+        _cube_list_buffer = _vectorBufferAll[0];
+        _square_list_buffer = _vectorBufferAll[1];
+        _sphere_list_buffer = _vectorBufferAll[2];
+        
+        _bvh_buffer = _vectorBufferAll[3];
+        _idx_buffer = _vectorBufferAll[4];
+        _tri_buffer = _vectorBufferAll[5];
+        _material_buffer = _vectorBufferAll[6];
+        
+        _vectorBufferAll.clear();
+        
+        std::copy(vectorTexPBR.begin(), vectorTexPBR.end(), _vectorTexAll.begin()+2);
+        
+        for (int i=0; i<vectorTexPBR.size(); i+=5) {
+            
+            [argumentEncoderPBR setArgumentBuffer:_argumentBufferPBR startOffset:0 arrayElement:i/5];
+
+            [argumentEncoderPBR setTexture:vectorTexPBR[i+0] atIndex:0];
+            [argumentEncoderPBR setTexture:vectorTexPBR[i+1] atIndex:1];
+            [argumentEncoderPBR setTexture:vectorTexPBR[i+2] atIndex:2];
+            [argumentEncoderPBR setTexture:vectorTexPBR[i+3] atIndex:3];
+            [argumentEncoderPBR setTexture:vectorTexPBR[i+4] atIndex:4];
+        }
+        
+        _textureHDR = _vectorTexAll[0];
+        _textureUVT = _vectorTexAll[1];
+        
+        _vectorTexAll.clear();
+        
+        _textureAO = NULL;
+        _textureAlbedo = NULL;
+        _textureNormal = NULL;
+        _textureMetallic = NULL;
+        _textureRoughness = NULL;
+        
+        [argumentEncoderEnv setArgumentBuffer:_argumentBufferEnv offset:0];
+        
+        [argumentEncoderEnv setTexture:_textureHDR atIndex:0];
+        [argumentEncoderEnv setTexture:_textureUVT atIndex:1];
+        
+        [argumentEncoderEnv setBuffer:_material_buffer offset:0 atIndex:2];
+        
         [argumentEncoderPri setArgumentBuffer:_argumentBufferPri offset:0];
         
         [argumentEncoderPri setBuffer:_sphere_list_buffer offset:0 atIndex:0];
         [argumentEncoderPri setBuffer:_square_list_buffer offset:0 atIndex:1];
         [argumentEncoderPri setBuffer:_cube_list_buffer offset:0 atIndex:2];
         
-        [argumentEncoderPri setBuffer:_mesh_buffer offset:0 atIndex:3];
+        [argumentEncoderPri setBuffer:_tri_buffer offset:0 atIndex:3];
         [argumentEncoderPri setBuffer:_idx_buffer offset:0 atIndex:4];
         [argumentEncoderPri setBuffer:_bvh_buffer offset:0 atIndex:5];
                 
@@ -563,27 +599,6 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setTexture:_textureARNG atIndex: tex_index[2]];
     [computeEncoder setTexture:_textureBRNG atIndex: tex_index[3]];
     
-//    [computeEncoder useResource:_textureAO usage:MTLResourceUsageSample];
-//    [computeEncoder useResource:_textureAlbedo usage:MTLResourceUsageSample];
-//    [computeEncoder useResource:_textureNormal usage:MTLResourceUsageSample];
-//    [computeEncoder useResource:_textureMetallic usage:MTLResourceUsageSample];
-//    [computeEncoder useResource:_textureRoughness usage:MTLResourceUsageSample];
-    
-    [computeEncoder useResource:_sphere_list_buffer usage:MTLResourceUsageRead];
-    [computeEncoder useResource:_square_list_buffer usage:MTLResourceUsageRead];
-    [computeEncoder useResource:_cube_list_buffer usage:MTLResourceUsageRead];
-    
-    [computeEncoder useResource:_material_buffer usage:MTLResourceUsageRead];
-    
-    [computeEncoder useResource:_mesh_buffer usage:MTLResourceUsageRead];
-    [computeEncoder useResource:_idx_buffer usage:MTLResourceUsageRead];
-    [computeEncoder useResource:_bvh_buffer usage:MTLResourceUsageRead];
-    
-    [computeEncoder setBuffer:_argumentBufferPri offset:0 atIndex:7];
-    [computeEncoder setBuffer:_argumentBufferEnv offset:0 atIndex:8];
-    [computeEncoder setBuffer:_argumentBufferPBR offset:0 atIndex:9];
-    
-    
     if (self->_complex.frame_count > 3 || self->_complex.frame_count < 1) {
         memcpy(_complex_buffer.contents, &_complex, sizeof(Complex));
     }
@@ -592,10 +607,16 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
     [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:0];
     
-    let _threadGroupSize = MTLSizeMake(8, 8, 1);
-    let _gridSize = MTLSize {_textureA.width, _textureA.height, 1};
+    [computeEncoder useHeap:_heap];
     
-    [computeEncoder dispatchThreads:_gridSize threadsPerThreadgroup:_threadGroupSize];
+    [computeEncoder setBuffer:_argumentBufferPri offset:0 atIndex:7];
+    [computeEncoder setBuffer:_argumentBufferEnv offset:0 atIndex:8];
+    [computeEncoder setBuffer:_argumentBufferPBR offset:0 atIndex:9];
+    
+    let _threadGroupSize = MTLSizeMake(8, 8, 1);
+    let _threadGridSize = MTLSize {_textureA.width, _textureA.height, 1};
+    
+    [computeEncoder dispatchThreads:_threadGridSize threadsPerThreadgroup:_threadGroupSize];
     [computeEncoder endEncoding];
     
 //    {
@@ -619,7 +640,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [renderEncoder setViewport:viewport];
     [renderEncoder setRenderPipelineState:_renderPipelineState];
     
-    [renderEncoder setVertexBuffer:_vertex_buffer offset:0 atIndex:0];
+    [renderEncoder setVertexBuffer:_canvas_buffer offset:0 atIndex:0];
     
     [renderEncoder setFragmentBuffer:_complex_buffer offset:0 atIndex:0];
     [renderEncoder setFragmentTexture:_textureB atIndex: tex_index[0]];
@@ -652,6 +673,148 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     self->_complex.running_time = 0;
     
     prepareCamera(&_camera, _complex.tex_size, _camera_rotation);
+}
+
+- (void) createHeap
+{
+    MTLHeapDescriptor *heapDescriptor = [MTLHeapDescriptor new];
+    heapDescriptor.storageMode = MTLStorageModePrivate;
+    heapDescriptor.size =  0;
+
+    // Build a descriptor for each texture and calculate the size required to store all textures in the heap
+    for(uint32_t i = 0; i < _vectorTexAll.size(); i++)
+    {
+        // Create a descriptor using the texture's properties
+        MTLTextureDescriptor *descriptor = [AAPLRenderer newDescriptorFromTexture:_vectorTexAll[i]
+                                                                      storageMode:heapDescriptor.storageMode];
+
+        // Determine the size required for the heap for the given descriptor
+        MTLSizeAndAlign sizeAndAlign = [_device heapTextureSizeAndAlignWithDescriptor:descriptor];
+
+        // Align the size so that more resources will fit in the heap after this texture
+        sizeAndAlign.size += (sizeAndAlign.size & (sizeAndAlign.align - 1)) + sizeAndAlign.align;
+
+        // Accumulate the size required to store this texture in the heap
+        heapDescriptor.size += sizeAndAlign.size;
+    }
+    
+    // Calculate the size required to store all buffers in the heap
+    for(uint32_t i = 0; i < _vectorBufferAll.size(); i++)
+    {
+        // Determine the size required for the heap for the given buffer size
+        MTLSizeAndAlign sizeAndAlign = [_device heapBufferSizeAndAlignWithLength:_vectorBufferAll[i].length
+                                                                         options:MTLResourceStorageModePrivate];
+
+        // Align the size so that more resources will fit in the heap after this buffer
+        sizeAndAlign.size +=  (sizeAndAlign.size & (sizeAndAlign.align - 1)) + sizeAndAlign.align;
+
+        // Accumulate the size required to store this buffer in the heap
+        heapDescriptor.size += sizeAndAlign.size;
+    }
+
+    // Create a heap large enough to store all resources
+    _heap = [_device newHeapWithDescriptor:heapDescriptor];
+}
+
+- (void)copyToHeap
+{
+    // Create a command buffer and blit encoder to copy data from the existing resources to
+    // the new resources created from the heap
+    id <MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
+    commandBuffer.label = @"Heap Copy Command Buffer";
+
+    id <MTLBlitCommandEncoder> blitEncoder = commandBuffer.blitCommandEncoder;
+    blitEncoder.label = @"Heap Transfer Blit Encoder";
+
+    // Create new textures from the heap and copy the contents of the existing textures to
+    // the new textures
+    for(uint32_t i = 0; i < _vectorTexAll.size(); i++)
+    {
+        // Create a descriptor using the texture's properties
+        MTLTextureDescriptor *descriptor = [AAPLRenderer newDescriptorFromTexture:_vectorTexAll[i]
+                                                                      storageMode:_heap.storageMode];
+
+        // Create a texture from the heap
+        id<MTLTexture> heapTexture = [_heap newTextureWithDescriptor:descriptor];
+
+        heapTexture.label = _vectorTexAll[i].label;
+
+        [blitEncoder pushDebugGroup:[NSString stringWithFormat:@"%@ Blits", heapTexture.label]];
+
+        // Blit every slice of every level from the existing texture to the new texture
+        MTLRegion region = MTLRegionMake2D(0, 0, _vectorTexAll[i].width, _vectorTexAll[i].height);
+        for(NSUInteger level = 0; level < _vectorTexAll[i].mipmapLevelCount;  level++)
+        {
+
+            [blitEncoder pushDebugGroup:[NSString stringWithFormat:@"Level %lu Blit", level]];
+
+            for(NSUInteger slice = 0; slice < _vectorTexAll[i].arrayLength; slice++)
+            {
+                [blitEncoder copyFromTexture:_vectorTexAll[i]
+                                 sourceSlice:slice
+                                 sourceLevel:level
+                                sourceOrigin:region.origin
+                                  sourceSize:region.size
+                                   toTexture:heapTexture
+                            destinationSlice:slice
+                            destinationLevel:level
+                           destinationOrigin:region.origin];
+            }
+            region.size.width /= 2;
+            region.size.height /= 2;
+            if(region.size.width == 0) region.size.width = 1;
+            if(region.size.height == 0) region.size.height = 1;
+
+            [blitEncoder popDebugGroup];
+        }
+
+        [blitEncoder popDebugGroup];
+
+        // Replace the existing texture with the new texture
+        _vectorTexAll[i] = heapTexture;
+    }
+
+    // Create new buffers from the heap and copy the contents of existing buffers to the
+    // new buffers
+    for(uint32_t i = 0; i < _vectorBufferAll.size(); i++)
+    {
+        // Create a buffer from the heap
+        id<MTLBuffer> heapBuffer = [_heap newBufferWithLength:_vectorBufferAll[i].length
+                                                      options:MTLResourceStorageModePrivate];
+
+        heapBuffer.label = _vectorBufferAll[i].label;
+
+        // Blit contents of the original buffer to the new buffer
+        [blitEncoder copyFromBuffer:_vectorBufferAll[i]
+                       sourceOffset:0
+                           toBuffer:heapBuffer
+                  destinationOffset:0
+                               size:heapBuffer.length];
+
+        // Replace the existing buffer with the new buffer
+        _vectorBufferAll[i] = heapBuffer;
+    }
+
+    [blitEncoder endEncoding];
+    [commandBuffer commit];
+}
+
++ (nonnull MTLTextureDescriptor*) newDescriptorFromTexture:(nonnull id<MTLTexture>)texture
+                                               storageMode:(MTLStorageMode)storageMode
+{
+    MTLTextureDescriptor * descriptor = [MTLTextureDescriptor new];
+
+    descriptor.textureType      = texture.textureType;
+    descriptor.pixelFormat      = texture.pixelFormat;
+    descriptor.width            = texture.width;
+    descriptor.height           = texture.height;
+    descriptor.depth            = texture.depth;
+    descriptor.mipmapLevelCount = texture.mipmapLevelCount;
+    descriptor.arrayLength      = texture.arrayLength;
+    descriptor.sampleCount      = texture.sampleCount;
+    descriptor.storageMode      = storageMode;
+
+    return descriptor;
 }
 
 @end
