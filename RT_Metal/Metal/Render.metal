@@ -13,7 +13,7 @@ typedef struct  {
     float running_time;
     uint32_t frame_count;
     
-} SceneComplex;
+} Complex;
 
 typedef struct {
     float4 position [[position]];
@@ -107,7 +107,7 @@ fragmentShader( RasterizerData input [[stage_in]],
                 texture2d<float> thisTexture [[texture(0)]],
                 texture2d<float> prevTexture [[texture(1)]],
 
-                constant SceneComplex* sceneMeta [[buffer(0)]])
+                constant Complex* sceneMeta [[buffer(0)]])
 
 {
     auto tex_w = sceneMeta->tex_size.x;
@@ -147,19 +147,10 @@ fragmentShader( RasterizerData input [[stage_in]],
 template <typename XSampler>
 float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                 
-                constant Material* materials,
-                         
-                thread texture2d<float, access::sample> &texHDR,
+                constant PackageEnv& packageEnv,
+                constant PackagePBR& packagePBR,
                 
-                constant PackPBR& packPBR,
-                
-                constant Sphere* sphere_list,
-                constant Square* square_list,
-                constant Cube*   cube_list,
-                 
-                constant uint32_t* tirIndex,
-                constant Triangle* tirList,
-                constant BVH* bvh_list )
+                constant Primitive&  primitives)
 {
     HitRecord hitRecord;
     ScatRecord scatRecord;
@@ -182,15 +173,15 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         float ttt = INFINITY;
         
         //if ( false ) {
-        if ( bvh_list[the_index].boundingBOX.hit_get_t(ray, range_t, ttt) ) {
+        if ( primitives.bvhList[the_index].boundingBOX.hit_get_t(ray, range_t, ttt) ) {
 
             do {
                 
                 uint selected_index = UINT_MAX;
                 
-                uint left_index = bvh_list[the_index].left;
-                uint right_index = bvh_list[the_index].right;
-                uint parent_index = bvh_list[the_index].parent;
+                uint left_index = primitives.bvhList[the_index].left;
+                uint right_index = primitives.bvhList[the_index].right;
+                uint parent_index = primitives.bvhList[the_index].parent;
                 
                 {
 //                    auto center = (bvh_list[the_index].boundingBOX.maxi + bvh_list[the_index].boundingBOX.mini) / 2;
@@ -248,8 +239,8 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                 
                     float t_left = INFINITY, t_right = INFINITY;
                     
-                    bool left_test = bvh_list[left_index].boundingBOX.hit_get_t(ray, range_t, t_left);
-                    bool right_test = bvh_list[right_index].boundingBOX.hit_get_t(ray, range_t, t_right);
+                    bool left_test = primitives.bvhList[left_index].boundingBOX.hit_get_t(ray, range_t, t_left);
+                    bool right_test = primitives.bvhList[right_index].boundingBOX.hit_get_t(ray, range_t, t_right);
                     
                     if (!left_test && !right_test) {
                         
@@ -286,7 +277,7 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                         selected_index = left_index;
                     }
                     
-                    auto hitted = bvh_list[selected_index].boundingBOX.hit(ray, range_t);
+                    auto hitted = primitives.bvhList[selected_index].boundingBOX.hit(ray, range_t);
                     if (!hitted) {
                         tested_index = selected_index;
                         the_index = parent_index;
@@ -295,9 +286,9 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                     }
                 }
                 
-                auto shapeIndex = bvh_list[selected_index].shapeIndex;
+                auto shapeIndex = primitives.bvhList[selected_index].shapeIndex;
                 
-                switch(bvh_list[selected_index].shape) {
+                switch(primitives.bvhList[selected_index].shape) {
                         
                     case ShapeType::BVH: { // Should already tested before reaching this step
                         //auto hitted = bvh_list[selected_index].boundingBOX.hit_keep_range(ray, range_t);
@@ -308,21 +299,21 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                         //}
                     }
                     case ShapeType::Sphere: {
-                        sphere_list[shapeIndex].hit_test(ray, range_t, hitRecord); break;
+                        primitives.sphereList[shapeIndex].hit_test(ray, range_t, hitRecord); break;
                     }
                     case ShapeType::Square: {
-                        square_list[shapeIndex].hit_test(ray, range_t, hitRecord); break;
+                        primitives.squareList[shapeIndex].hit_test(ray, range_t, hitRecord); break;
                     }
                     case ShapeType::Cube: {
-                        cube_list[shapeIndex].hit_test(ray, range_t, hitRecord); break;
+                        primitives.cubeList[shapeIndex].hit_test(ray, range_t, hitRecord); break;
                     }
                     case  ShapeType::Triangle: {
                         auto index_r = shapeIndex * 3;
-                        auto index_a = tirIndex[index_r];
-                        auto index_b = tirIndex[index_r + 1];
-                        auto index_c = tirIndex[index_r + 2];
+                        auto index_a = primitives.idxList[index_r];
+                        auto index_b = primitives.idxList[index_r + 1];
+                        auto index_c = primitives.idxList[index_r + 2];
                         
-                        Triangle::rayTriangleIntersect(ray, tirList[index_a], tirList[index_b], tirList[index_c], range_t, hitRecord);
+                        Triangle::hitTest(ray, primitives.triList[index_a], primitives.triList[index_b], primitives.triList[index_c], range_t, hitRecord);
                         break;
                     }
                     default: { return float3(0); }
@@ -336,16 +327,16 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         if ( isinf(range_t.y ) ) {
             float3 sphereVector = ray.origin + 1000000 * ray.direction;
             float2 uv = SampleSphericalMap(normalize(sphereVector));
-            auto ambient = texHDR.sample(textureSampler, uv);
+            auto ambient = packageEnv.texHDR.sample(textureSampler, uv);
             return ratio * ambient.rgb;
         }
         
         float3 emit_color;
-        if ( emit(hitRecord, emit_color, materials) ) {
+        if ( emit(hitRecord, emit_color, packageEnv.materials) ) {
             return ratio * emit_color;
         }
         
-        if ( !scatter(ray, xsampler, hitRecord, scatRecord, materials, packPBR) ) {
+        if ( !scatter(ray, xsampler, hitRecord, scatRecord, packageEnv.materials, packagePBR) ) {
             //return float3(1, 0, 1);
             return float3(0);
         }
@@ -373,23 +364,14 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
              texture2d<uint32_t, access::read>       inRNG [[texture(2)]],
              texture2d<uint32_t, access::write>     outRNG [[texture(3)]],
              
-             texture2d<float, access::sample>       texHDR [[texture(4)]],
+             uint2 thread_pos   [[thread_position_in_grid]],
              
-             uint2 thread_pos  [[thread_position_in_grid]],
+             constant Camera*          camera [[buffer(0)]],
+             constant Complex*        complex [[buffer(1)]],
              
-             constant SceneComplex* sceneMeta [[buffer(0)]],
-             constant Camera*          camera [[buffer(1)]],
-
-             constant Sphere* sphere_list [[buffer(2)]],
-             constant Square* square_list [[buffer(3)]],
-             constant Cube*     cube_list [[buffer(4)]],
-             
-             constant uint32_t* meshIndex [[buffer(5)]],
-             constant Triangle*  meshList [[buffer(6)]],
-             constant BVH*       bvh_list [[buffer(7)]],
-             
-             constant Material* materials [[buffer(8)]],
-             constant PackPBR*    packPBR [[buffer(9)]] )
+             constant Primitive&    primitive [[buffer(7)]],
+             constant PackageEnv&  packageEnv [[buffer(8)]],
+             constant PackagePBR*  packagePBR [[buffer(9)]])
 {
     
     uint32_t rr = inRNG.read(thread_pos).r;
@@ -402,7 +384,7 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
     
     pcg32_t rng = { rng_inc, rng_state };
     
-    auto frame = sceneMeta->frame_count;
+    auto frame = complex->frame_count;
         
     auto u = float(thread_pos.x)/outTexture.get_width();
     auto v = float(thread_pos.y)/outTexture.get_height();
@@ -413,18 +395,10 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
     //uint2 vsize = { inTexture.get_width(), inTexture.get_height()};
     //auto ss = pbrt::SobolSampler(rng, frame_count, thread_pos, vsize);
     
-    color = traceBVH(32, ray, rs, materials,
-                            
-                            texHDR,
-                            packPBR[1],
-                            
-                            sphere_list,
-                            square_list,
-                            cube_list,
-                            
-                            meshIndex,
-                            meshList,
-                            bvh_list );
+    color = traceBVH(32, ray, rs,
+                        packageEnv,
+                        packagePBR[1],
+                        primitive);
     
     float3 cached_color = float3( inTexture.read( thread_pos ).rgb );
     

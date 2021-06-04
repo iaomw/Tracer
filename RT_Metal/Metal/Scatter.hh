@@ -73,7 +73,7 @@ bool scatter(thread Ray& ray,
              
              constant Material* materials,
              
-             constant PackPBR& packPBR)
+             constant PackagePBR& packPBR)
 {
     auto normal = hitRecord.normal();
     auto materialID = hitRecord.material;
@@ -105,8 +105,8 @@ bool scatter(thread Ray& ray,
             auto direction = stw * wi;
             
             ray = Ray(hitRecord.p, direction);
-            scatRecord.attenuation = material.textureInfo.value(&packPBR.texUV, hitRecord.uv, hitRecord.p);
-            //scatRecord.attenuation /= M_PI_F;
+            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+            scatRecord.attenuation /= M_PI_F;
             return true;
         }
 //

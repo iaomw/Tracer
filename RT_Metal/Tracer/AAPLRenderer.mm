@@ -31,7 +31,7 @@ typedef struct
     float running_time;
     uint32_t frame_count;
     
-} SceneComplex;
+} Complex;
 
 // The main class performing the rendering.
 @implementation AAPLRenderer
@@ -44,25 +44,26 @@ typedef struct
     id<MTLBuffer> _vertex_buffer;
     id<MTLCommandQueue> _commandQueue;
     
-    id<MTLBuffer> _kernelArgumentBuffer;
+    id<MTLBuffer> _argumentBufferPBR;
+    id<MTLBuffer> _argumentBufferPri;
+    id<MTLBuffer> _argumentBufferEnv;
     
     id<MTLBuffer> _cube_list_buffer;
-    id<MTLBuffer> _cornell_box_buffer;
+    id<MTLBuffer> _square_list_buffer;
     id<MTLBuffer> _sphere_list_buffer;
     
-    id<MTLBuffer> _mesh_buffer;
-    id<MTLBuffer> _index_buffer;
-    
     id<MTLBuffer> _bvh_buffer;
+    id<MTLBuffer> _idx_buffer;
+    id<MTLBuffer> _mesh_buffer;
     
     id<MTLBuffer> _material_buffer;
    
     Camera _camera;
     float2 _camera_rotation;
-    SceneComplex _scene_meta;
-    
     id<MTLBuffer> _camera_buffer;
-    id<MTLBuffer> _scene_meta_buffer;
+    
+    Complex _complex;
+    id<MTLBuffer> _complex_buffer;
     
     MTLVertexDescriptor *_defaultVertexDescriptor;
     
@@ -76,10 +77,10 @@ typedef struct
     id<MTLTexture> _textureARNG;
     id<MTLTexture> _textureBRNG;
     
-    id<MTLTexture> _textureUV;
+    id<MTLTexture> _textureUVT;
     id<MTLTexture> _textureHDR;
     
-    std::vector<id<MTLTexture>> texPBR;
+    std::vector<id<MTLTexture>> vectorPBR;
 }
 
 - (nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view
@@ -109,13 +110,22 @@ typedef struct
         let defaultLibrary = [_device newDefaultLibrary];
         let kernelFunction = [defaultLibrary newFunctionWithName:@"tracerKernel"];
         
-        var argumentEncoder = [kernelFunction newArgumentEncoderWithBufferIndex:9];
-        let argumentBufferLength = argumentEncoder.encodedLength * 2;
-        
-        _kernelArgumentBuffer = [_device newBufferWithLength:argumentBufferLength options:0];
-        _kernelArgumentBuffer.label = @"Argument Buffer";
-        
         _computePipelineState = [_device newComputePipelineStateWithFunction:kernelFunction error:&ERROR];
+        
+        let argumentEncoderPri = [kernelFunction newArgumentEncoderWithBufferIndex:7];
+        let argumentBufferLengthPri = argumentEncoderPri.encodedLength;
+        _argumentBufferPri = [_device newBufferWithLength:argumentBufferLengthPri options:0];
+        _argumentBufferPri.label = @"Argument Pri";
+        
+        let argumentEncoderEnv = [kernelFunction newArgumentEncoderWithBufferIndex:8];
+        let argumentBufferLengthEnv = argumentEncoderEnv.encodedLength;
+        _argumentBufferEnv = [_device newBufferWithLength:argumentBufferLengthEnv options:0];
+        _argumentBufferEnv.label = @"Argument Env";
+        
+        let argumentEncoderPBR = [kernelFunction newArgumentEncoderWithBufferIndex:9];
+        let argumentBufferLengthPBR = argumentEncoderPBR.encodedLength * 2;
+        _argumentBufferPBR = [_device newBufferWithLength:argumentBufferLengthPBR options:0];
+        _argumentBufferPBR.label = @"Argument PBR";
         
         let vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
         let fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
@@ -131,19 +141,19 @@ typedef struct
         uint width = 1920;
         uint height = 1080;
         
-        _scene_meta.frame_count = 0;
-        _scene_meta.running_time = 0;
+        _complex.frame_count = 0;
+        _complex.running_time = 0;
         
-        _scene_meta.tex_size = float2 {static_cast<float>(width), static_cast<float>(height)};
-        _scene_meta.view_size = float2 {static_cast<float>(width), static_cast<float>(height)};
+        _complex.tex_size = float2 {static_cast<float>(width), static_cast<float>(height)};
+        _complex.view_size = float2 {static_cast<float>(width), static_cast<float>(height)};
         
-        _scene_meta_buffer = [_device newBufferWithBytes: &_scene_meta
-                                                  length: sizeof(SceneComplex)
+        _complex_buffer = [_device newBufferWithBytes: &_complex
+                                                  length: sizeof(Complex)
                                                  options: MTLResourceStorageModeShared];
         
         _camera_rotation = simd_make_float2(0, 0);
         
-        prepareCamera(&_camera, _scene_meta.tex_size, _camera_rotation);
+        prepareCamera(&_camera, _complex.tex_size, _camera_rotation);
         _camera_buffer = [_device newBufferWithBytes: &_camera
                                               length: sizeof(struct Camera)
                                              options: MTLResourceStorageModeShared];
@@ -158,7 +168,7 @@ typedef struct
         
         std::vector<Square> cornell_box;
         prepareCornellBox(cornell_box, materials);
-        _cornell_box_buffer = [_device newBufferWithBytes: cornell_box.data()
+        _square_list_buffer = [_device newBufferWithBytes: cornell_box.data()
                                                    length: sizeof(struct Square)*cornell_box.size()
                                                   options: CommonStorageMode];
         
@@ -267,14 +277,17 @@ typedef struct
         
         _textureHDR = [loader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
         
-        let mdlUV = [MDLTexture textureNamed:@"uv_test/uv_test.png"];
-        let _textureUV = [loader newTextureWithMDLTexture:mdlUV options:textureLoaderOptions error:&ERROR];
+        let mdlUVT = [MDLTexture textureNamed:@"uv_test/uv_test.png"];
+        _textureUVT = [loader newTextureWithMDLTexture:mdlUVT options:textureLoaderOptions error:&ERROR];
+        
+        [argumentEncoderEnv setArgumentBuffer:_argumentBufferEnv offset:0];
+        [argumentEncoderEnv setBuffer:_material_buffer offset:0 atIndex:2];
+
+        [argumentEncoderEnv setTexture:_textureHDR atIndex:0];
+        [argumentEncoderEnv setTexture:_textureUVT atIndex:1];
         
         let mdlAO = [MDLTexture textureNamed:@"coatball/tex_ao.png"];
         let _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
-        
-        texPBR.emplace_back(_textureUV);
-        texPBR.emplace_back(_textureAO);
         
         var mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
         var mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
@@ -286,18 +299,16 @@ typedef struct
         var _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
         var _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
         
-        [argumentEncoder setArgumentBuffer:_kernelArgumentBuffer startOffset:0 arrayElement:0];
+        [argumentEncoderPBR setArgumentBuffer:_argumentBufferPBR startOffset:0 arrayElement:0];
 
-        [argumentEncoder setTexture:_textureAO atIndex:0];
-        [argumentEncoder setTexture:_textureAlbedo atIndex:1];
-        [argumentEncoder setTexture:_textureNormal atIndex:2];
-        [argumentEncoder setTexture:_textureMetallic atIndex:3];
-        [argumentEncoder setTexture:_textureRoughness atIndex:4];
-
-        [argumentEncoder setTexture:_textureUV atIndex:5];
+        [argumentEncoderPBR setTexture:_textureAO atIndex:0];
+        [argumentEncoderPBR setTexture:_textureAlbedo atIndex:1];
+        [argumentEncoderPBR setTexture:_textureNormal atIndex:2];
+        [argumentEncoderPBR setTexture:_textureMetallic atIndex:3];
+        [argumentEncoderPBR setTexture:_textureRoughness atIndex:4];
         
         auto tmp = std::vector<id<MTLTexture>>{ _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
-        texPBR.insert(texPBR.end(), std::begin(tmp), std::end(tmp));
+        vectorPBR.insert(vectorPBR.end(), std::begin(tmp), std::end(tmp));
                 
 
             mdlAlbedo = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_basecolor.png"];
@@ -310,24 +321,40 @@ typedef struct
             _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
             _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
 
-            [argumentEncoder setArgumentBuffer:_kernelArgumentBuffer startOffset:0 arrayElement:1];
+            [argumentEncoderPBR setArgumentBuffer:_argumentBufferPBR startOffset:0 arrayElement:1];
 
-            [argumentEncoder setTexture:_textureAO atIndex:0];
-            [argumentEncoder setTexture:_textureAlbedo atIndex:1];
-            [argumentEncoder setTexture:_textureNormal atIndex:2];
-            [argumentEncoder setTexture:_textureMetallic atIndex:3];
-            [argumentEncoder setTexture:_textureRoughness atIndex:4];
-
-            [argumentEncoder setTexture:_textureUV atIndex:5];
+            [argumentEncoderPBR setTexture:_textureAO atIndex:0];
+            [argumentEncoderPBR setTexture:_textureAlbedo atIndex:1];
+            [argumentEncoderPBR setTexture:_textureNormal atIndex:2];
+            [argumentEncoderPBR setTexture:_textureMetallic atIndex:3];
+            [argumentEncoderPBR setTexture:_textureRoughness atIndex:4];
         
             tmp = std::vector<id<MTLTexture>>{ _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
-            texPBR.insert(texPBR.end(), std::begin(tmp), std::end(tmp));
+            vectorPBR.insert(vectorPBR.end(), std::begin(tmp), std::end(tmp));
         
             if(!_textureHDR)
             {
                 NSLog(@"Failed to create the texture from %@", pathHDR);
                 return nil;
             }
+        
+        std::vector<BVH> bvh_list;
+        
+        for (int i=1; i<sphere_list.size(); i++) {
+            auto& sphere = sphere_list[i];
+            BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
+        }
+
+//                for (int i=0; i<cube_list.size()-1; i++) {
+//                    auto& cube = cube_list[i];
+//                    BVH::buildNode(cube.boundingBOX, cube.model_matrix, ShapeType::Cube, i, bvh_list);
+//                }
+
+        for (int i=4; i<5; i++) {
+        //for (int i=0; i<cornell_box.size(); i++) {
+            auto& square = cornell_box[i];
+            BVH::buildNode(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
+        }
         
         //let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
         let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/teapot" ofType:@"obj"];
@@ -360,24 +387,6 @@ typedef struct
         let testMesh = (MDLMesh *) [testAsset objectAtIndex:0];
         [testMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0];
         //let voxelArray = [[MDLVoxelArray alloc] initWithAsset:testAsset divisions:1 patchRadius:0.2];
-                
-                std::vector<BVH> bvh_list;
-                
-                for (int i=1; i<sphere_list.size(); i++) {
-                    auto& sphere = sphere_list[i];
-                    BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
-                }
-        
-//                for (int i=0; i<cube_list.size()-1; i++) {
-//                    auto& cube = cube_list[i];
-//                    BVH::buildNode(cube.boundingBOX, cube.model_matrix, ShapeType::Cube, i, bvh_list);
-//                }
-        
-                for (int i=4; i<5; i++) {
-                //for (int i=0; i<cornell_box.size(); i++) {
-                    auto& square = cornell_box[i];
-                    BVH::buildNode(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
-                }
                 
             let bBox = testMesh.boundingBox;
             let minB = (float3)bBox.minBounds;
@@ -462,9 +471,9 @@ typedef struct
                 NSLog(@"Time cost %fs", time_e - time_s);
                 NSLog(@"End processing BVH");
                 
-                _index_buffer = [_device newBufferWithBytes: totalIndexData //[testMesh.submeshes.firstObject indexBuffer].map.bytes
-                                                     length: totalIndexOffset //[testMesh.submeshes.firstObject indexBuffer].length
-                                                    options: CommonStorageMode]; free(totalIndexData);
+                _idx_buffer = [_device newBufferWithBytes: totalIndexData //[testMesh.submeshes.firstObject indexBuffer].map.bytes
+                                                   length: totalIndexOffset //[testMesh.submeshes.firstObject indexBuffer].length
+                                                  options: CommonStorageMode]; free(totalIndexData);
                 
                 _mesh_buffer = [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
                                                     length: testMesh.vertexBuffers.firstObject.length
@@ -473,6 +482,16 @@ typedef struct
                 _bvh_buffer = [_device newBufferWithBytes: bvh_list.data()
                                                    length: sizeof(struct BVH)*bvh_list.size()
                                                   options: CommonStorageMode];
+        
+        [argumentEncoderPri setArgumentBuffer:_argumentBufferPri offset:0];
+        
+        [argumentEncoderPri setBuffer:_sphere_list_buffer offset:0 atIndex:0];
+        [argumentEncoderPri setBuffer:_square_list_buffer offset:0 atIndex:1];
+        [argumentEncoderPri setBuffer:_cube_list_buffer offset:0 atIndex:2];
+        
+        [argumentEncoderPri setBuffer:_mesh_buffer offset:0 atIndex:3];
+        [argumentEncoderPri setBuffer:_idx_buffer offset:0 atIndex:4];
+        [argumentEncoderPri setBuffer:_bvh_buffer offset:0 atIndex:5];
                 
         launchTime = [[NSDate date] timeIntervalSince1970];
         
@@ -496,14 +515,14 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 - (void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size
 {
     //_scene_meta.frame_count = 0;
-    _scene_meta.view_size = simd_make_float2(size.width, size.height);
+    _complex.view_size = simd_make_float2(size.width, size.height);
 }
 
 -(void)render:(MTKView *)view
 {
     let commandBuffer = [_commandQueue commandBuffer];
     let time = [[NSDate date] timeIntervalSince1970];
-    _scene_meta.running_time = time - launchTime;
+    _complex.running_time = time - launchTime;
     
         {
             let blit = [commandBuffer blitCommandEncoder];
@@ -516,10 +535,10 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
         // not on main thread
         if (self->_dragging) {
-            self->_scene_meta.frame_count = 0;
+            self->_complex.frame_count = 0;
         } else {
-            let fcount = self->_scene_meta.frame_count;
-            self->_scene_meta.frame_count = fcount + 1;
+            let fcount = self->_complex.frame_count;
+            self->_complex.frame_count = fcount + 1;
         }
         
         //[self drag:simd_make_float2(1, 0) state:NO];
@@ -536,7 +555,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     let computeEncoder = [commandBuffer computeCommandEncoder];
     [computeEncoder setComputePipelineState:_computePipelineState];
  
-    let tex_index = predefined_index[_scene_meta.frame_count % 2];
+    let tex_index = predefined_index[_complex.frame_count % 2];
     
     [computeEncoder setTexture:_textureA atIndex: tex_index[0]];
     [computeEncoder setTexture:_textureB atIndex: tex_index[1]];
@@ -544,33 +563,34 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setTexture:_textureARNG atIndex: tex_index[2]];
     [computeEncoder setTexture:_textureBRNG atIndex: tex_index[3]];
     
-    [computeEncoder setTexture:_textureHDR atIndex:4];
-    
 //    [computeEncoder useResource:_textureAO usage:MTLResourceUsageSample];
 //    [computeEncoder useResource:_textureAlbedo usage:MTLResourceUsageSample];
 //    [computeEncoder useResource:_textureNormal usage:MTLResourceUsageSample];
 //    [computeEncoder useResource:_textureMetallic usage:MTLResourceUsageSample];
 //    [computeEncoder useResource:_textureRoughness usage:MTLResourceUsageSample];
     
-    [computeEncoder setBuffer:_kernelArgumentBuffer offset:0 atIndex:9];
+    [computeEncoder useResource:_sphere_list_buffer usage:MTLResourceUsageRead];
+    [computeEncoder useResource:_square_list_buffer usage:MTLResourceUsageRead];
+    [computeEncoder useResource:_cube_list_buffer usage:MTLResourceUsageRead];
     
-    if (self->_scene_meta.frame_count > 3 || self->_scene_meta.frame_count < 1) {
-        memcpy(_scene_meta_buffer.contents, &_scene_meta, sizeof(SceneComplex));
+    [computeEncoder useResource:_material_buffer usage:MTLResourceUsageRead];
+    
+    [computeEncoder useResource:_mesh_buffer usage:MTLResourceUsageRead];
+    [computeEncoder useResource:_idx_buffer usage:MTLResourceUsageRead];
+    [computeEncoder useResource:_bvh_buffer usage:MTLResourceUsageRead];
+    
+    [computeEncoder setBuffer:_argumentBufferPri offset:0 atIndex:7];
+    [computeEncoder setBuffer:_argumentBufferEnv offset:0 atIndex:8];
+    [computeEncoder setBuffer:_argumentBufferPBR offset:0 atIndex:9];
+    
+    
+    if (self->_complex.frame_count > 3 || self->_complex.frame_count < 1) {
+        memcpy(_complex_buffer.contents, &_complex, sizeof(Complex));
     }
-    [computeEncoder setBuffer:_scene_meta_buffer offset:0 atIndex:0];
+    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
     
     memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
-    [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:1];
-    
-    [computeEncoder setBuffer:_sphere_list_buffer offset:0 atIndex:2];
-    [computeEncoder setBuffer:_cornell_box_buffer offset:0 atIndex:3];
-    [computeEncoder setBuffer:_cube_list_buffer offset:0 atIndex:4];
-    
-    [computeEncoder setBuffer:_index_buffer offset:0 atIndex:5];
-    [computeEncoder setBuffer:_mesh_buffer offset:0 atIndex:6];
-    [computeEncoder setBuffer:_bvh_buffer offset:0 atIndex:7];
-    
-    [computeEncoder setBuffer:_material_buffer offset:0 atIndex:8];
+    [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:0];
     
     let _threadGroupSize = MTLSizeMake(8, 8, 1);
     let _gridSize = MTLSize {_textureA.width, _textureA.height, 1};
@@ -592,7 +612,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
     
-    let& viewsize = _scene_meta.view_size;
+    let& viewsize = _complex.view_size;
     
     MTLViewport viewport {0, 0, viewsize.x, viewsize.y, 0, 1.0};
     
@@ -601,7 +621,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     [renderEncoder setVertexBuffer:_vertex_buffer offset:0 atIndex:0];
     
-    [renderEncoder setFragmentBuffer:_scene_meta_buffer offset:0 atIndex:0];
+    [renderEncoder setFragmentBuffer:_complex_buffer offset:0 atIndex:0];
     [renderEncoder setFragmentTexture:_textureB atIndex: tex_index[0]];
     [renderEncoder setFragmentTexture:_textureA atIndex: tex_index[1]];
     
@@ -624,14 +644,14 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 {
     _dragging = !ended;
     
-    let ratio = delta / _scene_meta.view_size;
+    let ratio = delta / _complex.view_size;
     
     _camera_rotation += ratio;
     
-    self->_scene_meta.frame_count = 0;
-    self->_scene_meta.running_time = 0;
+    self->_complex.frame_count = 0;
+    self->_complex.running_time = 0;
     
-    prepareCamera(&_camera, _scene_meta.tex_size, _camera_rotation);
+    prepareCamera(&_camera, _complex.tex_size, _camera_rotation);
 }
 
 @end

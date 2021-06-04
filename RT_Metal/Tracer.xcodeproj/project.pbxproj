@@ -66,6 +66,8 @@
 		57C64C7824E149BD0054AB8C /* coatball in Resources */ = {isa = PBXBuildFile; fileRef = 57C64C7724E149BD0054AB8C /* coatball */; };
 		57C64C7924E14B920054AB8C /* coatball in Resources */ = {isa = PBXBuildFile; fileRef = 57C64C7724E149BD0054AB8C /* coatball */; };
 		57C64C7C24E1549B0054AB8C /* AAPLMesh.m in Sources */ = {isa = PBXBuildFile; fileRef = 57C64C7B24E1549B0054AB8C /* AAPLMesh.m */; };
+		57D7F39B266925F90063AF0A /* Triangle.hh in Sources */ = {isa = PBXBuildFile; fileRef = 57D7F39A266925F90063AF0A /* Triangle.hh */; };
+		57D7F39C266925F90063AF0A /* Triangle.hh in Sources */ = {isa = PBXBuildFile; fileRef = 57D7F39A266925F90063AF0A /* Triangle.hh */; };
 		57DD356A241EEC110094632B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD3569241EEC110094632B /* AppDelegate.swift */; };
 		57DD356C241EEC110094632B /* TracerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD356B241EEC110094632B /* TracerViewController.swift */; };
 		57DD356E241EEC140094632B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356D241EEC140094632B /* Assets.xcassets */; };
@@ -125,6 +127,7 @@
 		57C64C7A24E1549A0054AB8C /* AAPLMesh.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = AAPLMesh.h; sourceTree = "<group>"; };
 		57C64C7B24E1549B0054AB8C /* AAPLMesh.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AAPLMesh.m; sourceTree = "<group>"; };
 		57C64C7D24E15A920054AB8C /* AAPLShaderTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AAPLShaderTypes.h; sourceTree = "<group>"; };
+		57D7F39A266925F90063AF0A /* Triangle.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Triangle.hh; sourceTree = "<group>"; };
 		57DD3566241EEC110094632B /* Tracer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tracer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		57DD3569241EEC110094632B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		57DD356B241EEC110094632B /* TracerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TracerViewController.swift; sourceTree = "<group>"; };
@@ -189,6 +192,7 @@
 				5759E67B24DB6D3B00C8A2D7 /* Cube.hh */,
 				5759E67A24DB6C8600C8A2D7 /* Square.hh */,
 				5759E67C24DB6D9500C8A2D7 /* Sphere.hh */,
+				57D7F39A266925F90063AF0A /* Triangle.hh */,
 				5759E68224DCAA1C00C8A2D7 /* Noise.hh */,
 				5759E68324DCAC1E00C8A2D7 /* Noise.metal */,
 				573DD10A24335D6D00B09B0A /* Render.hh */,
@@ -383,6 +387,7 @@
 				57874FDD24DDFECC00080AB7 /* Scatter.metal in Sources */,
 				57874FDE24DDFECC00080AB7 /* BVH.hh in Sources */,
 				57874FDF24DDFECC00080AB7 /* AABB.hh in Sources */,
+				57D7F39C266925F90063AF0A /* Triangle.hh in Sources */,
 				57874FE024DDFECC00080AB7 /* Cube.hh in Sources */,
 				57874FE124DDFECC00080AB7 /* Square.hh in Sources */,
 				57874FE224DDFECC00080AB7 /* Sphere.hh in Sources */,
@@ -414,6 +419,7 @@
 				573DD1092432B9D900B09B0A /* Render.metal in Sources */,
 				575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */,
 				573DD1122433AA9900B09B0A /* Random.metal in Sources */,
+				57D7F39B266925F90063AF0A /* Triangle.hh in Sources */,
 				5759E68024DB723D00C8A2D7 /* HitRecord.metal in Sources */,
 				571C09602439267700DA0BAC /* Tracer.mm in Sources */,
 				5749BCA32435005B002B60E4 /* Scatter.metal in Sources */,
