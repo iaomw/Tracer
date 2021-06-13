@@ -187,6 +187,10 @@ typedef struct
         pbr.type = MaterialType::PBR;
         materials.emplace_back(pbr);
         
+        Material pbrt;
+        pbrt.type = MaterialType::PBRT;
+        materials.emplace_back(pbrt);
+        
         _material_buffer = [_device newBufferWithBytes: materials.data()
                                                 length: sizeof(struct Material)*materials.size()
                                                options: CommonStorageMode];
@@ -328,7 +332,7 @@ typedef struct
         
         for (int i=1; i<sphere_list.size(); i++) {
             auto& sphere = sphere_list[i];
-            BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, ShapeType::Sphere, i, bvh_list);
+            BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, PrimitiveType::Sphere, i, bvh_list);
         }
 
 //                for (int i=0; i<cube_list.size()-1; i++) {
@@ -339,7 +343,7 @@ typedef struct
         for (int i=4; i<5; i++) {
         //for (int i=0; i<cornell_box.size(); i++) {
             auto& square = cornell_box[i];
-            BVH::buildNode(square.boundingBOX, square.model_matrix, ShapeType::Square, i, bvh_list);
+            BVH::buildNode(square.boundingBOX, square.model_matrix, PrimitiveType::Square, i, bvh_list);
         }
         
         //let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
@@ -435,7 +439,7 @@ typedef struct
                     
                     let triangleIndex = triangleIndexOffset + i/3;
                     
-                    BVH::buildNode(box, matrix_identity_float4x4, ShapeType::Triangle, triangleIndex, bvh_list);
+                    BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
                 }
                 
                 totalIndexBufferLength += submesh.indexBuffer.length; triangleIndexOffset += index_count/3;

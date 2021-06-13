@@ -160,28 +160,26 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
     
     float2 range_t;
 
-    do {
-        
-        range_t = float2(0.001, INFINITY);
+    do { // each ray
             
         uint the_index = 0;
         uint tested_index = UINT_MAX;
         
-        uint64_t stack_mark = 0;
+        uint32_t stack_mark = 0;
         uint32_t stack_level = 0;
         
-        float ttt = INFINITY;
+        range_t = float2(0.001, INFINITY);
         
-        //if ( false ) {
-        if ( primitives.bvhList[the_index].boundingBOX.hit_get_t(ray, range_t, ttt) ) {
+        if ( primitives.bvhList[the_index].boundingBOX.hit(ray, range_t) ) {
 
-            do {
+            do { // travel in bvh
                 
                 uint selected_index = UINT_MAX;
                 
                 uint left_index = primitives.bvhList[the_index].left;
                 uint right_index = primitives.bvhList[the_index].right;
                 uint parent_index = primitives.bvhList[the_index].parent;
+                
                 
                 {
 //                    auto center = (bvh_list[the_index].boundingBOX.maxi + bvh_list[the_index].boundingBOX.mini) / 2;
@@ -198,46 +196,11 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
 //                        }
 //                    }
 //
-//                    bool left_test = bvh_list[left_index].boundingBOX.hit_get_t(ray, range_t, ttt);
-//
-//                    if (left_test) {
-//                        center = (bvh_list[left_index].boundingBOX.maxi + bvh_list[left_index].boundingBOX.mini) / 2;
-//                        half_diagonal = (bvh_list[left_index].boundingBOX.maxi - bvh_list[left_index].boundingBOX.mini) / 2;
-//
-//                        p = ray.pointAt(ttt);
-//                        delta = abs(p - center);
-//
-//                        cheker = 0;
-//                        for (int i=0; i<3; i++) {
-//                            if (abs(delta[i] - half_diagonal[i]) * 0.1 < 0.2 * 1 ) {
-//                                cheker+=1;
-//                                if (cheker == 2) { return float3(0, 1, 0);}
-//                            }
-//                        }
-//                    }
-//
-//                    bool right_test = bvh_list[right_index].boundingBOX.hit_get_t(ray, range_t, ttt);
-//
-//                    if (right_test) {
-//                        center = (bvh_list[right_index].boundingBOX.maxi + bvh_list[right_index].boundingBOX.mini) / 2;
-//                        half_diagonal = (bvh_list[right_index].boundingBOX.maxi - bvh_list[right_index].boundingBOX.mini) / 2;
-//
-//                        p = ray.pointAt(ttt);
-//                        delta = abs(p - center);
-//
-//                        cheker = 0;
-//                        for (int i=0; i<3; i++) {
-//                            if (abs(delta[i] - half_diagonal[i]) * 0.1 < 0.2 * 1 ) {
-//                                cheker+=1;
-//                                if (cheker == 2) { return float3(0, 1, 0);}
-//                            }
-//                        }
-//                    }
                 }
                 
                 if (tested_index != left_index && tested_index != right_index) {
-                
-                    float t_left = INFINITY, t_right = INFINITY;
+                    
+                    float t_left = FLT_MAX, t_right = FLT_MAX;
                     
                     bool left_test = primitives.bvhList[left_index].boundingBOX.hit_get_t(ray, range_t, t_left);
                     bool right_test = primitives.bvhList[right_index].boundingBOX.hit_get_t(ray, range_t, t_right);
@@ -246,28 +209,30 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                         
                         tested_index = the_index;
                         the_index = parent_index;
-                        
-                        stack_mark &= ~(1U << stack_level); // clear the bit
                         stack_level -= 1; // pop stack
+                        
                         continue;
                     }
                     
-                    selected_index = (t_left < t_right)? left_index:right_index;
+                    selected_index = (t_left < t_right)? left_index : right_index;
                     
                     bool needTestAnother = (left_test) && (right_test);
                     if (needTestAnother) { stack_mark |= 1U << stack_level; }
-                } // came to this part firsty
+                    
+                } // came from parent
                 
-                else { // came back from left or right
+                else { // came back child
                     
                     uint needCheckChild = (stack_mark >> stack_level) & 1U;
                     // don't need check child in case of go back;
                     stack_mark &= ~(1U << stack_level);
                     
                     if (0 == needCheckChild) { // go up
+                        
                         tested_index = the_index;
                         the_index = parent_index;
                         stack_level -= 1; // pop stack
+                        
                         continue;
                     }
                     
@@ -276,45 +241,36 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                     } else {
                         selected_index = left_index;
                     }
-                    
-                    auto hitted = primitives.bvhList[selected_index].boundingBOX.hit(ray, range_t);
-                    if (!hitted) {
-                        tested_index = selected_index;
-                        the_index = parent_index;
-                        stack_level -= 1;
-                        continue;
-                    }
                 }
                 
-                auto shapeIndex = primitives.bvhList[selected_index].shapeIndex;
+                auto pIndex = primitives.bvhList[selected_index].pIndex;
                 
-                switch(primitives.bvhList[selected_index].shape) {
+                switch(primitives.bvhList[selected_index].pType) {
                         
-                    case ShapeType::BVH: { // Should already tested before reaching this step
-                        //auto hitted = bvh_list[selected_index].boundingBOX.hit_keep_range(ray, range_t);
-                        //if (hitted) {
-                            the_index = selected_index;
-                            stack_level += 1;
-                            continue;
-                        //}
+                    case PrimitiveType::BVH: { // Should already tested before reaching this step
+                         
+                        the_index = selected_index;
+                        stack_level += 1;
+                        continue;
                     }
-                    case ShapeType::Sphere: {
-                        primitives.sphereList[shapeIndex].hit_test(ray, range_t, hitRecord); break;
+                    case PrimitiveType::Sphere: {
+                        primitives.sphereList[pIndex].hit_test(ray, range_t, hitRecord); break;
                     }
-                    case ShapeType::Square: {
-                        primitives.squareList[shapeIndex].hit_test(ray, range_t, hitRecord); break;
+                    case PrimitiveType::Square: {
+                        primitives.squareList[pIndex].hit_test(ray, range_t, hitRecord); break;
                     }
-                    case ShapeType::Cube: {
-                        primitives.cubeList[shapeIndex].hit_test(ray, range_t, hitRecord); break;
+                    case PrimitiveType::Cube: {
+                        primitives.cubeList[pIndex].hit_test(ray, range_t, hitRecord); break;
                     }
-                    case  ShapeType::Triangle: {
-                        auto index_r = shapeIndex * 3;
+                    case  PrimitiveType::Triangle: {
+                        auto index_r = pIndex * 3;
                         auto index_a = primitives.idxList[index_r];
                         auto index_b = primitives.idxList[index_r + 1];
                         auto index_c = primitives.idxList[index_r + 2];
                         
-                        Triangle::hitTest(ray, primitives.triList[index_a], primitives.triList[index_b], primitives.triList[index_c], range_t, hitRecord);
-                        break;
+                        uint3 abc {index_a, index_b, index_c};
+                        auto tri = Triangle(primitives.triList, abc);
+                        tri.hit_test(ray, range_t, hitRecord); break;
                     }
                     default: { return float3(0); }
                 } // switch
@@ -369,7 +325,7 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
              constant Camera*          camera [[buffer(0)]],
              constant Complex*        complex [[buffer(1)]],
              
-             constant Primitive&    primitive [[buffer(7)]],
+             constant Primitive&   primitives [[buffer(7)]],
              constant PackageEnv&  packageEnv [[buffer(8)]],
              constant PackagePBR*  packagePBR [[buffer(9)]])
 {
@@ -398,7 +354,7 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
     color = traceBVH(32, ray, rs,
                         packageEnv,
                         packagePBR[1],
-                        primitive);
+                        primitives);
     
     float3 cached_color = float3( inTexture.read( thread_pos ).rgb );
     

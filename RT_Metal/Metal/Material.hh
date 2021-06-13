@@ -4,7 +4,7 @@
 #include "Common.hh"
 #include "Texture.hh"
 
-enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic, Specular, PBR };
+enum struct MaterialType { Lambert, Metal, Dielectric, Diffuse, Isotropic, Specular, PBR, PBRT };
 
 struct Material {
     enum MaterialType type;

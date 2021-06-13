@@ -16,7 +16,6 @@ struct TextureInfo {
 #ifdef __METAL_VERSION__
     
     float3 value(constant texture2d<float> *texture, float2 uv, float3 p) constant {
-    //float3 value(constant texture2d<float> *texture, float2 uv, float3 p) constant {
         
         switch (type) {
             case TextureType::Constant:
@@ -29,7 +28,7 @@ struct TextureInfo {
 //
 //                return float3(result);
                 
-                auto sines = sin(10 * M_PI_F * uv.x) * cos(5 * M_PI_F * uv.y);
+                auto sines = sin( 8 * M_PI_F * uv.x) * cos(M_PI_F/2 + 4 * M_PI_F * uv.y);
                 if (sines < 0)
                     return albedo * 0.5;
                 else

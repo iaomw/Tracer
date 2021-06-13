@@ -62,7 +62,7 @@
 // The tabulated direction numbers are available here:
 // http://web.maths.unsw.edu.au/~fkuo/sobol/new-joe-kuo-6.21201
 
-#include "sobolmatrices.hh"
+#include "Sobolmatrices.hh"
 
 namespace pbrt {
 

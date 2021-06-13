@@ -32,10 +32,9 @@ struct Primitive {
     constant Square*   squareList [[id(1)]];
     constant Cube*       cubeList [[id(2)]];
     
-    constant Triangle*    triList [[id(3)]];
-    constant uint32_t*    idxList [[id(4)]];
-    
-    constant BVH*         bvhList [[id(5)]];
+    constant TriangleVertex*  triList [[id(3)]];
+    constant uint32_t*        idxList [[id(4)]];
+    constant BVH*             bvhList [[id(5)]];
 };
 
 #endif /* Render_h */

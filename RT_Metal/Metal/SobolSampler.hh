@@ -3,7 +3,7 @@
 
 #include "Math.hh"
 #include "Random.hh"
-#include "sobolmatrices.hh"
+#include "Sobolmatrices.hh"
 
 namespace pbrt {
 

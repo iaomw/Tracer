@@ -51,19 +51,63 @@ float3 FX(const thread float3& wo, const thread float3& albedo, float metallic) 
     return F0 + (1.0 - F0) * pow(2.0f, ex);
 }
 
-float DisneyDiffuse(const thread float3& wo, const thread float3& wi, const float IDotH, const float roughness)
+float DisneyDiffuse(const thread float3& wo, const thread float3& wi, const float roughness)
 {
-//    if (mMetallic == 1.0f) return 0.0f;
-
-    float oneMinusCosL = 1.0f - wi.z;
-    float oneMinusCosLSqr = oneMinusCosL * oneMinusCosL;
-    float oneMinusCosV = 1.0f - wo.z;
-    float oneMinusCosVSqr = oneMinusCosV * oneMinusCosV;
+    float IDotH = dot(wi, normalize(wi+wo));
+    
     float F_D90 = 0.5f + 2.0f * IDotH * IDotH * roughness;
-
-    return float(1.0/M_PI_F) * (1.0f + (F_D90 - 1.0f) * oneMinusCosLSqr * oneMinusCosLSqr * oneMinusCosL) *
-        (1.0f + (F_D90 - 1.0f) * oneMinusCosVSqr * oneMinusCosVSqr * oneMinusCosV);
+    
+    float dL = 1.0f + (F_D90 - 1.0f) * pow(1.0f - wi.z, 5);
+    float dV = 1.0f + (F_D90 - 1.0f) * pow(1.0f - wo.z, 5);
+    
+    return (1.0/M_PI_F) * dL * dV;
 }
+
+float diffuseOrenNayar( float3 wi, float3 wo, float roughness) {
+  
+    float LdotV = dot(wi, wo);
+    float NdotL = wi.z;
+    float NdotV = wo.z;
+
+  float s = LdotV - NdotL * NdotV;
+  float t = mix(1.0, max(NdotL, NdotV), step(0.0, s));
+
+  float sigma2 = roughness * roughness;
+  float A = 1.0 + sigma2 * (1.0 / (sigma2 + 0.13) + 0.5 / (sigma2 + 0.33));
+  float B = 0.45 * sigma2 / (sigma2 + 0.09);
+
+  return max(0.0, NdotL) * (A + B * s / t) / M_PI_F;
+}
+
+//float OrenNayar(thread float3 &wo, thread float3 &wi, float roughness) {
+//    float sinThetaI = SinTheta(wi);
+//    float sinThetaO = SinTheta(wo);
+//    // Compute cosine term of Oren-Nayar model
+//    float maxCos = 0;
+//    if (sinThetaI > 1e-4 && sinThetaO > 1e-4) {
+//        float sinPhiI = SinPhi(wi), cosPhiI = CosPhi(wi);
+//        float sinPhiO = SinPhi(wo), cosPhiO = CosPhi(wo);
+//        float dCos = cosPhiI * cosPhiO + sinPhiI * sinPhiO;
+//        maxCos = max(0.0, dCos);
+//    }
+//
+//    // Compute sine and tangent terms of Oren-Nayar model
+//    float sinAlpha, tanBeta;
+//    if (AbsCosTheta(wi) > AbsCosTheta(wo)) {
+//        sinAlpha = sinThetaO;
+//        tanBeta = sinThetaI / AbsCosTheta(wi);
+//    } else {
+//        sinAlpha = sinThetaI;
+//        tanBeta = sinThetaO / AbsCosTheta(wo);
+//    }
+//    
+//    auto sigma = roughness; //Radians(sigma);
+//    auto sigma2 = sigma * sigma;
+//    auto A = 1.f - (sigma2 / (2.f * (sigma2 + 0.33f)));
+//    auto B = 0.45f * sigma2 / (sigma2 + 0.09f);
+//    
+//    return (1.0 / M_PI_F) * (A + B * maxCos * sinAlpha * tanBeta);
+//}
 
 template <typename XSampler>
 bool scatter(thread Ray& ray,
@@ -103,10 +147,66 @@ bool scatter(thread Ray& ray,
 
             float3 wi = { x, y, z };
             auto direction = stw * wi;
-            
             ray = Ray(hitRecord.p, direction);
-            scatRecord.attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
-            scatRecord.attenuation /= M_PI_F;
+            
+            float3 wo = transpose(stw) * (-ray.direction);
+            
+            auto attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+            
+            auto on = OrenNayar(attenuation.r);
+            
+            scatRecord.attenuation = attenuation * on.f(wo, wi);
+            
+            return true;
+        }
+            
+        case MaterialType::PBRT: {
+            
+            float3 nx, ny;
+            CoordinateSystem(normal, nx, ny);
+            float3x3 stw = { nx, ny, normal };
+            
+            float3 wo = transpose(stw) * (-ray.direction);
+            
+            float pdf;
+            
+            auto r0 = xsampler.sample1D();
+            auto r1 = xsampler.sample1D();
+
+            float sinTheta = sqrt( max(r0, kEpsilon) );
+            float cosTheta = sqrt( max(1-r0, kEpsilon) );
+
+            float phi = 2.0 * M_PI_F * r1;
+
+            float x = sinTheta * cos(phi);
+            float y = sinTheta * sin(phi);
+            float z = cosTheta;
+
+            float3 wi = { x, y, z };
+            
+            
+            //auto fr = FresnelDielectric(1.0, 1.8);
+            auto fr = FresnelConductor(1.0, 1.8, 0.5);
+            auto dist = TrowbridgeReitzDistribution(0.01, 0.01);
+            auto sr = ConductorBXDF<TrowbridgeReitzDistribution, FresnelConductor>(dist, fr);
+            
+            //auto bxdf_data = BXDF_Data(BXDF_Type(BSDF_REFLECTION | BSDF_SPECULAR), 1.0);
+            //auto bx = BXDF_Wrapped<MicrofacetDistribution<TrowbridgeReitzDistribution, FresnelDielectric>> (bxdf_data, sr);
+            
+            //auto intense = bx.f(wo, wi);
+            //auto pd = sr.PDF(wo, wi);
+            
+            auto direction = stw * wi;
+            ray = Ray(hitRecord.p, direction);
+            
+            //auto wm = normalize(wo + wi);
+            
+            float2 uu = {r0, r1};
+            
+            auto rr = sr.sample_f(wo, wi, &uu, pdf, nullptr);
+            
+            scatRecord.attenuation = rr /pdf;//100 * dist.D(wi, wm) * dist.G(wo, wi) / (4 * wo.z * wi.z);
+            
             return true;
         }
 //
@@ -162,7 +262,7 @@ bool scatter(thread Ray& ray,
             
         case MaterialType::PBR: {
             
-            //float ao = 1.0; //texAO.sample(textureSampler, hitRecord.uv, 0).r;
+            float ao = packPBR.texAO.sample(textureSampler, hitRecord.uv, 0).r;
             
             float3 albedo = packPBR.texAlbedo.sample(textureSampler, hitRecord.uv, 0).rgb;
             albedo = pow(albedo, 2.2); //albedo = float3(1.0);
@@ -219,17 +319,6 @@ bool scatter(thread Ray& ray,
                 
                 float pdf;
                 microNormal = GGX_SampleVisibleNormal(fixedDir, r0, r1, &pdf, a2);
-                
-//                auto tmp = rr0 / ((a2 - 1) * r0 + 1);
-//                auto cosTheta = sqrt(tmp);
-//                auto sinTheta = sqrt(max(FLT_EPSILON, 1.0-tmp));
-//                //auto theta = acos(sqrt(rr0/((a2-1)*r0+1)));
-//                auto phi = 2 * M_PI_F * r1;
-//
-//                auto x = sinTheta * cos(phi);
-//                auto y = sinTheta * sin(phi);
-//                auto z = cosTheta;
-//
 //                microNormal = normalize( {x, y, z} );
                 nextDir = reflect(-fixedDir, microNormal);
             }
@@ -249,7 +338,7 @@ bool scatter(thread Ray& ray,
             auto kD = (1.0 - metallic) * (1.0 - kS);
 
             ray = Ray(hitRecord.p, stw * nextDir);
-            scatRecord.attenuation = kD * diffuse + specular;
+            scatRecord.attenuation = ao * kD * diffuse + specular;
             
             //auto diffusePD = wi.z / M_PI_F;
             //auto specularPD = D * microNormal.z
