@@ -54,15 +54,12 @@ struct AABB {
 #ifdef __METAL_VERSION__
     
     // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms/
-    bool hit(thread Ray& ray, const thread float2& range_t) constant {
+    bool hit(const thread Ray& ray, const thread float2& range_t) constant {
         
         auto inverse = 1.0 / ray.direction;
 
         auto ts = (mini - ray.origin) * inverse;
         auto te = (maxi - ray.origin) * inverse;
-
-        //float tmin = max3( min(ts[0], te[0]), min(ts[1], te[1]), min(ts[2], te[2]));
-        //float tmax = min3( max(ts[0], te[0]), max(ts[1], te[1]), max(ts[2], te[2]));
         
         auto a = min(ts, te);
         auto b = max(ts, te);
@@ -74,24 +71,29 @@ struct AABB {
         tmax = min(tmax, range_t.y);
 
         return ! (tmax < tmin || tmax < 0);
+    }
+    
+    bool hit_range(const thread Ray& ray, thread float2& range_t) constant {
         
-//        float tmin = range_t.x, tmax = range_t.y;
-//
-//        for (auto i : {0, 1, 2}) {
-//
-//            auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
-//            auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
-//
-//            auto ts = min(max_bound, min_bound);
-//            auto te = max(max_bound, min_bound);
-//
-//            tmin = max(ts, tmin);
-//            tmax = min(te, tmax);
-//
-//            if (tmax < tmin || tmax < 0) { return false; }
-//        }
-//
-//        return true;
+        auto inverse = 1.0 / ray.direction;
+
+        auto ts = (mini - ray.origin) * inverse;
+        auto te = (maxi - ray.origin) * inverse;
+        
+        auto a = min(ts, te);
+        auto b = max(ts, te);
+        
+        float tmin = max3(a.x, a.y, a.z);
+        float tmax = min3(b.x, b.y, b.z);
+
+        tmin = max(tmin, range_t.x);
+        tmax = min(tmax, range_t.y);
+
+        if (tmax < tmin || tmax < 0) {return false;}
+        
+        range_t = float2(tmin, tmax);
+        
+        return true;
     }
     
     bool hit_get_t(const thread Ray& ray, const thread float2& range_t, thread float& t) constant {
@@ -100,9 +102,6 @@ struct AABB {
 
         auto ts = (mini - ray.origin) * inverse;
         auto te = (maxi - ray.origin) * inverse;
-
-        //float tmin = max3( min(ts[0], te[0]), min(ts[1], te[1]), min(ts[2], te[2]));
-        //float tmax = min3( max(ts[0], te[0]), max(ts[1], te[1]), max(ts[2], te[2]));
         
         auto a = min(ts, te);
         auto b = max(ts, te);
@@ -114,27 +113,37 @@ struct AABB {
         tmax = min(tmax, range_t.y);
 
         if (tmax < tmin || tmax < 0) { return false; }
-        t = (tmin < 0)? tmax : tmin;
-        return true;
+        t = (tmin < 0)? tmax : tmin; // maybe internal
         
-//        float tmin = range_t.x, tmax = range_t.y;
-//
-//        for (auto i : {0, 1, 2}) {
-//
-//            auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
-//            auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
-//
-//            auto ts = min(max_bound, min_bound);
-//            auto te = max(max_bound, min_bound);
-//
-//            tmin = max(ts, tmin);
-//            tmax = min(te, tmax);
-//
-//            if (tmax <= tmin || tmax < 0) { return false; }
-//        }
-//
-//        t = (tmin < 0)? tmax : tmin;
-//        return true;
+        return true;
+    }
+    
+    bool hit_get_range(const thread Ray& ray, const thread float2& range_t, thread float& t, thread float2& range_new) constant {
+        
+        auto inverse = 1.0 / ray.direction;
+
+        auto ts = (mini - ray.origin) * inverse;
+        auto te = (maxi - ray.origin) * inverse;
+        
+        auto a = min(ts, te);
+        auto b = max(ts, te);
+        
+        float tmin = max3(a.x, a.y, a.z);
+        float tmax = min3(b.x, b.y, b.z);
+
+        tmin = max(tmin, range_t.x);
+        tmax = min(tmax, range_t.y);
+
+        if (tmax < tmin || tmax < 0) { return false; }
+        t = (tmin < 0)? tmax : tmin; // maybe internal
+        
+        if (tmin < 0) {
+            range_new = float2(0.001, tmax);
+        } else {
+            range_new = float2(tmin, tmax);
+        }
+        
+        return true;
     }
     
     bool hit(thread Ray& ray, const thread float2& range_t, thread HitRecord& record) constant {

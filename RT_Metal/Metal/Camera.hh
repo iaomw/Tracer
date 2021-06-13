@@ -20,13 +20,13 @@ struct Camera {
     float3 cornerLowLeft;
 };
 
+#ifdef __METAL_VERSION__
+
 void CoordinateSystem(const thread float3& a, thread float3& b, thread float3& c);
 
-#ifdef __METAL_VERSION__
-//Ray castRay(constant Camera* camera, float s, float t, thread pcg32_t* seed);
-
 template <typename XSampler>
-Ray castRay(constant Camera* camera, float s, float t, thread XSampler* xsampler) {
+Ray castRay(constant Camera* camera, float s, float t, thread XSampler* xsampler)
+{
     auto rd = camera->lenRadius * xsampler->sampleUnitInDisk();
     //auto rd = 0.005 * randomInUnitDiskFF(seed);
     auto offset = camera->u*rd.x + camera->v*rd.y;
@@ -36,6 +36,21 @@ Ray castRay(constant Camera* camera, float s, float t, thread XSampler* xsampler
     return ray;
 }
 
+#else
+
+static float4x4 LookAtMatrix(const float3 &pos, const float3 &look, const float3 &up) {
+    
+    auto zaxis = simd::normalize(look-pos);
+    auto xaxis = simd::normalize(simd::cross(up, zaxis));
+    auto yaxis = simd::cross(zaxis, xaxis);
+    
+    return float4x4 {{
+        { xaxis.x, yaxis.x, zaxis.x, 0.0 },
+        { xaxis.y, yaxis.y, zaxis.y, 0.0 },
+        { xaxis.z, yaxis.z, zaxis.z, 0.0 },
+        { -simd::dot(xaxis, pos),  -simd::dot(yaxis, pos),  -simd::dot(zaxis, pos),  1 }
+    }};
+}
 
 #endif
 

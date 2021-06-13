@@ -175,7 +175,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
 void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materials) {
     
     Material light; light.type= MaterialType::Diffuse;
-    light.textureInfo.albedo = float3(7);
+    light.textureInfo.albedo = float3(11);
     
     auto light_index = (uint32_t)materials.size();
     materials.emplace_back(light);
@@ -258,7 +258,7 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     
     for(auto i : {0, 1, 2, 3, 4, 5} ) {
         
-        sphere = MakeSphere(40, simd_make_float3(0 + 100 * i, 50, 100));
+        sphere = MakeSphere(40, simd_make_float3(0 + 100 * (5-i), 50, 100));
         specu.specularRoughness = i * 0.2;
         specu.refractionRoughness = i * 0.2;
         

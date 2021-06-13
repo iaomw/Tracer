@@ -2,9 +2,8 @@
 #define BVH_h
 
 #include "AABB.hh"
-#include "HitRecord.hh"
 
-enum struct ShapeType {
+enum struct PrimitiveType {
     Sphere, Square, Cube, Triangle, BVH, UNKNOW
 };
 
@@ -15,9 +14,10 @@ struct BucketInfo {
 
 struct BVH {
     uint parent=0, left=0, right=0; // index in BVH array
-    uint shapeIndex = 0;
+    uint axis = 0;
     
-    ShapeType shape = ShapeType::UNKNOW;
+    PrimitiveType pType = PrimitiveType::UNKNOW;
+    uint pIndex = 0;
     
     AABB boundingBOX;
     
@@ -42,7 +42,7 @@ struct BVH {
             return box_compare(node_a.boundingBOX, node_b.boundingBOX, axis);
         };
         
-        __block uint left, right;
+        uint left, right, dim=0;
         uint span = end - start;
         
         if (1 == span) {
@@ -60,7 +60,7 @@ struct BVH {
             let centroid_b = bvh_list[index_b].boundingBOX.centroid();
             
             let cbox = AABB::make(centroid_a, centroid_b);
-            auto dim = cbox.maximumExtent();
+            dim = cbox.maximumExtent();
             
             if (comparator(index_a, index_a, dim)) {
                 left = index_a;
@@ -80,12 +80,10 @@ struct BVH {
                 cbox = AABB::make(cbox, i_centroid);
             }
             
-            auto dim = cbox.maximumExtent();
+            dim = cbox.maximumExtent();
             
             const uint nBuckets = 10;
             BucketInfo buckets[nBuckets];
-            
-            //let queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0);
             
             auto prepareBucket = [&](const size_t i) -> void {
                 
@@ -134,30 +132,24 @@ struct BVH {
                 }
             }
             
-            //float leafCost = span;
-            //uint maxPrimiUnderNode = 255;
-            //if (span > maxPrimiUnderNode || minCost < leafCost) {}
+            auto pmid = std::partition(
+                            index_list.begin()+start,
+                            index_list.begin()+end,
+                                       
+                   [&](const uint index) {
+                
+                auto& primi = bvh_list[index];
+                auto centroid = primi.boundingBOX.centroid();
             
-            __block uint mid;
-            //dispatch_sync(squeue, ^{
-                auto pmid = std::partition(
-                                index_list.begin()+start,
-                                index_list.begin()+end,
-                                           
-                       [&](const uint index) {
-                    
-                    auto& primi = bvh_list[index];
-                    auto centroid = primi.boundingBOX.centroid();
+                uint b = nBuckets * cbox.relative(centroid)[dim];
+                b = std::min(b, nBuckets - 1);
                 
-                    uint b = nBuckets * cbox.relative(centroid)[dim];
-                    b = std::min(b, nBuckets - 1);
-                    
-                    return b <= minCostSplitBucket;
-                       
-                });
-                
-                mid = (uint)(pmid - index_list.begin());
-            //});
+                return b <= minCostSplitBucket;
+                   
+            });
+            
+            auto mid = (uint)(pmid - index_list.begin());
+            //mid = std::distance(index_list.begin(), pmid);
                 
             if (mid <= start || mid >= end) {
                 
@@ -177,13 +169,15 @@ struct BVH {
             
             BVH newBVH;
             
+            newBVH.axis = dim;
+            
             newBVH.left = left + 1;
             newBVH.right = right + 1;
             
             bvh_list[left].parent = (uint32_t)bvh_list.size()+1;
             bvh_list[right].parent = (uint32_t)bvh_list.size()+1;
             
-            newBVH.shape = ShapeType::BVH;
+            newBVH.pType = PrimitiveType::BVH;
             
             auto& leftBOX = bvh_list[left].boundingBOX;
             auto& rightBOX = bvh_list[right].boundingBOX;
@@ -225,7 +219,7 @@ struct BVH {
     }
     
     static inline void buildNode(const AABB& box, const float4x4& model_matrix,
-                                 ShapeType shapeType, uint shapeIndex,
+                                 PrimitiveType pType, uint pIndex,
                                  std::vector<BVH>& bvh_list)
     {
         
@@ -258,8 +252,8 @@ struct BVH {
         newBVH.left = 0;
         newBVH.right = 0;
         
-        newBVH.shape = shapeType;
-        newBVH.shapeIndex = shapeIndex;
+        newBVH.pType = pType;
+        newBVH.pIndex = pIndex;
         
         AABB newBOX;
         
