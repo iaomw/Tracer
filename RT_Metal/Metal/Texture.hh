@@ -25,7 +25,6 @@ struct TextureInfo {
                 
 //                auto sample = texture->sample(textureSampler, uv);
 //                auto result = dot(sample.rgb, {0.299, 0.587, 0.114});
-//
 //                return float3(result);
                 
                 auto sines = sin( 8 * M_PI_F * uv.x) * cos(M_PI_F/2 + 4 * M_PI_F * uv.y);

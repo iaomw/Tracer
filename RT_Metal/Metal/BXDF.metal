@@ -5,7 +5,7 @@ float FrDielectric(float cosi, float eta) {
     //<<Potentially swap indices of refraction>>
        bool entering = cosi > 0.f;
        if (!entering) {
-           eta = 1/eta;
+           eta = 1 / eta;
            cosi = -cosi;
        }
 

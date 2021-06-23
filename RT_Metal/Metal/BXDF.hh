@@ -33,7 +33,6 @@ inline float Sin2Theta(const thread float3 &w) { return max(0.0, 1.0 - Cos2Theta
 inline float SinTheta(const thread float3 &w) { return sqrt(Sin2Theta(w)); }
 
 //inline float TanTheta(const thread float3 &w) { return SinTheta(w) / CosTheta(w); }
-
 //inline float Tan2Theta(const thread float3 &w) { return Sin2Theta(w) / Cos2Theta(w); }
 
 inline float TanTheta(const thread float3& vec)
@@ -48,7 +47,7 @@ inline float Tan2Theta(const thread float3& vec)
 {
     float zz = vec.z * vec.z;
     float temp = 1 - zz;
-    if (temp <= 0.0f)
+    if (temp <= 0.0f || zz == 0.0f)
         return 0.0f;
     return temp / zz;
 }
@@ -339,7 +338,7 @@ struct SpecularReflection {
         
         wi = float3(-wo.x, -wo.y, wo.z); pdf = 1;
         
-        return fr.Evaluate( wi.z) / abs(wi.z);
+        return fr.Evaluate(wi.z) / abs(wi.z);
     }
 };
 
@@ -367,7 +366,7 @@ struct SpecularTransmission {
     
     SpecularTransmission(const thread FrType& fr): fr(fr) {}
     
-    float3 f(const thread float3 &wo, const thread float3 &wi) { return float3(0); }
+    float3 f(const thread float3 &wo, const thread float3 &wi) { return 0; }
     
     float pdf(const thread float3 &wo, const thread float3 &wi) { return 0; }
     
@@ -377,14 +376,17 @@ struct SpecularTransmission {
         
         //<<Figure out which  is incident and which is transmitted>>
         bool entering = wo.z > 0;
-        float etaI = entering ? fr.etaI : fr.etaT;
-        float etaT = entering ? fr.etaT : fr.etaI;
+
+        //if (!entering) { eta = 1.0/ eta; }
         
-        auto n = float3(0, 0, 1) * wo.z / abs(wo.z); // forward normal
+        float etaI = entering ? 1.0 : fr.eta;
+        float etaT = entering ? fr.eta : 1.0;
+        
+        auto n = float3(0, 0, 1);// * wo.z / abs(wo.z); // forward normal
         
         //<<Compute ray direction for specular transmission>>
-           if (!Refract(wo, n, etaI / etaT, wi))
-               return 0;
+       if (!Refract(wo, n, etaI / etaT, wi))
+           return 0;
 
         pdf = 1;
         
@@ -397,10 +399,23 @@ struct SpecularTransmission {
     }
 };
 
+struct Lambertian {
+    
+    float sample_f() {
+        //wi = CosineSampleHemisphere;
+        //pdf = PDF()
+    }
+    
+    float PDF(const thread float3& wo, const thread float3& wi) {
+        return wo.z * wi.z > 0 ? abs(wi.z) / M_PI_F : 0;
+    }
+};
+
 struct OrenNayar {
-    float A, B;
     
     BXDF_Type bxType = BXDF_Type(BSDF_TRANSMISSION | BSDF_DIFFUSE);
+    
+    float A, B;
     
     OrenNayar(float sigma) {
         //Radians(sigma);
@@ -437,6 +452,7 @@ struct OrenNayar {
 };
 
 float FrDielectric(float cosi, float eta);
+float FrDielectric(float cosi, float etaI, float etaT);
 float FrConductor(float cosi, float eta, const float k);
 //inline float FrComplex(float cosi, float eta);
 
@@ -444,28 +460,27 @@ class FresnelConductor {
   public:
     // FresnelConductor Public Methods
     float3 Evaluate(float cosThetaI) const {
-        auto eta = etaI / etaT; // need test later
         return FrConductor(abs(cosThetaI), eta, k);
     }
     
-    FresnelConductor(const float etaI, const float etaT, const float k)
-        : etaI(etaI), etaT(etaT), k(k) {}
+    FresnelConductor(const float eta, const float k)
+        : eta(eta), k(k) {}
     
   //private:
-    float etaI, etaT, k;
+    float eta, k;
 };
 
 class FresnelDielectric {
   public:
     // FresnelDielectric Public Methods
     float3 Evaluate(float cosThetaI) const {
-        return FrDielectric(cosThetaI, etaI/etaT);
+        return FrDielectric(cosThetaI, eta);
     }
     
-    FresnelDielectric(float etaI, float etaT) : etaI(etaI), etaT(etaT) {}
+    FresnelDielectric(float eta) : eta(eta) {}
 
   //private:
-    float etaI, etaT;
+    float eta;
 };
 
 

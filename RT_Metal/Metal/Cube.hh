@@ -28,7 +28,7 @@ struct Cube {
         hitRecord.p = ray.pointAt(hitRecord.t);
         
         hitRecord.checkFace(testRay);
-        auto normal = float4(hitRecord.normal(), 0.0);
+        auto normal = float4(hitRecord.sn(), 0.0);
         hitRecord.n = normalize((normal_matrix * normal).xyz);
         
         range_t.y = hitRecord.t;

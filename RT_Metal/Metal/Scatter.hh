@@ -119,13 +119,13 @@ bool scatter(thread Ray& ray,
              
              constant PackagePBR& packPBR)
 {
-    auto normal = hitRecord.normal();
+    auto normal = hitRecord.sn();
     auto materialID = hitRecord.material;
     constant auto& material = materials[materialID];
     
     switch(material.type) {
             
-        case MaterialType::Diffuse: { return false; }
+        //case MaterialType::Diffuse: { return false; }
             
         case MaterialType::Lambert: {
 
@@ -147,7 +147,7 @@ bool scatter(thread Ray& ray,
 
             float3 wi = { x, y, z };
             auto direction = stw * wi;
-            ray = Ray(hitRecord.p, direction);
+            ray = Ray(hitRecord.p + hitRecord.sn() * 0.001 , direction);
             
             float3 wo = transpose(stw) * (-ray.direction);
             
@@ -155,7 +155,7 @@ bool scatter(thread Ray& ray,
             
             auto on = OrenNayar(attenuation.r);
             
-            scatRecord.attenuation = attenuation * on.f(wo, wi);
+            scatRecord.attenuation = attenuation / M_PI_F; //* on.f(wo, wi);
             
             return true;
         }
@@ -182,13 +182,15 @@ bool scatter(thread Ray& ray,
             float y = sinTheta * sin(phi);
             float z = cosTheta;
 
-            float3 wi = { x, y, z };
+            float3 wi;// = { x, y, z };
             
             
-            //auto fr = FresnelDielectric(1.0, 1.8);
-            auto fr = FresnelConductor(1.0, 1.8, 0.5);
-            auto dist = TrowbridgeReitzDistribution(0.01, 0.01);
-            auto sr = ConductorBXDF<TrowbridgeReitzDistribution, FresnelConductor>(dist, fr);
+            //auto fr = FresnelDielectric(1.2);
+            auto fr = FresnelConductor(1.5, 0.1);
+            
+            auto st = SpecularReflection<FresnelConductor>(fr);
+            //auto dist = TrowbridgeReitzDistribution(0.01, 0.01);
+            //auto sr = ConductorBXDF<TrowbridgeReitzDistribution, FresnelConductor>(dist, fr);
             
             //auto bxdf_data = BXDF_Data(BXDF_Type(BSDF_REFLECTION | BSDF_SPECULAR), 1.0);
             //auto bx = BXDF_Wrapped<MicrofacetDistribution<TrowbridgeReitzDistribution, FresnelDielectric>> (bxdf_data, sr);
@@ -196,20 +198,20 @@ bool scatter(thread Ray& ray,
             //auto intense = bx.f(wo, wi);
             //auto pd = sr.PDF(wo, wi);
             
-            auto direction = stw * wi;
-            ray = Ray(hitRecord.p, direction);
-            
             //auto wm = normalize(wo + wi);
             
             float2 uu = {r0, r1};
             
-            auto rr = sr.sample_f(wo, wi, &uu, pdf, nullptr);
+            auto rr = st.sample_f(wo, wi, &uu, pdf, nullptr);
             
-            scatRecord.attenuation = rr /pdf;//100 * dist.D(wi, wm) * dist.G(wo, wi) / (4 * wo.z * wi.z);
+            auto direction = stw * wi;
+            ray = Ray(hitRecord.p + hitRecord.sn() * 0.001, direction);
+            
+            scatRecord.attenuation = rr;//100 * dist.D(wi, wm) * dist.G(wo, wi) / (4 * wo.z * wi.z);
             
             return true;
         }
-//
+
 //        case MaterialType::Metal: {
 //
 //            auto fuzz = 0.01 * xsampler.sampleUnitInSphere();

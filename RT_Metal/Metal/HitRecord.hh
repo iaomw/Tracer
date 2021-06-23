@@ -12,11 +12,11 @@ struct HitRecord {
     
     bool f;
     packed_float3 n;
+    
     float2 uv;
-        
     uint material;
     
-    float3 normal() {
+    float3 sn() {
         return f? n:-n;
     }
     

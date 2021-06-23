@@ -1,5 +1,4 @@
 #include "Render.hh"
-#include "Random.hh"
 #include "Scatter.hh"
 
 typedef enum  {
@@ -145,7 +144,7 @@ fragmentShader( RasterizerData input [[stage_in]],
 }
 
 template <typename XSampler>
-float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
+Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                 
                 constant PackageEnv& packageEnv,
                 constant PackagePBR& packagePBR,
@@ -155,133 +154,21 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
     HitRecord hitRecord;
     ScatRecord scatRecord;
     
-    float3 color = float3(0.0);
-    float3 ratio = float3(1.0);
+    Spectrum ratio = Spectrum(1.0);
     
-    float2 range_t;
-
+    Scene scene { primitives };
+    
+//    bool edge_hitted = false;
+    
+//    // Primary ray
+//    if ( edge_hitted ) { return float3(10); }
+    
     do { // each ray
-            
-        uint the_index = 0;
-        uint tested_index = UINT_MAX;
         
-        uint32_t stack_mark = 0;
-        uint32_t stack_level = 0;
+        bool hitted = scene.hit(ray, hitRecord, nullptr);
         
-        range_t = float2(0.001, INFINITY);
-        
-        if ( primitives.bvhList[the_index].boundingBOX.hit(ray, range_t) ) {
-
-            do { // travel in bvh
-                
-                uint selected_index = UINT_MAX;
-                
-                uint left_index = primitives.bvhList[the_index].left;
-                uint right_index = primitives.bvhList[the_index].right;
-                uint parent_index = primitives.bvhList[the_index].parent;
-                
-                
-                {
-//                    auto center = (bvh_list[the_index].boundingBOX.maxi + bvh_list[the_index].boundingBOX.mini) / 2;
-//                    auto half_diagonal = (bvh_list[the_index].boundingBOX.maxi - bvh_list[the_index].boundingBOX.mini) / 2;
-//
-//                    auto p = ray.pointAt(ttt);
-//                    auto delta = abs(p - center);
-//
-//                    int cheker = 0;
-//                    for (int i=0; i<3; i++) {
-//                        if (abs(delta[i] - half_diagonal[i]) * 0.1 < 0.2 * 1 ) {
-//                            cheker+=1;
-//                            if (cheker == 2) { return float3(0, 1, 0);}
-//                        }
-//                    }
-//
-                }
-                
-                if (tested_index != left_index && tested_index != right_index) {
-                    
-                    float t_left = FLT_MAX, t_right = FLT_MAX;
-                    
-                    bool left_test = primitives.bvhList[left_index].boundingBOX.hit_get_t(ray, range_t, t_left);
-                    bool right_test = primitives.bvhList[right_index].boundingBOX.hit_get_t(ray, range_t, t_right);
-                    
-                    if (!left_test && !right_test) {
-                        
-                        tested_index = the_index;
-                        the_index = parent_index;
-                        stack_level -= 1; // pop stack
-                        
-                        continue;
-                    }
-                    
-                    selected_index = (t_left < t_right)? left_index : right_index;
-                    
-                    bool needTestAnother = (left_test) && (right_test);
-                    if (needTestAnother) { stack_mark |= 1U << stack_level; }
-                    
-                } // came from parent
-                
-                else { // came back child
-                    
-                    uint needCheckChild = (stack_mark >> stack_level) & 1U;
-                    // don't need check child in case of go back;
-                    stack_mark &= ~(1U << stack_level);
-                    
-                    if (0 == needCheckChild) { // go up
-                        
-                        tested_index = the_index;
-                        the_index = parent_index;
-                        stack_level -= 1; // pop stack
-                        
-                        continue;
-                    }
-                    
-                    if (tested_index == left_index) {
-                        selected_index = right_index;
-                    } else {
-                        selected_index = left_index;
-                    }
-                }
-                
-                auto pIndex = primitives.bvhList[selected_index].pIndex;
-                
-                switch(primitives.bvhList[selected_index].pType) {
-                        
-                    case PrimitiveType::BVH: { // Should already tested before reaching this step
-                         
-                        the_index = selected_index;
-                        stack_level += 1;
-                        continue;
-                    }
-                    case PrimitiveType::Sphere: {
-                        primitives.sphereList[pIndex].hit_test(ray, range_t, hitRecord); break;
-                    }
-                    case PrimitiveType::Square: {
-                        primitives.squareList[pIndex].hit_test(ray, range_t, hitRecord); break;
-                    }
-                    case PrimitiveType::Cube: {
-                        primitives.cubeList[pIndex].hit_test(ray, range_t, hitRecord); break;
-                    }
-                    case  PrimitiveType::Triangle: {
-                        auto index_r = pIndex * 3;
-                        auto index_a = primitives.idxList[index_r];
-                        auto index_b = primitives.idxList[index_r + 1];
-                        auto index_c = primitives.idxList[index_r + 2];
-                        
-                        uint3 abc {index_a, index_b, index_c};
-                        auto tri = Triangle(primitives.triList, abc);
-                        tri.hit_test(ray, range_t, hitRecord); break;
-                    }
-                    default: { return float3(0); }
-                } // switch
-                
-                tested_index = selected_index;
-                
-            } while (tested_index != 0);
-        }
-
-        if ( isinf(range_t.y ) ) {
-            float3 sphereVector = ray.origin + 1000000 * ray.direction;
+        if ( !hitted ) {
+            float3 sphereVector = ray.direction; //ray.origin + 1000000 * ray.direction;
             float2 uv = SampleSphericalMap(normalize(sphereVector));
             auto ambient = packageEnv.texHDR.sample(textureSampler, uv);
             return ratio * ambient.rgb;
@@ -289,28 +176,60 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         
         float3 emit_color;
         if ( emit(hitRecord, emit_color, packageEnv.materials) ) {
-            return ratio * emit_color;
+            return ratio * emit_color * dot(-ray.direction, hitRecord.sn());
         }
         
-        if ( !scatter(ray, xsampler, hitRecord, scatRecord, packageEnv.materials, packagePBR) ) {
-            //return float3(1, 0, 1);
-            return float3(0);
-        }
+        float rrr = 0.7;
         
-        ratio *= scatRecord.attenuation;
+        if (xsampler.random() < rrr) {
+            
+            LightSampleRecord lsr;
+            float2 uu = xsampler.sample2D();
+            
+            auto origin = hitRecord.p + hitRecord.sn();
+            
+            primitives.squareList[5].sample(uu, origin, lsr);
+
+            auto dir = lsr.p - origin;
+            auto nor = normalize(dir);
+            
+            auto xray = Ray(origin, dir); HitRecord shr;
+
+            scene.hit(xray, shr, nullptr);
+                
+            if( packageEnv.materials[shr.material].type == MaterialType::Diffuse
+                && packageEnv.materials[hitRecord.material].type != MaterialType::Specular )
+            {
+            
+                ratio *= packageEnv.materials[hitRecord.material].textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+                
+                auto light_color = packageEnv.materials[shr.material].textureInfo.albedo;
+                ratio *= light_color * dot(hitRecord.sn(), nor) * dot(lsr.n, -nor) / rrr;
+                
+                auto dist = distance(lsr.p, origin);
+                
+                ratio *= primitives.squareList[5].area() / (dist * dist) ;
+                
+                return ratio;
+                
+            } else { ratio /= rrr; }
+            
+        } else { ratio /= 1-rrr; }
+        
+        if ( !scatter(ray, xsampler, hitRecord, scatRecord, packageEnv.materials, packagePBR) ) { break; }
+            
+            ratio *= scatRecord.attenuation;
         
         { // Russian Roulette
-            float p = max3(ratio.r, ratio.g, ratio.b);
-            //thread auto& rng = xsampler.rng;
-            if (xsampler.random() > p)
-                break;
+            float p = max3(ratio[0], ratio[1], ratio[2]);
+            if (xsampler.random() > p) break;
             // Add the energy we 'lose' by randomly terminating paths
             ratio *= 1.0f / p;
         }
         
     } while( (--depth) > 0 );
     
-    return color;
+    return 0;
 }
 
 kernel void
@@ -349,12 +268,18 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
     auto ray = castRay(camera, u, v, &rs);
     
     //uint2 vsize = { inTexture.get_width(), inTexture.get_height()};
-    //auto ss = pbrt::SobolSampler(rng, frame_count, thread_pos, vsize);
+    //auto ss = pbrt::SobolSampler(rng, frame, thread_pos, vsize);
     
-    color = traceBVH(32, ray, rs,
+    color = traceBVH(16, ray, rs,
                         packageEnv,
                         packagePBR[1],
                         primitives);
+    
+    auto bad = isinf(color) || isnan(color);
+    
+    if( bad[0] || bad[1] || bad[2]) {
+        color = float3(0);
+    }
     
     float3 cached_color = float3( inTexture.read( thread_pos ).rgb );
     

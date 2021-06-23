@@ -5,8 +5,6 @@
 
         #define metal_constant constant
 
-        #include "Geo.hh"
-
         #include <metal_stdlib>
         using namespace metal;
 
@@ -18,7 +16,7 @@
         #define var __auto_type
 
         #define metal_constant const
-        #define thread /* thread */
+        //#define thread /* thread */
 
         #include <MetalKit/MetalKit.h>
         #include <simd/simd.h>

@@ -340,8 +340,8 @@ typedef struct
 //                    BVH::buildNode(cube.boundingBOX, cube.model_matrix, ShapeType::Cube, i, bvh_list);
 //                }
 
-        for (int i=4; i<5; i++) {
-        //for (int i=0; i<cornell_box.size(); i++) {
+        //for (int i=4; i<6; i++) {
+        for (int i=0; i<cornell_box.size(); i++) {
             auto& square = cornell_box[i];
             BVH::buildNode(square.boundingBOX, square.model_matrix, PrimitiveType::Square, i, bvh_list);
         }
@@ -374,6 +374,7 @@ typedef struct
         let testAsset = [[MDLAsset alloc] initWithURL: modelURL
                                      vertexDescriptor: modelIOVertexDescriptor
                                       bufferAllocator: allocator]; // preserveTopology: NO
+        
         let testMesh = (MDLMesh *) [testAsset objectAtIndex:0];
         [testMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0];
         //let voxelArray = [[MDLVoxelArray alloc] initWithAsset:testAsset divisions:1 patchRadius:0.2];
@@ -388,7 +389,7 @@ typedef struct
             let maxAxis = meshBox.maximumExtent();
             let maxDime = meshBox.diagonal()[maxAxis];
             
-            auto meshScale = 400.0 / maxDime;
+            auto meshScale = 500.0 / maxDime;
             auto meshOffset = float3(278)-centroid;
             meshOffset.y = 20 - minB.y * meshScale;
         
@@ -466,14 +467,12 @@ typedef struct
                                                   options: CommonStorageMode]; free(totalIndexData);
                 
                 _tri_buffer = [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
-                                                    length: testMesh.vertexBuffers.firstObject.length
-                                                   options: CommonStorageMode];
+                                                   length: testMesh.vertexBuffers.firstObject.length
+                                                  options: CommonStorageMode];
                 
                 _bvh_buffer = [_device newBufferWithBytes: bvh_list.data()
                                                    length: sizeof(struct BVH)*bvh_list.size()
                                                   options: CommonStorageMode];
-        
-        
         
         _vectorBufferAll = { _cube_list_buffer, _square_list_buffer, _sphere_list_buffer,
                                 _bvh_buffer, _idx_buffer, _tri_buffer, _material_buffer };

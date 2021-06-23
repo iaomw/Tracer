@@ -20,7 +20,10 @@ This is simply a repository for my **Ray Tracing** code.
 - [ ] [**Physically Based Rendering** __*third edition*__](http://www.pbr-book.org/)
     - [x] Sobol’ Sampler
     - [x] ***BVH*** Surface Area Heuristic
+    - [x] Oren-Nayar Diffuse
+    - [x] TrowbridgeReitz Distribution
     - [ ] Volume Rendering
+    - [ ] Photon Mapping
     - [ ] Metropolis Light Transport
    
 - [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)

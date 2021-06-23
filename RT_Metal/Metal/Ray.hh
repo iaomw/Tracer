@@ -11,6 +11,8 @@ struct Ray {
     //Float time;
     //const Medium *medium;
     
+    float eta = 1.0;
+    
     Ray();
     
     Ray(float3 o, float3 d): origin(o) {
