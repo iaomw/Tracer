@@ -183,7 +183,7 @@ inline void XYZToRGB(const float xyz[3], float rgb[3]) {
     rgb[2] = 0.055648f * xyz[0] - 0.204043f * xyz[1] + 1.057311f * xyz[2];
 }
 
-inline void RGBToXYZ(const float rgb[3], float xyz[3]) {
+inline void RGBToXYZ(const thread float3& rgb, thread float3& xyz) {
     xyz[0] = 0.412453f * rgb[0] + 0.357580f * rgb[1] + 0.180423f * rgb[2];
     xyz[1] = 0.212671f * rgb[0] + 0.715160f * rgb[1] + 0.072169f * rgb[2];
     xyz[2] = 0.019334f * rgb[0] + 0.119193f * rgb[1] + 0.950227f * rgb[2];

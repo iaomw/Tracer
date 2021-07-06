@@ -2,6 +2,7 @@
 #define BXDF_h
 
 #include "Common.hh"
+#include "Sampling.hh"
 
 enum BXDF_Type {
     BSDF_REFLECTION   = 1 << 0,
@@ -107,9 +108,6 @@ struct BXDF_Wrapped {
     float PDF(const thread float3 &wo, const thread float3 &wi) const {
         return bx.PDF(wi, wo);
     }
-    
-    float3 rho(const thread float3 &wo, int nSamples, const thread float2 *samples) const;
-    float3 rho(int nSamples, const thread float2 *samples1, const thread float2 *samples2) const;
 };
 
 template <typename TypeDist, typename TypeFr>
@@ -401,9 +399,11 @@ struct SpecularTransmission {
 
 struct Lambertian {
     
-    float sample_f() {
-        //wi = CosineSampleHemisphere;
-        //pdf = PDF()
+    float sample_f(const thread float3& wo, thread float3& wi, const thread float2& uu, thread float& pdf) {
+        wi = CosineSampleHemisphere(uu);
+        pdf = PDF(wo, wi);
+        
+        return wi.z / M_PI_F;
     }
     
     float PDF(const thread float3& wo, const thread float3& wi) {

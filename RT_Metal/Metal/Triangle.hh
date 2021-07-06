@@ -4,10 +4,8 @@
 #include "Common.hh"
 
 #include "Ray.hh"
-
 #include "Sampling.hh"
 #include "HitRecord.hh"
-
 
 constant float kEpsilon = FLT_EPSILON; //1e-8;
 
@@ -80,10 +78,10 @@ struct Triangle {
         hitRecord.n = u * _b->n + v * _c->n + w * _a->n;
         hitRecord.uv = u * _b->uv + v * _c->uv + w * _a->uv;
         
-        hitRecord.p += hitRecord.n * 0.001;
-        
         hitRecord.checkFace(ray);
         hitRecord.material = 19;
+        
+        //hitRecord.p += hitRecord.sn * 0.001;
          
         return true;
     }
@@ -96,9 +94,9 @@ struct Triangle {
         return 0.5 * length( cross(p1 - p0, p2 - p0) );
     }
     
-    void sample(const thread float2& u, thread float* pdf) {
+    void sample(const thread float2& uu, thread LightSampleRecord& lsr) {
         
-        float2 b = UniformSampleTriangle(u);
+        float2 b = UniformSampleTriangle(uu);
         
         // Get triangle vertices in _p0_, _p1_, and _p2_
         constant auto &p0 = _a->v;
@@ -122,7 +120,11 @@ struct Triangle {
         // Compute error bounds for sampled point on triangle
         //float3 pAbsSum = abs(b[0] * p0) + abs(b[1] * p1) + abs((1 - b[0] - b[1]) * p2);
         //it.pError = gamma(6) * Vector3f(pAbsSum.x, pAbsSum.y, pAbsSum.z);
-        *pdf = 1 / area();
+        
+        lsr.p = p;
+        lsr.n = n;
+        
+        lsr.areaPDF = 1 / area();
         
         return;
     }

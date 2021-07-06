@@ -119,7 +119,7 @@ bool scatter(thread Ray& ray,
              
              constant PackagePBR& packPBR)
 {
-    auto normal = hitRecord.sn();
+    auto normal = hitRecord.sn;
     auto materialID = hitRecord.material;
     constant auto& material = materials[materialID];
     
@@ -147,7 +147,7 @@ bool scatter(thread Ray& ray,
 
             float3 wi = { x, y, z };
             auto direction = stw * wi;
-            ray = Ray(hitRecord.p + hitRecord.sn() * 0.001 , direction);
+            ray = Ray(hitRecord.p + hitRecord.sn * 0.001 , direction);
             
             float3 wo = transpose(stw) * (-ray.direction);
             
@@ -156,6 +156,8 @@ bool scatter(thread Ray& ray,
             auto on = OrenNayar(attenuation.r);
             
             scatRecord.attenuation = attenuation / M_PI_F; //* on.f(wo, wi);
+            
+            scatRecord.bxPDF = abs(wi.z) / M_PI_F;
             
             return true;
         }
@@ -205,7 +207,7 @@ bool scatter(thread Ray& ray,
             auto rr = st.sample_f(wo, wi, &uu, pdf, nullptr);
             
             auto direction = stw * wi;
-            ray = Ray(hitRecord.p + hitRecord.sn() * 0.001, direction);
+            ray = Ray(hitRecord.p + hitRecord.sn * 0.001, direction);
             
             scatRecord.attenuation = rr;//100 * dist.D(wi, wm) * dist.G(wo, wi) / (4 * wo.z * wi.z);
             
@@ -352,7 +354,7 @@ bool scatter(thread Ray& ray,
             return true;
         }
             
-        case MaterialType::Specular: {
+        case MaterialType::Demofox: {
             
             float rayProbability = 1.0f;
             auto throughput = float3(1.0);

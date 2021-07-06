@@ -22,16 +22,14 @@ struct Square {
     
 #ifdef __METAL_VERSION__
     
-    #include "Sampling.hh"
-    
     float area() constant {
         auto i = range_i[1] - range_i[0];
         auto j = range_j[1] - range_j[0];
         
-        return i * j;
+        return 2 * i * j;
     }
     
-    float pdf() constant { return 1 / area(); }
+    float aeraPDF() constant { return 1 / area(); }
     
     void sample(const thread float2& u, const thread float3& pos, thread LightSampleRecord& lsr) constant {
         
@@ -48,6 +46,8 @@ struct Square {
         if ( dot(w, lsr.n) < 0 ) {
             lsr.n = -lsr.n;
         }
+        
+        lsr.areaPDF = aeraPDF();
     }
     
     bool hit_test(const thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) constant {
@@ -73,6 +73,8 @@ struct Square {
         hitRecord.material = material;
         
         range_t.y = hitRecord.t;
+        
+        hitRecord.PDF = aeraPDF();
         
         return true;
     }

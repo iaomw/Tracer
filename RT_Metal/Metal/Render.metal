@@ -21,19 +21,18 @@ typedef struct {
 
 typedef struct {
     vector_float2 position;
-    vector_float2 textureCoordinate;
+    vector_float2 coordinate;
 } VertexWithUV;
 
-float2 SampleSphericalMap(float3 v)
+inline float2 SampleSphericalMap(float3 v)
 {
     float2 uv = float2(atan2(v.z, v.x), asin(v.y));
     float2 invAtan = float2(0.1591, 0.3183);
-    uv *= invAtan;
-    uv += 0.5;
+    uv *= invAtan; uv += 0.5;
     return uv;
 }
 
-float3 LessThan(float3 f, float value)
+inline float3 LessThan(float3 f, float value)
 {
     return float3(
         (f.x < value) ? 1.0f : 0.0f,
@@ -41,7 +40,7 @@ float3 LessThan(float3 f, float value)
         (f.z < value) ? 1.0f : 0.0f);
 }
  
-float3 LinearToSRGB(float3 rgb)
+inline float3 LinearToSRGB(float3 rgb)
 {
     rgb = clamp(rgb, 0.0f, 1.0f);
     return mix(
@@ -51,7 +50,7 @@ float3 LinearToSRGB(float3 rgb)
     );
 }
  
-float3 SRGBToLinear(float3 rgb)
+inline float3 SRGBToLinear(float3 rgb)
 {
     rgb = clamp(rgb, 0.0f, 1.0f);
     return mix(
@@ -61,7 +60,7 @@ float3 SRGBToLinear(float3 rgb)
     );
 }
 
-float3 ACESTone(float3 color, float adapted_lum)
+inline float3 ACESTone(float3 color, float adapted_lum)
 {
     const float A = 2.51f;
     const float B = 0.03f;
@@ -73,12 +72,12 @@ float3 ACESTone(float3 color, float adapted_lum)
     return (color * (A * color + B)) / (color * (C * color + D) + E);
 }
 
-float3 CETone(float3 color, float adapted_lum)
+inline float3 CETone(float3 color, float adapted_lum)
 {
     return 1 - exp(-adapted_lum * color);
 }
 
-float CETone(float color, float adapted_lum)
+inline float CETone(float color, float adapted_lum)
 {
     return 1 - exp(-adapted_lum * color);
 }
@@ -94,7 +93,7 @@ vertexShader(uint     vertexID                  [[vertex_id]],
     out.position.xy = world_pos;
     out.position.zw = float2(0, 1);
     
-    out.texCoord = vertexArray[vertexID].textureCoordinate;
+    out.texCoord = vertexArray[vertexID].coordinate;
     
     return out;
 }
@@ -146,82 +145,124 @@ fragmentShader( RasterizerData input [[stage_in]],
 template <typename XSampler>
 Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                 
-                constant PackageEnv& packageEnv,
-                constant PackagePBR& packagePBR,
-                
-                constant Primitive&  primitives)
+                    constant PackageEnv& packageEnv,
+                    constant PackagePBR& packagePBR,
+
+                    constant Primitive&  primitives)
 {
     HitRecord hitRecord;
     ScatRecord scatRecord;
     
     Spectrum ratio = Spectrum(1.0);
+    Spectrum color = Spectrum(0.0);
     
     Scene scene { primitives };
     
 //    bool edge_hitted = false;
-    
-//    // Primary ray
 //    if ( edge_hitted ) { return float3(10); }
     
-    do { // each ray
+    bool hitted = scene.hit(ray, hitRecord, nullptr);
+     
+    if ( hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
         
-        bool hitted = scene.hit(ray, hitRecord, nullptr);
+        auto le = packageEnv.materials[hitRecord.material].textureInfo.albedo;
+        
+        auto w = dot(-ray.direction, -hitRecord.n);
+        return  le * abs(w);
+    }
+    
+    do { // each ray
         
         if ( !hitted ) {
             float3 sphereVector = ray.direction; //ray.origin + 1000000 * ray.direction;
             float2 uv = SampleSphericalMap(normalize(sphereVector));
             auto ambient = packageEnv.texHDR.sample(textureSampler, uv);
-            return ratio * ambient.rgb;
+            color += ratio * ambient.rgb; break;
         }
         
-        float3 emit_color;
-        if ( emit(hitRecord, emit_color, packageEnv.materials) ) {
-            return ratio * emit_color * dot(-ray.direction, hitRecord.sn());
-        }
+//        float3 emit_color;
+//        if ( emit(hitRecord, emit_color, packageEnv.materials) ) {
+//            auto w = dot(-ray.direction, -hitRecord.n);
+//            //if (depth == 16 && w > 0) {
+//            color += ratio * emit_color * abs(w); break;
+//        }
         
-        float rrr = 0.7;
+        LightSampleRecord lsr;
+        float2 uu = xsampler.sample2D();
         
-        if (xsampler.random() < rrr) {
-            
-            LightSampleRecord lsr;
-            float2 uu = xsampler.sample2D();
-            
-            auto origin = hitRecord.p + hitRecord.sn();
-            
+        auto origin = hitRecord.p + hitRecord.sn * 0.0001;
+        
+        auto iii = 0;
+        if (xsampler.random() < 0.5) { iii = 5;
             primitives.squareList[5].sample(uu, origin, lsr);
+        } else { iii = 6;
+            primitives.squareList[6].sample(uu, origin, lsr);
+        }
 
-            auto dir = lsr.p - origin;
-            auto nor = normalize(dir);
-            
-            auto xray = Ray(origin, dir); HitRecord shr;
+        auto dir = lsr.p - origin;
+        auto nor = normalize(dir);
+        
+        //if (lsr.n.y >0 ) { return 0; }
+        
+        auto xray = Ray(origin, nor); HitRecord shr;
 
-            scene.hit(xray, shr, nullptr);
-                
-            if( packageEnv.materials[shr.material].type == MaterialType::Diffuse
-                && packageEnv.materials[hitRecord.material].type != MaterialType::Specular )
-            {
+        auto blocked = scene.block(xray, shr, length(dir));
             
-                ratio *= packageEnv.materials[hitRecord.material].textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
-                
-                auto light_color = packageEnv.materials[shr.material].textureInfo.albedo;
-                ratio *= light_color * dot(hitRecord.sn(), nor) * dot(lsr.n, -nor) / rrr;
-                
-                auto dist = distance(lsr.p, origin);
-                
-                ratio *= primitives.squareList[5].area() / (dist * dist) ;
-                
-                return ratio;
-                
-            } else { ratio /= rrr; }
+        if( !blocked ) {    // packageEnv.materials[hitRecord.material].type != MaterialType::Specular
             
-        } else { ratio /= 1-rrr; }
+            float3 weight = packageEnv.materials[hitRecord.material].textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+            
+            auto cosOnObject = dot(hitRecord.sn, nor);
+            auto cosOnLight = dot(lsr.n, -nor);
+            
+            auto Li = packageEnv.materials[shr.material].textureInfo.albedo;
+            weight *= Li * cosOnObject * cosOnLight;
+            
+            auto scatterPDF = cosOnObject / M_PI_F;
+            
+            auto dist2 = distance_squared(lsr.p, origin);
+            auto lightPDF = dist2 * lsr.areaPDF / cosOnLight;
+            
+            weight *= PowerHeuristic(1, lightPDF, 1, scatterPDF);
+            
+            color += ratio * weight / (lightPDF);
+        }
+        
+        auto sn = hitRecord.sn;
         
         if ( !scatter(ray, xsampler, hitRecord, scatRecord, packageEnv.materials, packagePBR) ) { break; }
+        
+        auto cosOnObject = dot(ray.direction, sn);
+        
+        hitted = scene.hit(ray, hitRecord, nullptr);
+        
+        if (hitted) {
             
-            ratio *= scatRecord.attenuation;
+            if (packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
+                
+                auto Li = packageEnv.materials[hitRecord.material].textureInfo.albedo;
+                
+                auto cosLight = dot(-ray.direction, hitRecord.sn);
+                
+                auto weight = scatRecord.attenuation * Li * cosLight * cosOnObject;
+                
+                auto dist2 = distance_squared(hitRecord.p, ray.origin);
+                
+                auto lightPDF =  hitRecord.PDF * dist2 / cosLight;
+                
+                weight *= PowerHeuristic(1, scatRecord.bxPDF, 1, abs(lightPDF));
+                
+                color += ratio * abs(weight) / scatRecord.bxPDF;
+                
+                break;
+            }
+        }
+        
+        ratio *= scatRecord.attenuation * cosOnObject / scatRecord.bxPDF;
         
         { // Russian Roulette
-            float p = max3(ratio[0], ratio[1], ratio[2]);
+            float3 xyz; RGBToXYZ(ratio, xyz);
+            float p = xyz.y; //max3(ratio);
             if (xsampler.random() > p) break;
             // Add the energy we 'lose' by randomly terminating paths
             ratio *= 1.0f / p;
@@ -229,7 +270,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         
     } while( (--depth) > 0 );
     
-    return 0;
+    return color;
 }
 
 kernel void

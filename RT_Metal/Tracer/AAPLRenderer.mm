@@ -330,10 +330,10 @@ typedef struct
         
         std::vector<BVH> bvh_list;
         
-        for (int i=1; i<sphere_list.size(); i++) {
-            auto& sphere = sphere_list[i];
-            BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, PrimitiveType::Sphere, i, bvh_list);
-        }
+//        for (int i=1; i<sphere_list.size(); i++) {
+//            auto& sphere = sphere_list[i];
+//            BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, PrimitiveType::Sphere, i, bvh_list);
+//        }
 
 //                for (int i=0; i<cube_list.size()-1; i++) {
 //                    auto& cube = cube_list[i];

@@ -7,27 +7,28 @@
 #ifdef __METAL_VERSION__
 
 struct HitRecord {
+
     float t;
-    packed_float3 p;
-    
+    float3 p;
+
     bool f;
-    packed_float3 n;
-    
+    float3 n;
+    float3 sn;
+   
     float2 uv;
     uint material;
     
-    float3 sn() {
-        return f? n:-n;
-    }
+    float PDF;
     
     void checkFace(const thread Ray& ray) {
-        f = (dot(ray.direction, n) < 0);
+        f = dot(ray.direction, n) < 0;
+        sn = f? n:-n;
     }
 };
 
 struct ScatRecord {
     float3 attenuation;
-    // pdf: PDF
+    float bxPDF = 1.0;
 };
 
 bool emit(thread HitRecord& hitRecord, thread float3& color, constant Material* materials);

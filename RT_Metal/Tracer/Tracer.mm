@@ -129,12 +129,12 @@ Square MakeSquare(uint8_t axis_i, float2 range_i, uint8_t axis_j, float2 range_j
     auto a = float3();
     a[axis_i] = range_i.x;
     a[axis_j] = range_j.x;
-    a[axis_k] = k - 0.000001;
+    a[axis_k] = k - 0.0001;
     
     auto b = float3();
     b[axis_i] = range_i.y;
     b[axis_j] = range_j.y;
-    b[axis_k] = k + 0.000001;
+    b[axis_k] = k + 0.0001;
     
     r.boundingBOX = AABB::make(a, b);
     r.model_matrix = matrix_identity_float4x4;
@@ -244,8 +244,7 @@ void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materia
     auto white_index = (uint32_t)materials.size();
     materials.emplace_back(white);
     
-    auto lightSource = MakeSquare(0, float2{200, 355}, 2, float2{200, 355}, 1, 554);
-    //auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
+    auto lightSource = MakeSquare(0, float2{400, 555}, 2, float2{200, 355}, 1, 550);
     lightSource.material = light_index;
 
     auto right = MakeSquare(1, float2{0, 555}, 2, float2{0, 555}, 0, 800); //flip
@@ -271,6 +270,10 @@ void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materia
     list.emplace_back(bottom);
     
     list.emplace_back(lightSource);
+    
+    auto little = MakeSquare(1, float2{200, 300}, 2, float2{200, 300}, 0, -200);
+    little.material = light_index;
+    list.emplace_back(little);
 }
 
 void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materials) {
@@ -287,7 +290,7 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     sphere.material = glass_index;
     list.emplace_back(sphere);
     
-    Material specu; specu.type = MaterialType::Specular;
+    Material specu; specu.type = MaterialType::Demofox;
     
     specu.textureInfo.albedo = { 0.9, 0.25, 0.25 };
     specu.textureInfo.type = TextureType::Constant;
@@ -312,7 +315,7 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
         list.emplace_back(sphere);
     }
     
-    Material gloss; gloss.type = MaterialType::Specular;
+    Material gloss; gloss.type = MaterialType::Demofox;
     
     gloss.textureInfo.albedo = simd_make_float3(1.0);
     gloss.textureInfo.type = TextureType::Constant;

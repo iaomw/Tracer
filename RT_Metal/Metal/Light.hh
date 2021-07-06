@@ -2,19 +2,10 @@
 #define Light_h
 
 #include "Common.hh"
+
 #include "Ray.hh"
-
-#include "BVH.hh"
-
-#include "Sampling.hh"
-
 #include "Spectrum.hh"
 #include "HitRecord.hh"
-
-
-#ifdef __METAL_VERSION__
-
-#endif
 
 enum class LightFlags : int {
     DeltaPosition = 1,
@@ -28,62 +19,22 @@ inline bool IsDeltaLight(int flags) {
            flags & (int)LightFlags::DeltaDirection;
 }
 
-class VisibilityTester {
-    
-    Spectrum Tr() { // Scene // Sampler
-        return 0;
-    }
-    
-    bool unoccluded() { // Scene
-        return false; // does light blocked
-    }
-    
-    float3 p0, p1;
-};
-
 // Light Declarations
-class Light {
+struct Light {
     
 public:
     
     const PrimitiveType pType;
     const uint32_t pIndex;
     
-    // Light Public Data
     const int flags;
-    const int nSamples;
+    
+    Light(PrimitiveType pt, uint32_t pi, int f):
+        pType(pt), pIndex(pi), flags(f) {}
 
   protected:
     // Light Protected Data
-    const float4x4 LightToWorld, WorldToLight;
-    
-
-    // Light Interface
-    //virtual ~Light();
-    
-#ifdef __METAL_VERSION__
-    
-    Spectrum Sample_Li(const thread HitRecord &ref, const thread float2 &u, thread float3 *wi, thread float *pdf, thread VisibilityTester *vis) const {};
-    
-    Spectrum Power() {}
-    
-    //void Preprocess(const Scene &scene) {}
-    
-    Spectrum Le(const thread Ray &r) const;
-    
-    float Pdf_Li(const thread HitRecord &ref, const thread float3 &wi) const {}
-    
-    Spectrum Sample_Le(const thread float2 &u1, const thread float2 &u2, float time,
-                               thread Ray *ray, thread float3 *nLight, thread float *pdfPos,
-                       thread float *pdfDir) const {}
-    
-    void Pdf_Le(const thread Ray &ray, const thread float3 &nLight, thread float *pdfPos,
-                        thread float *pdfDir) const {}
-    
-#else
-    Light(int flags, const float4x4 &LightToWorld, int nSamples = 1);
-#endif
-
+    float4x4 LightToWorld, WorldToLight;
 };
 
 
@@ -93,40 +44,39 @@ class PointLight {
     float3 p;
     float3 I;
 
-    float3 sample_Li(const thread HitRecord &ref, const thread float2 &u, thread float3 &wi, thread float *pdf, thread VisibilityTester *vis) {
+    float3 Sample_Li(const thread HitRecord &ref, const thread float2 &u, thread float3 &wi, thread float *pdf) {
         //ProfilePhase _(Prof::LightSample);
-        wi = normalize(p - ref.p);
-        *pdf = 1.0;
-        //*vis = VisibilityTester(ref, Interaction(pLight, ref.time, mediumInterface));
         
-        return I / distance(p, ref.p);
+        wi = normalize(p - ref.p); *pdf = 1.0;
+        
+        auto dist = distance(p, ref.p);
+        
+        return I / (dist * dist);
     }
 
-    float3 power() {
+    float3 Power() {
         return 4 * M_PI_F * I;
     }
 
-    float pdf_Li(const thread HitRecord &ref, const thread float3& ) {
+    float PDF_Li(const thread HitRecord &ref, const thread float3& ) {
         return 0;
     }
 
     float3 Sample_Le(const thread float2 &u1, const thread float2 &u2, float time,
-                        thread Ray *ray, thread float3 *nLight, thread float *pdfPos,
-                        thread float *pdfDir) {
+                     thread Ray *ray, thread float3 *nLight, thread float *pdfPos, thread float *pdfDir) {
         //ProfilePhase _(Prof::LightSample);
         *ray = Ray(p, UniformSampleSphere(u1));
         *nLight = ray->direction;
         *pdfPos = 1;
-        *pdfDir = UniformSpherePdf();
+        *pdfDir = UniformSpherePDF();
         return I;
     }
     
-    void pdf_Le(const thread Ray&, const thread float3 &, thread float *pdfPos, thread float *pdfDir) const {
+    void PDF_Le(const thread Ray&, const thread float3 &, thread float *pdfPos, thread float *pdfDir) const {
         //ProfilePhase _(Prof::LightPdf);
         *pdfPos = 0;
-        *pdfDir = UniformSpherePdf();
+        *pdfDir = UniformSpherePDF();
     }
-    
 };
 
 #endif

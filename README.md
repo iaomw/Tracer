@@ -22,8 +22,9 @@ This is simply a repository for my **Ray Tracing** code.
     - [x] ***BVH*** Surface Area Heuristic
     - [x] Oren-Nayar Diffuse
     - [x] TrowbridgeReitz Distribution
+    - [ ] Multiple importance sampling
     - [ ] Volume Rendering
-    - [ ] Photon Mapping
+    - [ ] Stochastic Progressive Photon Mapping
     - [ ] Metropolis Light Transport
    
 - [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)

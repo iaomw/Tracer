@@ -172,9 +172,9 @@
 			isa = PBXGroup;
 			children = (
 				578B596E267394E10029109F /* Geo.hh */,
-				5798730D2677B2FD007FB08D /* Spectrum.hh */,
 				578F8A3C2505655700B40A13 /* Math.hh */,
 				57981F5D267B52080009FB22 /* Sampling.hh */,
+				5798730D2677B2FD007FB08D /* Spectrum.hh */,
 				57981F5A267A10770009FB22 /* Light.hh */,
 				5749BCA624362BDE002B60E4 /* Random.hh */,
 				573DD1112433AA9900B09B0A /* Random.metal */,
