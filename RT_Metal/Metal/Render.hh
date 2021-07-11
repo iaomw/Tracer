@@ -19,6 +19,8 @@
 #include "Light.hh"
 #include "Spectrum.hh"
 
+#include "Material.hh"
+
 struct PackageEnv {
     texture2d<float>       texHDR [[id(0)]];
     texture2d<float>       texUVT [[id(1)]];

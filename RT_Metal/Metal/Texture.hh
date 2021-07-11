@@ -7,8 +7,8 @@
 
 enum struct TextureType { Constant, Checker, Noise, Image };
 
-struct TextureInfo {
-    
+class TextureInfo {
+public:
     enum TextureType type;
     uint textureIndex;
     float3 albedo;

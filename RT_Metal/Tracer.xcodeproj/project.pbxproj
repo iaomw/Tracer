@@ -139,6 +139,9 @@
 		57DD3570241EEC140094632B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		57DD3572241EEC140094632B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		57DD3573241EEC140094632B /* Tracer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Tracer.entitlements; sourceTree = "<group>"; };
+		57DE334626974D4700B1D4CF /* SpecularBXDF.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = SpecularBXDF.hh; sourceTree = "<group>"; };
+		57DE33492697504100B1D4CF /* MicrofacetBXDF.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MicrofacetBXDF.h; sourceTree = "<group>"; };
+		57DE334C26975B1800B1D4CF /* MatteBXDF.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MatteBXDF.hh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -185,6 +188,9 @@
 				5759E67324DB492500C8A2D7 /* Camera.hh */,
 				571FF88D24639A81002DDF02 /* Common.hh */,
 				572B8F692501136900F5B7E9 /* BXDF.hh */,
+				57DE334C26975B1800B1D4CF /* MatteBXDF.hh */,
+				57DE334626974D4700B1D4CF /* SpecularBXDF.hh */,
+				57DE33492697504100B1D4CF /* MicrofacetBXDF.h */,
 				578BE285250557E000FB56F1 /* BXDF.metal */,
 				5759E67224DB483D00C8A2D7 /* Ray.hh */,
 				5759E68124DC352E00C8A2D7 /* BVH.hh */,

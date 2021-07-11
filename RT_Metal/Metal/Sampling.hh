@@ -26,7 +26,7 @@ inline float3 UniformSampleHemisphere(const thread float2 &u) {
     return float3(r * cos(phi), r * sin(phi), z);
 }
 
-inline float UniformHemispherePdf() { return 0.5 / M_PI_F; }
+inline float UniformHemispherePDF() { return 0.5 / M_PI_F; }
 
 inline float3 UniformSampleSphere(const thread float2 &u) {
     float z = 1 - 2 * u[0];
@@ -65,7 +65,7 @@ inline float2 ConcentricSampleDisk(const thread float2 &u) {
     return r * float2(cos(theta), sin(theta));
 }
 
-inline float UniformConePdf(float cosThetaMax) {
+inline float UniformConePDF(float cosThetaMax) {
     return 1 / (2 * M_PI_F * (1 - cosThetaMax));
 }
 
@@ -104,6 +104,68 @@ inline float BalanceHeuristic(int nf, float fPdf, int ng, float gPdf) {
 inline float PowerHeuristic(int nf, float fPdf, int ng, float gPdf) {
     float f = nf * fPdf, g = ng * gPdf;
     return (f * f) / (f * f + g * g);
+}
+
+enum struct TransportMode { Radiance, Importance };
+
+inline float Radians(float deg) { return (M_PI_F / 180) * deg; }
+inline float Degrees(float rad) { return (180 / M_PI_F) * rad; }
+
+// BSDF Inline Functions
+inline float CosTheta(const thread float3 &w) { return w.z; }
+inline float Cos2Theta(const thread thread float3 &w) { return w.z * w.z; }
+inline float AbsCosTheta(const thread float3 &w) { return abs(w.z); }
+inline float Sin2Theta(const thread float3 &w) { return max(0.0, 1.0 - Cos2Theta(w)); }
+
+inline float SinTheta(const thread float3 &w) { return sqrt(Sin2Theta(w)); }
+
+inline float TanTheta(const thread float3& vec)
+{
+    float temp = 1 - vec.z * vec.z;
+    if (temp <= 0.0f || vec.z == 0.0f)
+        return 0.0f;
+    return sqrt(temp) / vec.z;
+}
+
+inline float Tan2Theta(const thread float3& vec)
+{
+    float zz = vec.z * vec.z;
+    float temp = 1 - zz;
+    if (temp <= 0.0f || zz == 0.0f)
+        return 0.0f;
+    return temp / zz;
+}
+
+inline float CosPhi(const thread float3 &w) {
+    float sinTheta = SinTheta(w);
+    return (sinTheta == 0) ? 1 : clamp(w.x / sinTheta, -1.0, 1.0);
+}
+
+inline float SinPhi(const thread float3 &w) {
+    float sinTheta = SinTheta(w);
+    return (sinTheta == 0) ? 0 : clamp(w.y / sinTheta, -1.0, 1.0);
+}
+
+inline float Cos2Phi(const thread float3 &w) {
+    auto r = CosPhi(w);
+    return r * r;
+}
+
+inline float Sin2Phi(const thread float3 &w) {
+    auto r = SinPhi(w);
+    return r * r;
+}
+
+inline float Sqr(float v) {return v * v; }
+
+inline float CosDPhi(thread float3 &wa, thread float3 &wb) {
+    return clamp((wa.x * wb.x + wa.y * wb.y) /
+                    sqrt((wa.x * wa.x + wa.y * wa.y) *
+                         (wb.x * wb.x + wb.y * wb.y)), -1.0, 1.0);
+}
+
+inline float3 Faceforward(const thread float3 &n, const thread float3 &v) {
+    return (dot(n, v) < 0.f) ? -n : n;
 }
 
 #endif

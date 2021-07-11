@@ -13,6 +13,7 @@
 #include "Sphere.hh"
 
 #include "BXDF.hh"
+#include "SpecularBXDF.hh"
 
 #include "HitRecord.hh"
 #include "SobolSampler.hh"
@@ -113,7 +114,7 @@ template <typename XSampler>
 bool scatter(thread Ray& ray,
              thread XSampler& xsampler,
              thread HitRecord& hitRecord,
-             thread ScatRecord& scatRecord,
+             thread BxRecord& bxRecord,
              
              constant Material* materials,
              
@@ -149,15 +150,15 @@ bool scatter(thread Ray& ray,
             auto direction = stw * wi;
             ray = Ray(hitRecord.p + hitRecord.sn * 0.001 , direction);
             
-            float3 wo = transpose(stw) * (-ray.direction);
+            //float3 wo = transpose(stw) * (-ray.direction);
             
             auto attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             
-            auto on = OrenNayar(attenuation.r);
+            //auto on = OrenNayar(attenuation.r);
             
-            scatRecord.attenuation = attenuation / M_PI_F; //* on.f(wo, wi);
+            bxRecord.attenuation = attenuation / M_PI_F; //* on.f(wo, wi);
             
-            scatRecord.bxPDF = abs(wi.z) / M_PI_F;
+            bxRecord.bxPDF = abs(wi.z) / M_PI_F;
             
             return true;
         }
@@ -175,14 +176,14 @@ bool scatter(thread Ray& ray,
             auto r0 = xsampler.sample1D();
             auto r1 = xsampler.sample1D();
 
-            float sinTheta = sqrt( max(r0, kEpsilon) );
-            float cosTheta = sqrt( max(1-r0, kEpsilon) );
+            //float sinTheta = sqrt( max(r0, kEpsilon) );
+            //float cosTheta = sqrt( max(1-r0, kEpsilon) );
 
-            float phi = 2.0 * M_PI_F * r1;
+            //float phi = 2.0 * M_PI_F * r1;
 
-            float x = sinTheta * cos(phi);
-            float y = sinTheta * sin(phi);
-            float z = cosTheta;
+            //float x = sinTheta * cos(phi);
+            //float y = sinTheta * sin(phi);
+            //float z = cosTheta;
 
             float3 wi;// = { x, y, z };
             
@@ -204,12 +205,12 @@ bool scatter(thread Ray& ray,
             
             float2 uu = {r0, r1};
             
-            auto rr = st.sample_f(wo, wi, &uu, pdf, nullptr);
+            auto rr = st.S_F(wo, wi, &uu, pdf, nullptr);
             
             auto direction = stw * wi;
             ray = Ray(hitRecord.p + hitRecord.sn * 0.001, direction);
             
-            scatRecord.attenuation = rr;//100 * dist.D(wi, wm) * dist.G(wo, wi) / (4 * wo.z * wi.z);
+            bxRecord.attenuation = rr;//100 * dist.D(wi, wm) * dist.G(wo, wi) / (4 * wo.z * wi.z);
             
             return true;
         }
@@ -313,7 +314,7 @@ bool scatter(thread Ray& ray,
                 microNormal = normalize(fixedDir + nextDir); // not specular
                 
                 ray = Ray(hitRecord.p, stw * nextDir);
-                scatRecord.attenuation = albedo / (1.0-pSpecular);
+                bxRecord.attenuation = albedo / (1.0-pSpecular);
                 //auto pdf = nextDir.z;// / M_PI_F;
                 //scatRecord.attenuation /= pdf;
                 
@@ -323,7 +324,7 @@ bool scatter(thread Ray& ray,
                 
                 float pdf;
                 microNormal = GGX_SampleVisibleNormal(fixedDir, r0, r1, &pdf, a2);
-//                microNormal = normalize( {x, y, z} );
+                // microNormal = normalize( {x, y, z} );
                 nextDir = reflect(-fixedDir, microNormal);
             }
             
@@ -342,14 +343,15 @@ bool scatter(thread Ray& ray,
             auto kD = (1.0 - metallic) * (1.0 - kS);
 
             ray = Ray(hitRecord.p, stw * nextDir);
-            scatRecord.attenuation = ao * kD * diffuse + specular;
+            bxRecord.attenuation = ao * kD * diffuse + specular;
             
             //auto diffusePD = wi.z / M_PI_F;
             //auto specularPD = D * microNormal.z
             // 1 / (dot(nextDir, microNormal) * 4);
             
-            scatRecord.attenuation /= pSpecular;
+            //scatRecord.attenuation /= pSpecular;
             //scatRecord.attenuation *= nextDir.z;
+            //scatRecord.bxPDF =
             
             return true;
         }
@@ -422,16 +424,16 @@ bool scatter(thread Ray& ray,
             direction = mix(direction, refractionDir, doRefraction);
             
             ray = Ray(origin, direction);
-            scatRecord.attenuation = throughput;
+            bxRecord.attenuation = throughput;
             
             if (doRefraction == 0.0f) {
                 
-                scatRecord.attenuation *= mix(material.textureInfo.albedo,
+                bxRecord.attenuation *= mix(material.textureInfo.albedo,
                                               material.specularColor,
                                               doSpecular);
             }
             
-            scatRecord.attenuation /= rayProbability;
+            bxRecord.attenuation /= rayProbability;
             
             return true;
         }

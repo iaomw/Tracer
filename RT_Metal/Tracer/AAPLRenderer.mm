@@ -184,7 +184,11 @@ typedef struct
                                                   options: CommonStorageMode];
         
         Material pbr;
-        pbr.type = MaterialType::PBR;
+        pbr.type = MaterialType::Metal;
+        
+        pbr.textureInfo.type = TextureType::Constant;
+        pbr.textureInfo.albedo = simd_make_float3(1, 1, 1);
+        
         materials.emplace_back(pbr);
         
         Material pbrt;
@@ -340,14 +344,15 @@ typedef struct
 //                    BVH::buildNode(cube.boundingBOX, cube.model_matrix, ShapeType::Cube, i, bvh_list);
 //                }
 
-        //for (int i=4; i<6; i++) {
-        for (int i=0; i<cornell_box.size(); i++) {
+        for (int i=4; i<7; i++) {
+        //for (int i=0; i<cornell_box.size(); i++) {
             auto& square = cornell_box[i];
             BVH::buildNode(square.boundingBOX, square.model_matrix, PrimitiveType::Square, i, bvh_list);
         }
         
         //let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
-        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/bunny" ofType:@"obj"];
+        //let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/dragon" ofType:@"obj"];
+        let modelPath = [NSBundle.mainBundle pathForResource:@"uv_test/uv_test" ofType:@"obj"];
         let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
                 
             MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);

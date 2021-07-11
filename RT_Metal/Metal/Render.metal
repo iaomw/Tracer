@@ -151,7 +151,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                     constant Primitive&  primitives)
 {
     HitRecord hitRecord;
-    ScatRecord scatRecord;
+    BxRecord scatRecord;
     
     Spectrum ratio = Spectrum(1.0);
     Spectrum color = Spectrum(0.0);
@@ -180,85 +180,84 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
             color += ratio * ambient.rgb; break;
         }
         
-//        float3 emit_color;
-//        if ( emit(hitRecord, emit_color, packageEnv.materials) ) {
-//            auto w = dot(-ray.direction, -hitRecord.n);
-//            //if (depth == 16 && w > 0) {
-//            color += ratio * emit_color * abs(w); break;
-//        }
-        
         LightSampleRecord lsr;
         float2 uu = xsampler.sample2D();
         
-        auto origin = hitRecord.p + hitRecord.sn * 0.0001;
+        auto _origin = hitRecord.p + hitRecord.sn * 0.01;
         
-        auto iii = 0;
-        if (xsampler.random() < 0.5) { iii = 5;
-            primitives.squareList[5].sample(uu, origin, lsr);
-        } else { iii = 6;
-            primitives.squareList[6].sample(uu, origin, lsr);
+        if (xsampler.random() < 0.5) {
+            primitives.squareList[5].sample(uu, _origin, lsr);
+        } else {
+            primitives.squareList[6].sample(uu, _origin, lsr);
         }
 
-        auto dir = lsr.p - origin;
-        auto nor = normalize(dir);
+        auto _dir = lsr.p - _origin;
+        auto _nor = normalize(_dir);
         
         //if (lsr.n.y >0 ) { return 0; }
         
-        auto xray = Ray(origin, nor); HitRecord shr;
+        auto _ray = Ray(_origin, _nor); HitRecord shr;
 
-        auto blocked = scene.block(xray, shr, length(dir));
+        auto blocked = scene.block(_ray, shr, length(_dir));
             
         if( !blocked ) {    // packageEnv.materials[hitRecord.material].type != MaterialType::Specular
             
-            float3 weight = packageEnv.materials[hitRecord.material].textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
+                float bxPDF;
             
-            auto cosOnObject = dot(hitRecord.sn, nor);
-            auto cosOnLight = dot(lsr.n, -nor);
+                auto wo = dot(-ray.direction, hitRecord.sn);
+                auto wi = dot(_nor,           hitRecord.sn);
+                
+            float3 weight = packageEnv.materials[hitRecord.material].F(wo, wi, hitRecord.uv, bxPDF);
+            
+            auto cosOnLight = dot(lsr.n, -_nor);
             
             auto Li = packageEnv.materials[shr.material].textureInfo.albedo;
-            weight *= Li * cosOnObject * cosOnLight;
+            weight *= Li * cosOnLight;
             
-            auto scatterPDF = cosOnObject / M_PI_F;
+            auto dist2 = distance_squared(lsr.p, _origin);
+            auto liPDF = dist2 * lsr.areaPDF / cosOnLight;
             
-            auto dist2 = distance_squared(lsr.p, origin);
-            auto lightPDF = dist2 * lsr.areaPDF / cosOnLight;
-            
-            weight *= PowerHeuristic(1, lightPDF, 1, scatterPDF);
-            
-            color += ratio * weight / (lightPDF);
+            weight *= PowerHeuristic(1, liPDF, 1, bxPDF);
+            color += ratio * weight / liPDF;
         }
         
-        auto sn = hitRecord.sn;
+        // BXDF Sampling
+        float3 nx, ny;
+        CoordinateSystem(hitRecord.sn, nx, ny);
+        float3x3 stw = { nx, ny, hitRecord.sn };
         
-        if ( !scatter(ray, xsampler, hitRecord, scatRecord, packageEnv.materials, packagePBR) ) { break; }
+        float3 wi; float bxPDF;
+        float3 wo = transpose(stw) * (-ray.direction);
         
-        auto cosOnObject = dot(ray.direction, sn);
+        scatRecord.attenuation = packageEnv.materials[hitRecord.material].S_F(wo, wi, hitRecord.uv, uu, bxPDF);
+        scatRecord.bxPDF = bxPDF;
+        
+        if (bxPDF <= 0) { break; }
+        
+        ray = Ray(_origin, stw * wi);
+        
+        //if ( !scatter(ray, xsampler, hitRecord, scatRecord, packageEnv.materials, packagePBR) ) { break; }
+        //auto cosOnObject = dot(ray.direction, hitRecord.sn);
         
         hitted = scene.hit(ray, hitRecord, nullptr);
         
-        if (hitted) {
+        if (hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
+                
+            auto Li = packageEnv.materials[hitRecord.material].textureInfo.albedo;
+            auto cosOnLight = dot(-ray.direction, hitRecord.sn);
             
-            if (packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
-                
-                auto Li = packageEnv.materials[hitRecord.material].textureInfo.albedo;
-                
-                auto cosLight = dot(-ray.direction, hitRecord.sn);
-                
-                auto weight = scatRecord.attenuation * Li * cosLight * cosOnObject;
-                
-                auto dist2 = distance_squared(hitRecord.p, ray.origin);
-                
-                auto lightPDF =  hitRecord.PDF * dist2 / cosLight;
-                
-                weight *= PowerHeuristic(1, scatRecord.bxPDF, 1, abs(lightPDF));
-                
-                color += ratio * abs(weight) / scatRecord.bxPDF;
-                
-                break;
-            }
+            auto weight = scatRecord.attenuation * Li * cosOnLight;
+            
+            auto dist2 = distance_squared(hitRecord.p, ray.origin);
+            auto lightPDF =  hitRecord.PDF * dist2 / cosOnLight;
+            
+            weight *= PowerHeuristic(1, scatRecord.bxPDF, 1, lightPDF);
+            color += ratio * weight / scatRecord.bxPDF;
+            
+            break;
         }
         
-        ratio *= scatRecord.attenuation * cosOnObject / scatRecord.bxPDF;
+        ratio *= scatRecord.attenuation / scatRecord.bxPDF;
         
         { // Russian Roulette
             float3 xyz; RGBToXYZ(ratio, xyz);
@@ -311,7 +310,7 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
     //uint2 vsize = { inTexture.get_width(), inTexture.get_height()};
     //auto ss = pbrt::SobolSampler(rng, frame, thread_pos, vsize);
     
-    color = traceBVH(16, ray, rs,
+    color = traceBVH(8, ray, rs,
                         packageEnv,
                         packagePBR[1],
                         primitives);

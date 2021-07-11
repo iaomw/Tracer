@@ -2,7 +2,6 @@
 #define HitRecord_h
 
 #include "Ray.hh"
-#include "Material.hh"
 
 #ifdef __METAL_VERSION__
 
@@ -26,12 +25,10 @@ struct HitRecord {
     }
 };
 
-struct ScatRecord {
+struct BxRecord {
     float3 attenuation;
     float bxPDF = 1.0;
 };
-
-bool emit(thread HitRecord& hitRecord, thread float3& color, constant Material* materials);
     
 #endif
 
