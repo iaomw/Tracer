@@ -9,7 +9,7 @@ struct HitRecord {
 
     float t;
     float3 p;
-
+    
     bool f;
     float3 n;
     float3 sn;
@@ -20,7 +20,7 @@ struct HitRecord {
     float PDF;
     
     void checkFace(const thread Ray& ray) {
-        f = dot(ray.direction, n) < 0;
+        f = dot(ray.direction, n) <= 0 ;
         sn = f? n:-n;
     }
 };

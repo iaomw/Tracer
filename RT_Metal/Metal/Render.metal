@@ -194,22 +194,23 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         auto _dir = lsr.p - _origin;
         auto _nor = normalize(_dir);
         
-        //if (lsr.n.y >0 ) { return 0; }
+        float3 nx, ny;
+        CoordinateSystem(hitRecord.sn, nx, ny);
+        float3x3 stw = { nx, ny, hitRecord.sn };
+        float3x3 wts = transpose(stw);
         
         auto _ray = Ray(_origin, _nor); HitRecord shr;
 
-        auto blocked = scene.block(_ray, shr, length(_dir));
+        auto blocked = scene.block(_ray, shr, length(_dir)-0.01);
             
         if( !blocked ) {    // packageEnv.materials[hitRecord.material].type != MaterialType::Specular
             
-                float bxPDF;
-            
-                auto wo = dot(-ray.direction, hitRecord.sn);
-                auto wi = dot(_nor,           hitRecord.sn);
+                auto wo = wts * (-ray.direction);
+                auto wi = wts * (_nor); float bxPDF;
                 
-            float3 weight = packageEnv.materials[hitRecord.material].F(wo, wi, hitRecord.uv, bxPDF);
+            float3 weight = packageEnv.materials[hitRecord.material].F(wo, wi, hitRecord.uv, bxPDF, uu);
             
-            auto cosOnLight = dot(lsr.n, -_nor);
+            auto cosOnLight = abs( dot(lsr.n, -_nor) );
             
             auto Li = packageEnv.materials[shr.material].textureInfo.albedo;
             weight *= Li * cosOnLight;
@@ -222,21 +223,24 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         }
         
         // BXDF Sampling
-        float3 nx, ny;
-        CoordinateSystem(hitRecord.sn, nx, ny);
-        float3x3 stw = { nx, ny, hitRecord.sn };
         
         float3 wi; float bxPDF;
-        float3 wo = transpose(stw) * (-ray.direction);
+        float3 wo = wts * (-ray.direction);
+        
+        //uu = xsampler.sample2D();
         
         scatRecord.attenuation = packageEnv.materials[hitRecord.material].S_F(wo, wi, hitRecord.uv, uu, bxPDF);
         scatRecord.bxPDF = bxPDF;
         
         if (bxPDF <= 0) { break; }
         
-        ray = Ray(_origin, stw * wi);
+        if (wi.z < 0) {
+            ray = Ray(_origin - hitRecord.sn * 0.02, stw * wi);
+        } else {
+            ray = Ray(_origin, stw * wi);
+        }
         
-        //if ( !scatter(ray, xsampler, hitRecord, scatRecord, packageEnv.materials, packagePBR) ) { break; }
+        //ray = Ray(_origin, stw * wi);
         //auto cosOnObject = dot(ray.direction, hitRecord.sn);
         
         hitted = scene.hit(ray, hitRecord, nullptr);

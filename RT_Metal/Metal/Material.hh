@@ -15,7 +15,7 @@
 
 #endif
 
-enum struct MaterialType { Lambert, OrenNayar, Plastic, Metal, Dielectric, Diffuse, Isotropic, Demofox, PBR, PBRT };
+enum struct MaterialType { Diffuse, Lambert, OrenNayar, Plastic, Metal, Glass, Dielectric, Isotropic, Demofox, PBR };
 
 class Material {
 public:
@@ -36,23 +36,23 @@ public:
     
 #ifdef __METAL_VERSION__
     
-    float3 F(const thread float3 &wo, const thread float3 &wi, const thread float2 &uv, thread float &pdf) constant;
+    float3 F(const thread float3 &wo, const thread float3 &wi, const thread float2 &uv, thread float &pdf, const thread float2 &uu) constant;
     
     template <typename BxType>
-    float3 F(BxType bx, const thread float3 &wo, const thread float3 &wi, const thread float2 &uv, thread float &pdf) constant {
+    float3 F(BxType bx, const thread float3 &wo, const thread float3 &wi, const thread float2 &uv, thread float &pdf, const thread float2 &uu) constant {
         
         auto color = textureInfo.value(nullptr, uv, float3(0));
         
-        pdf = bx.PDF(wo, wi);
-        return color * bx.F(wo, wi);
+        pdf = bx.PDF(wo, wi, uu);
+        return color * bx.F(wo, wi, uu);
     }
     
-    float PDF(const thread float3 &wo, const thread float3 &wi) constant;
+    float PDF(const thread float3 &wo, const thread float3 &wi, const thread float2 &uu) constant;
     
     template <typename BxType>
-    float PDF(BxType bx, const thread float3 &wo, const thread float3 &wi) constant {
+    float PDF(BxType bx, const thread float3 &wo, const thread float3 &wi, const thread float2 &uu) constant {
         
-        return bx.PDF(wo, wi);
+        return bx.PDF(wo, wi, uu);
     }
     
     float3 S_F(const thread float3 &wo, thread float3 &wi, const thread float2 &uv, const thread float2 &uu, thread float &pdf) constant;
@@ -70,38 +70,55 @@ public:
 
 #ifdef __METAL_VERSION__
 
-inline float3 Material::F(const thread float3 &wo, const thread float3 &wi, const thread float2 &uv, thread float &pdf) constant {
+inline float3 Material::F(const thread float3 &wo, const thread float3 &wi, const thread float2 &uv, thread float &pdf, const thread float2 &uu) constant {
     
     switch(type) {
         case MaterialType::Lambert: {
             Lambertian bx;
-            return F<Lambertian>(bx, wo, wi, uv, pdf);
-        }
-        case MaterialType::Metal:{
-            auto bx = createMetalMaterial();
-            return F<MetalMaterial>(bx, wo, wi, uv, pdf);
-        }
-        default:
-            return 0;
-    }
-    
-    return 0;
-}
-
-inline float Material::PDF(const thread float3 &wo, const thread float3 &wi) constant {
-    switch(type) {
-        case MaterialType::Lambert: {
-            Lambertian bx;
-            return PDF<Lambertian>(bx, wo, wi);
+            return F<Lambertian>(bx, wo, wi, uv, pdf, uu);
         }
         case MaterialType::Metal: {
             auto bx = createMetalMaterial();
-            return PDF<MetalMaterial>(bx, wo, wi);
+            return F<MetalMaterial>(bx, wo, wi, uv, pdf, uu);
+        }
+        case MaterialType::Plastic: {
+            auto bx = Plastic();
+            return F<Plastic>(bx, wo, wi, uv, pdf, uu);
+        }
+        case MaterialType::Glass: {
+            auto bx = createGlass();
+            return F<GlassMaterial>(bx, wo, wi, uv, pdf, uu);
         }
         default:
             return 0;
     }
-    return 0;
+    
+    //return 0;
+}
+
+inline float Material::PDF(const thread float3 &wo, const thread float3 &wi, const thread float2& uu) constant {
+    switch(type) {
+        case MaterialType::Lambert: {
+            Lambertian bx;
+            return PDF<Lambertian>(bx, wo, wi, uu);
+        }
+        case MaterialType::Metal: {
+            auto bx = createMetalMaterial();
+            return PDF<MetalMaterial>(bx, wo, wi, uu);
+        }
+        case MaterialType::Plastic: {
+            auto bx = Plastic();
+            return PDF<Plastic>(bx, wo, wi, uu);
+        }
+        case MaterialType::Glass: {
+            auto bx = createGlass();
+            return PDF<GlassMaterial>(bx, wo, wi, uu);
+        }
+        default:
+            return 0;
+    }
+    
+    //return 0;
 }
 
 inline float3 Material::S_F(const thread float3 &wo, thread float3 &wi, const thread float2 &uv, const thread float2 &uu, thread float &pdf) constant {
@@ -112,14 +129,22 @@ inline float3 Material::S_F(const thread float3 &wo, thread float3 &wi, const th
             return S_F<Lambertian>(bx, wo, wi, uv, uu, pdf);
         }
         case MaterialType::Metal: {
-            auto bx = createMetalMaterial();
+            MetalMaterial bx = createMetalMaterial();
             return S_F<MetalMaterial>(bx, wo, wi, uv, uu, pdf);
+        }
+        case MaterialType::Plastic: {
+            auto bx = Plastic();
+            return S_F<Plastic>(bx, wo, wi, uv, uu, pdf);
+        }
+        case MaterialType::Glass: {
+            auto bx = createGlass();
+            return S_F<GlassMaterial>(bx, wo, wi, uv, uu, pdf);
         }
         default:
             return 0;
     }
     
-    return 0;
+    //return 0;
 }
 
 #endif

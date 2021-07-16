@@ -81,8 +81,6 @@ struct Triangle {
         hitRecord.checkFace(ray);
         hitRecord.material = 18;
         
-        //hitRecord.p += hitRecord.sn * 0.001;
-         
         return true;
     }
     

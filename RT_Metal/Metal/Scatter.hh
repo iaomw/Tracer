@@ -163,58 +163,6 @@ bool scatter(thread Ray& ray,
             return true;
         }
             
-        case MaterialType::PBRT: {
-            
-            float3 nx, ny;
-            CoordinateSystem(normal, nx, ny);
-            float3x3 stw = { nx, ny, normal };
-            
-            float3 wo = transpose(stw) * (-ray.direction);
-            
-            float pdf;
-            
-            auto r0 = xsampler.sample1D();
-            auto r1 = xsampler.sample1D();
-
-            //float sinTheta = sqrt( max(r0, kEpsilon) );
-            //float cosTheta = sqrt( max(1-r0, kEpsilon) );
-
-            //float phi = 2.0 * M_PI_F * r1;
-
-            //float x = sinTheta * cos(phi);
-            //float y = sinTheta * sin(phi);
-            //float z = cosTheta;
-
-            float3 wi;// = { x, y, z };
-            
-            
-            //auto fr = FresnelDielectric(1.2);
-            auto fr = FresnelConductor(1.5, 0.1);
-            
-            auto st = SpecularReflection<FresnelConductor>(fr);
-            //auto dist = TrowbridgeReitzDistribution(0.01, 0.01);
-            //auto sr = ConductorBXDF<TrowbridgeReitzDistribution, FresnelConductor>(dist, fr);
-            
-            //auto bxdf_data = BXDF_Data(BXDF_Type(BSDF_REFLECTION | BSDF_SPECULAR), 1.0);
-            //auto bx = BXDF_Wrapped<MicrofacetDistribution<TrowbridgeReitzDistribution, FresnelDielectric>> (bxdf_data, sr);
-            
-            //auto intense = bx.f(wo, wi);
-            //auto pd = sr.PDF(wo, wi);
-            
-            //auto wm = normalize(wo + wi);
-            
-            float2 uu = {r0, r1};
-            
-            auto rr = st.S_F(wo, wi, &uu, pdf, nullptr);
-            
-            auto direction = stw * wi;
-            ray = Ray(hitRecord.p + hitRecord.sn * 0.001, direction);
-            
-            bxRecord.attenuation = rr;//100 * dist.D(wi, wm) * dist.G(wo, wi) / (4 * wo.z * wi.z);
-            
-            return true;
-        }
-
 //        case MaterialType::Metal: {
 //
 //            auto fuzz = 0.01 * xsampler.sampleUnitInSphere();

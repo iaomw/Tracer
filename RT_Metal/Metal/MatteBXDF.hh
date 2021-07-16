@@ -5,22 +5,20 @@
 
 struct Lambertian {
     
-    float F(const thread float3& wo, const thread float3& wi) {
+    float F(const thread float3& wo, const thread float3& wi, const thread float2& uu) {
         return wi.z / M_PI_F;
     }
     
-    float PDF(const thread float3& wo, const thread float3& wi) {
+    float PDF(const thread float3& wo, const thread float3& wi, const thread float2& uu) {
         return wo.z * wi.z > 0 ? abs(wi.z) / M_PI_F : 0;
     }
     
     float S_F(const thread float3& wo, thread float3& wi, const thread float2& uu, thread float& pdf) {
         wi = CosineSampleHemisphere(uu);
-        pdf = PDF(wo, wi);
+        pdf = PDF(wo, wi, uu);
         
         return wi.z / M_PI_F;
     }
-    
-    static void test() {}
 };
 
 struct OrenNayar {
@@ -36,7 +34,7 @@ struct OrenNayar {
         B = 0.45f * sigma2 / (sigma2 + 0.09f);
     }
     
-    float F(const thread float3 &wo, const thread float3 &wi) {
+    float F(const thread float3 &wo, const thread float3 &wi, const thread float2& uu) {
         
         float sinThetaI = SinTheta(wi);
         float sinThetaO = SinTheta(wo);
@@ -62,15 +60,14 @@ struct OrenNayar {
         return (1.0 / M_PI_F) * (A + B * maxCos * sinAlpha * tanBeta);
     }
     
-    float PDF(const thread float3& wo, const thread float3& wi) {
+    float PDF(const thread float3& wo, const thread float3& wi, const thread float2& uu) {
         return wo.z * wi.z > 0 ? abs(wi.z) / M_PI_F : 0;
     }
     
     float S_F(const thread float3& wo, thread float3& wi, const thread float2& uu, thread float& pdf) {
         wi = CosineSampleHemisphere(uu);
-        pdf = PDF(wo, wi);
-        
-        return F(wo, wi);
+        pdf = PDF(wo, wi, uu);
+        return F(wo, wi, uu);
     }
 };
 

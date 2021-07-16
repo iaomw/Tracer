@@ -19,7 +19,7 @@ public:
         : //BxDF(BxDFType(BSDF_REFLECTION | BSDF_GLOSSY)),
         R(R), fresnel(fresnel), distribution(distribution) {}
     
-    float3 F(const thread float3 &wo, const thread float3 &wi) const {
+    float3 F(const thread float3 &wo, const thread float3 &wi, const thread float2& uu) const {
         
         float cosThetaO = AbsCosTheta(wo), cosThetaI = AbsCosTheta(wi);
         // Handle degenerate cases for microfacet reflection
@@ -36,7 +36,7 @@ public:
                (4 * cosThetaI * cosThetaO);
     }
     
-    float PDF(const thread float3 &wo, const thread float3 &wi) const {
+    float PDF(const thread float3 &wo, const thread float3 &wi, const thread float2& uu) const {
         if (wo.z * wi.z <= 0) return 0;
         
         float3 wh = normalize(wo + wi);
@@ -57,13 +57,12 @@ public:
 
         // Compute PDF of _wi_ for microfacet reflection
         pdf = distribution.PDF(wo, wh) / (4 * dot(wo, wh));
-        return F(wo, wi);
+        return F(wo, wi, uu);
     }
 };
 
 template <typename DistType, typename FrType>
 class MicrofacetTransmission {
-    
 private:
     // MicrofacetTransmission Private Data
     const float3 T;
@@ -77,15 +76,14 @@ private:
     MicrofacetTransmission(const float3 T,
                            thread DistType &distribution,
                            float etaA, float etaB, TransportMode mode)
-    
         : //BxDF(BxDFType(BSDF_TRANSMISSION | BSDF_GLOSSY)),
           T(T),
           distribution(distribution),
           etaA(etaA), etaB(etaB),
           fresnel(etaA), mode(mode) {}
     
-    float3 F(const thread float3 &wo, const thread float3 &wi) const {
-        if (wo.z * wi.z <= 0) return 0;  // transmission only
+    float3 F(const thread float3 &wo, const thread float3 &wi, const thread float2& uu) const {
+        if (wo.z * wi.z > 0) return 0;  // transmission only
 
         float cosThetaO = CosTheta(wo);
         float cosThetaI = CosTheta(wi);
@@ -104,13 +102,13 @@ private:
         float sqrtDenom = dot(wo, wh) + eta * dot(wi, wh);
         float factor = (mode == TransportMode::Radiance) ? (1 / eta) : 1;
 
-        return (1.0 - F) * T * abs(distribution->D(wh) * distribution->G(wo, wi) * eta * eta *
+        return (1.0 - F) * T * abs(distribution.D(wh) * distribution.G(wo, wi) * eta * eta *
                         abs(dot(wi, wh)) * abs(dot(wo, wh)) * factor * factor /
                         (cosThetaI * cosThetaO * sqrtDenom * sqrtDenom));
     }
     
-    float PDF(const thread float3 &wo, const thread float3 &wi) const {
-        if (wo.z * wi.z <= 0) return 0;
+    float PDF(const thread float3 &wo, const thread float3 &wi, const thread float2& uu) const {
+        if (wo.z * wi.z > 0) return 0;
         // Compute $\wh$ from $\wo$ and $\wi$ for microfacet transmission
         float eta = CosTheta(wo) > 0 ? (etaB / etaA) : (etaA / etaB);
         float3 wh = normalize(wo + wi * eta);
@@ -132,8 +130,8 @@ private:
 
         float eta = CosTheta(wo) > 0 ? (etaA / etaB) : (etaB / etaA);
         if (!Refract(wo, wh, eta, wi)) return 0;
-        pdf = PDF(wo, wi);
-        return F(wo, wi);
+        pdf = PDF(wo, wi, uu);
+        return F(wo, wi, uu);
     }
 };
 
@@ -454,6 +452,158 @@ inline MetalMaterial createMetalMaterial() {
 
     auto mm = MetalMaterial(1.0, fr, dist);
     
+    return mm;
+}
+
+typedef MicrofacetReflection <Beckmann, FresnelDielectric> PlasticMaterial;
+
+inline PlasticMaterial createPlasticMaterial() {
+    
+    float2 uv_rough = {0.01, 0.1};
+    
+    //uv_rough[0] = TrowbridgeReitz::RoughnessToAlpha(0.1);
+    //uv_rough[1] = TrowbridgeReitz::RoughnessToAlpha(0.2);
+    
+    //float3 eta = { 0.18, 0.15, 0.81 };
+    float eta = float(1.5);
+    
+    auto fr = FresnelDielectric(eta);
+    auto dist = Beckmann(uv_rough[0], uv_rough[1]);
+
+    auto mm = PlasticMaterial(1.0, fr, dist);
+    return mm;
+}
+
+struct Plastic {
+    float3 kd {0.35, 0.12, 0.48};
+    float3 ks = 0.2;
+    
+    float3 F(const thread float3 &wo, const thread float3 &wi, const thread float2& uu)  {
+        
+        if (uu[0] < 0.5) {
+            
+            Lambertian lam;
+            float2 _uu = uu; _uu[0] *= 2;
+            return kd * lam.F(wo, wi, _uu);
+            
+        } else {
+            
+            float2 uv_rough = {0.2, 0.2};
+            auto fr = FresnelDielectric(1.5);
+            auto dist = Beckmann(uv_rough[0], uv_rough[1]);
+
+            auto mm = PlasticMaterial(1.0, fr, dist);
+            
+            float2 _uu = uu; _uu[0] = _uu[0] * 2 - 1;
+            
+            return ks * mm.F(wo, wi, uu);
+        }
+    }
+    
+    float PDF(const thread float3 &wo, const thread float3 &wi, const thread float2& uu)  {
+        
+        if (uu[0] < 0.5) {
+            
+            Lambertian lam;
+            float2 _uu = uu; _uu[0] *= 2;
+            return lam.PDF(wo, wi, uu);
+            
+        } else {
+            
+            float2 uv_rough = {0.2, 0.2};
+            auto fr = FresnelDielectric(1.5);
+            auto dist = Beckmann(uv_rough[0], uv_rough[1]);
+
+            auto mm = PlasticMaterial(1.0, fr, dist);
+            
+            float2 _uu = uu; _uu[0] = _uu[0] * 2 - 1;
+            return mm.PDF(wo, wi, uu);
+        }
+    }
+    
+    float3 S_F(const thread float3 &wo, thread float3 &wi, const thread float2 &uu, thread float &pdf)  {
+        
+        auto _uu_ = uu;
+        
+        if (_uu_[0] < 0.5) {
+            Lambertian bx; _uu_[0] *= 2;
+            return kd * bx.S_F(wo, wi, _uu_, pdf);
+            
+        } else {
+            
+            _uu_[0] -= 0.5; _uu_[0] *= 2.0;
+            
+            float2 uv_rough = {0.2, 0.2};
+            auto fr = FresnelDielectric(1.5);
+            auto dist = Beckmann(uv_rough[0], uv_rough[1]);
+
+            auto mm = PlasticMaterial(1.0, fr, dist);
+            
+            return ks * mm.S_F(wo, wi, _uu_, pdf);
+        }
+        
+        return 0;
+    }
+};
+
+struct GlassMaterial {
+    float eta = 1.5;
+    float3 kr = 0.98, kt = 0.98;
+    MicrofacetReflection<Beckmann, FresnelDielectric> _mr;
+    MicrofacetTransmission<Beckmann, FresnelDielectric> _mt;
+    
+    float ratio = 0.5;
+    
+    GlassMaterial(thread FresnelDielectric &fr, thread Beckmann &dist):
+        _mr( kr, fr, dist ),
+        _mt( kt, dist, 1.0, 1.5, TransportMode::Radiance) {}
+    
+    float3 F(const thread float3 &wo, const thread float3 &wi, const thread float2 &uu)  {
+        
+        if (uu[0] < ratio) {
+            return _mr.F(wo, wi, uu);
+        } else {
+            return _mt.F(wo, wi, uu);
+        }
+        
+        return 0;
+    }
+    
+    float PDF(const thread float3 &wo, const thread float3 &wi, const thread float2 &uu)  {
+        if (uu[0] < ratio) {
+            return _mr.PDF(wo, wi, uu);
+        } else {
+            return _mt.PDF(wo, wi, uu);
+        }
+    }
+    
+    float3 S_F(const thread float3 &wo, thread float3 &wi, const thread float2 &uu, thread float &pdf)  {
+        
+        if (uu[0] < ratio) {
+            float2 _uu = uu; _uu[0] = uu[0] * 2;
+            return _mr.S_F(wo, wi, _uu, pdf);
+        } else {
+            float2 _uu = uu; _uu[0] = uu[0] * 2 - 1;
+            return _mt.S_F(wo, wi, _uu, pdf);
+        }
+        //return 0;
+    }
+};
+
+//typedef MicrofacetTransmission <Beckmann, FresnelDielectric> GlassMaterial;
+
+inline GlassMaterial createGlass() {
+    //float3 kr = 0.98;
+    //float3 kt = 0.98;
+    
+    float eta = 1.5;
+    
+    float2 rough {0.01, 0.1};
+ 
+    auto fr = FresnelDielectric(eta);
+    auto dist = Beckmann(rough[0], rough[1]);
+
+    auto mm = GlassMaterial(fr, dist);
     return mm;
 }
 

@@ -31,8 +31,7 @@ float3 FrConductor(float cosi, const thread float3& eta, const thread float3& k)
         (tmp_f - (2.f * eta * cosi) + cosi * cosi) /
         (tmp_f + (2.f * eta * cosi) + cosi * cosi);
 
-    return 0.5f * (Rparl2 + Rperp2);
-    
+    return 0.5f * (Rparl2 + Rperp2);    
     
 //    auto cosThetaI = clamp(cosi, -1.0, 1.0);
 //    //Spectrum eta = etat / etai;

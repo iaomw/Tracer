@@ -184,16 +184,12 @@ typedef struct
                                                   options: CommonStorageMode];
         
         Material pbr;
-        pbr.type = MaterialType::Metal;
+        pbr.type = MaterialType::Glass;
         
         pbr.textureInfo.type = TextureType::Constant;
         pbr.textureInfo.albedo = simd_make_float3(1, 1, 1);
         
         materials.emplace_back(pbr);
-        
-        Material pbrt;
-        pbrt.type = MaterialType::PBRT;
-        materials.emplace_back(pbrt);
         
         _material_buffer = [_device newBufferWithBytes: materials.data()
                                                 length: sizeof(struct Material)*materials.size()
@@ -381,7 +377,7 @@ typedef struct
                                       bufferAllocator: allocator]; // preserveTopology: NO
         
         let testMesh = (MDLMesh *) [testAsset objectAtIndex:0];
-        [testMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0];
+        [testMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:1];
         //let voxelArray = [[MDLVoxelArray alloc] initWithAsset:testAsset divisions:1 patchRadius:0.2];
                 
             let bBox = testMesh.boundingBox;
