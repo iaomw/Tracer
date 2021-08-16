@@ -161,7 +161,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
 //    bool edge_hitted = false;
 //    if ( edge_hitted ) { return float3(10); }
     
-    bool hitted = scene.hit(ray, hitRecord, nullptr);
+    bool hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
      
     if ( hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
         
@@ -179,6 +179,51 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
             auto ambient = packageEnv.texHDR.sample(textureSampler, uv);
             color += ratio * ambient.rgb; break;
         }
+        
+        MediumInteraction mi;
+        
+        if (ray.medium != MediumType::Nill) {
+            
+            auto homo = HomogeneousMedium(0.04, 0.02, 0.5);
+            ratio *= homo.Sample(ray, hitRecord, &mi, xsampler);
+        }
+        
+        if (packageEnv.materials[hitRecord.material].type == MaterialType::Medium) {
+            
+            if (dot(ray.direction, hitRecord.n) < 0) {
+                ray = Ray(hitRecord.p - 0.01*hitRecord.n, ray.direction);
+                ray.medium = packageEnv.materials[hitRecord.material].medium;
+            }
+            else {
+                ray = Ray(hitRecord.p + 0.01*hitRecord.n, ray.direction);
+                ray.medium = MediumType::Nill;
+            }
+                       
+            if (mi.medium != nullptr) {
+                
+                float3 wi, wo = -ray.direction;
+                //mi.phase->Sample_p(wo, wi, xsampler.sample2D());
+                HenyeyGreenstein(mi.phaseG).Sample_p(wo, wi, xsampler.sample2D());
+                
+                //auto medium = ray.medium;
+                //ray = Ray(mi.p, wi);
+                //ray.medium = medium;
+                ray.origin = mi.p;
+                ray.direction = normalize(wi);
+                ray.medium = packageEnv.materials[hitRecord.material].medium;
+            }
+            
+            hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
+            
+            if (hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
+                
+                auto li = packageEnv.materials[hitRecord.material].textureInfo.albedo;
+                auto cosOnLight = abs( dot(ray.direction, hitRecord.sn) );
+                return ratio * cosOnLight * li;
+            }
+            
+            continue;
+        } //Volume
         
         LightSampleRecord lsr;
         float2 uu = xsampler.sample2D();
@@ -200,13 +245,15 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         float3x3 wts = transpose(stw);
         
         auto _ray = Ray(_origin, _nor); HitRecord shr;
-
-        auto blocked = scene.block(_ray, shr, length(_dir)-0.01);
+        //auto blocked = scene.block(_ray, shr, length(_dir)-0.01);
+        auto blocked = scene.hit(_ray, shr, length(_dir)-0.01, nullptr);
+        
+        float3 tr = 1.0;
             
         if( !blocked ) {    // packageEnv.materials[hitRecord.material].type != MaterialType::Specular
             
                 auto wo = wts * (-ray.direction);
-                auto wi = wts * (_nor); float bxPDF;
+                auto wi = wts * (_ray.direction); float bxPDF;
                 
             float3 weight = packageEnv.materials[hitRecord.material].F(wo, wi, hitRecord.uv, bxPDF, uu);
             
@@ -219,7 +266,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
             auto liPDF = dist2 * lsr.areaPDF / cosOnLight;
             
             weight *= PowerHeuristic(1, liPDF, 1, bxPDF);
-            color += ratio * weight / liPDF;
+            color += tr * ratio * weight / liPDF;
         }
         
         // BXDF Sampling
@@ -243,7 +290,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         //ray = Ray(_origin, stw * wi);
         //auto cosOnObject = dot(ray.direction, hitRecord.sn);
         
-        hitted = scene.hit(ray, hitRecord, nullptr);
+        hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
         
         if (hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
                 
@@ -314,7 +361,7 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
     //uint2 vsize = { inTexture.get_width(), inTexture.get_height()};
     //auto ss = pbrt::SobolSampler(rng, frame, thread_pos, vsize);
     
-    color = traceBVH(8, ray, rs,
+    color = traceBVH(10, ray, rs,
                         packageEnv,
                         packagePBR[1],
                         primitives);

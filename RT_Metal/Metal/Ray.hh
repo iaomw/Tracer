@@ -2,6 +2,10 @@
 #define Ray_h
 
 #include "Common.hh"
+//#include "Medium.hh"
+//#include "Material.hh"
+
+enum struct MediumType { Homogeneous, GridDensity, Nill };
 
 #ifdef __METAL_VERSION__
 
@@ -9,11 +13,11 @@ struct Ray {
     float3 origin;
     float3 direction;
     //Float time;
-    //const Medium *medium;
-    
     float eta = 1.0;
     
-    Ray();
+    MediumType medium = MediumType::Nill;
+    
+    Ray(): origin(0), direction(0) {}
     
     Ray(float3 o, float3 d): origin(o) {
         direction = normalize(d);

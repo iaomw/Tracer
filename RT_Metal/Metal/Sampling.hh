@@ -9,6 +9,33 @@ struct LightSampleRecord {
     float areaPDF;
 };
 
+inline void CoordinateSystem(const thread float3& a, thread float3& b, thread float3& c) {
+    
+//    if (abs(a.x) > abs(a.y))
+//        b = float3(-a.z, 0, a.x) /
+//              sqrt(max(FLT_EPSILON, a.x * a.x + a.z * a.z));
+//    else
+//        b = float3(0, a.z, -a.y) /
+//              sqrt(max(FLT_EPSILON, a.y * a.y + a.z * a.z));
+    
+    if (abs(a.x) > abs(a.y))
+        b = float3(-a.z, 0, a.x);
+    else
+        b = float3(0, a.z, -a.y);
+    
+    b = normalize(b);
+    c = cross(a, b);
+}
+
+inline float3 SphericalDirection(float sinTheta, float cosTheta, float phi) {
+    return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+}
+
+inline float3 SphericalDirection(float sinTheta, float cosTheta, float phi,
+                                 const thread float3 &x, const thread float3 &y, const thread float3 &z) {
+    return sinTheta * cos(phi) * x + sinTheta * sin(phi) * y + cosTheta * z;
+}
+
 template <typename XSampler>
 inline float2 RejectionSampleDisk(const thread XSampler &rng) {
     float2 p;

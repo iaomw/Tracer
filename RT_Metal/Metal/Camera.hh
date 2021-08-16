@@ -25,8 +25,6 @@ struct Transform {
 
 #ifdef __METAL_VERSION__
 
-void CoordinateSystem(const thread float3& a, thread float3& b, thread float3& c);
-
 template <typename XSampler>
 Ray castRay(constant Camera* camera, float s, float t, thread XSampler* xsampler)
 {
@@ -40,15 +38,6 @@ Ray castRay(constant Camera* camera, float s, float t, thread XSampler* xsampler
     //Ray ray = Ray(float3(s * 1920, t * 1080, -1000), float3(FLT_MIN, FLT_MIN, 1));
     return Ray(origin, sample - origin);
 }
-
-#else
-
-namespace pbrt {
-
-
-
-}
-
 
 #endif
 

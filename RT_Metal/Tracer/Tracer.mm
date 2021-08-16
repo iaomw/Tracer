@@ -197,7 +197,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     Material white; white.type = MaterialType::Isotropic;
     white.textureInfo.albedo = simd_make_float3(0.73, 0.73, 0.73);
     white.textureInfo.albedo = simd_make_float3(1, 1, 1);
-    white.parameter = 0.01;
+    white.eta = 0.01;
     
     auto white_index = (uint32_t)materials.size();
     materials.emplace_back(white);
@@ -281,7 +281,7 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     Material glass; glass.type = MaterialType::Dielectric;
     glass.textureInfo.albedo = { 1.0, 1.0, 1.0 };
     glass.textureInfo.type = TextureType::Noise;
-    glass.parameter = 1.5;
+    glass.eta = 1.5;
     
     auto glass_index = (uint32_t)materials.size();
     materials.emplace_back(glass);
@@ -297,7 +297,7 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     specu.specularProb = 0.02f;
     specu.specularRoughness = 0.0;
     specu.specularColor = { 1.0f, 1.0f, 1.0f };
-    specu.parameter = 1.1f;
+    specu.eta = 1.1f;
     specu.refractionProb = 1.0f;
     specu.refractionRoughness = 0.0;
     specu.refractionColor = { 0.0f, 0.5f, 1.0f };
@@ -322,7 +322,7 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     gloss.specularProb = 1.0f;
     gloss.specularRoughness = 0.0;
     gloss.specularColor = {0.3f, 1.0f, 0.3f};
-    gloss.parameter = 1.1f;
+    gloss.eta = 1.1f;
     gloss.refractionProb = 0.0f;
     gloss.refractionRoughness = 0.0;
     gloss.refractionColor = {0.0f, 0.5f, 1.0f};

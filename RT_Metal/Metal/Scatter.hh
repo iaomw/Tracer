@@ -5,15 +5,6 @@
 #include "Camera.hh"
 #include "Texture.hh"
 #include "Material.hh"
-#include "AABB.hh"
-
-#include "BVH.hh"
-#include "Cube.hh"
-#include "Square.hh"
-#include "Sphere.hh"
-
-#include "BXDF.hh"
-#include "SpecularBXDF.hh"
 
 #include "HitRecord.hh"
 #include "SobolSampler.hh"
@@ -309,7 +300,7 @@ bool scatter(thread Ray& ray,
             float rayProbability = 1.0f;
             auto throughput = float3(1.0);
             
-            auto theIOR = hitRecord.f? (1.0/material.parameter) : material.parameter;
+            auto theIOR = hitRecord.f? (1.0/material.eta) : material.eta;
             
             if (!hitRecord.f) {
                 throughput *= exp(-material.refractionColor * hitRecord.t);
@@ -322,8 +313,8 @@ bool scatter(thread Ray& ray,
             if (specularProb > 0.0f) {
                 
                 specularProb = fresnel(
-                        hitRecord.f? 1.0 : material.parameter,
-                        !hitRecord.f? 1.0 : material.parameter,
+                        hitRecord.f? 1.0 : material.eta,
+                        !hitRecord.f? 1.0 : material.eta,
                         normal, ray.direction, material.specularProb, 1.0f);
                         //ray.direction, hitRecord.n, hitRecord.material.specularProb, 1.0f);
                 

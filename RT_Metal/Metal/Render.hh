@@ -2,23 +2,23 @@
 #define Render_h
 
 #include "Common.hh"
+#include "Random.hh"
+
 #include "SobolSampler.hh"
 #include "RandomSampler.hh"
 
-#include "Random.hh"
-
-
-#include "Triangle.hh"
 #include "BVH.hh"
+#include "Triangle.hh"
 
-#include "Sphere.hh"
-#include "Square.hh"
 #include "Cube.hh"
+#include "Square.hh"
+#include "Sphere.hh"
 
 #include "Geo.hh"
 #include "Light.hh"
 #include "Spectrum.hh"
 
+#include "Medium.hh"
 #include "Material.hh"
 
 struct PackageEnv {
@@ -49,7 +49,7 @@ struct Primitive {
 struct Scene {
     constant Primitive& primitives;
     
-    bool hit(const thread Ray& ray, thread HitRecord& hitRecord, thread bool* edge) {
+    bool hit(const thread Ray& ray, thread HitRecord& hitRecord, float test_t, thread bool* edge) {
         
         uint the_index = 0;
         uint tested_index = UINT_MAX;
@@ -57,7 +57,7 @@ struct Scene {
         uint32_t stack_mark = 0;
         uint32_t stack_level = 0;
         
-        float2 range_t = float2(FLT_MIN, FLT_MAX);
+        float2 range_t = float2(FLT_MIN, test_t);
         
         if ( primitives.bvhList[the_index].boundingBOX.hit(ray, range_t) ) {
             

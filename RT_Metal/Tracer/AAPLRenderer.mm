@@ -95,10 +95,15 @@ typedef struct
     {
         // Get the display ID of the display in which the view appears
         //CGDirectDisplayID viewDisplayID = (CGDirectDisplayID) [_view.window.screen.deviceDescription[@"NSScreenNumber"] unsignedIntegerValue];
-
         // Get the Metal device that drives the display
         //id<MTLDevice> preferredDevice = CGDirectDisplayCopyCurrentMetalDevice(viewDisplayID);
         
+//        id <NSObject> deviceObserver  = nil;
+//        NSArray<id<MTLDevice>> *deviceList = nil;
+//        deviceList = MTLCopyAllDevicesWithObserver(&deviceObserver,
+//                                                   ^(id<MTLDevice> device, MTLDeviceNotificationName name) {
+//                                                       //[self handleExternalGPUEventsForDevice:device notification:name];
+//                                                   }); MTLCopyAllDevices();
         _view = view;
         _device = view.preferredDevice;
         //_view.preferredFramesPerSecond = 30;
@@ -184,7 +189,7 @@ typedef struct
                                                   options: CommonStorageMode];
         
         Material pbr;
-        pbr.type = MaterialType::Glass;
+        pbr.type = MaterialType::Medium;
         
         pbr.textureInfo.type = TextureType::Constant;
         pbr.textureInfo.albedo = simd_make_float3(1, 1, 1);
@@ -347,8 +352,8 @@ typedef struct
         }
         
         //let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
-        //let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/dragon" ofType:@"obj"];
-        let modelPath = [NSBundle.mainBundle pathForResource:@"uv_test/uv_test" ofType:@"obj"];
+        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/dragon" ofType:@"obj"];
+        //let modelPath = [NSBundle.mainBundle pathForResource:@"uv_test/uv_test" ofType:@"obj"];
         let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
                 
             MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);

@@ -69,6 +69,8 @@ struct Square {
         hitRecord.n = float3(0);
         hitRecord.n[axis_k] = 1;
         hitRecord.checkFace(ray);
+        hitRecord.n = hitRecord.sn;
+        
         hitRecord.p = ray.pointAt(t);
         hitRecord.material = material;
         

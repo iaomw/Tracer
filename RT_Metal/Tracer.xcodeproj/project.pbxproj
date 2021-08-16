@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		5701CE7724E591CE008F68BB /* SceneKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5701CE7624E591CE008F68BB /* SceneKit.framework */; };
 		570DF00924CF97F700421890 /* vulture_hide_4k.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 570DF00824CF979500421890 /* vulture_hide_4k.hdr */; };
 		571C09602439267700DA0BAC /* Tracer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571C095F2439267700DA0BAC /* Tracer.mm */; };
 		571FF88B246367E4002DDF02 /* AAPLRenderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 571FF88A246367E4002DDF02 /* AAPLRenderer.mm */; };
@@ -16,7 +15,6 @@
 		57483ED624FEC232002F7ECA /* goldscuffed in Resources */ = {isa = PBXBuildFile; fileRef = 57483ED524FEC232002F7ECA /* goldscuffed */; };
 		57483ED724FEC232002F7ECA /* goldscuffed in Resources */ = {isa = PBXBuildFile; fileRef = 57483ED524FEC232002F7ECA /* goldscuffed */; };
 		5749BCA32435005B002B60E4 /* Scatter.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5749BCA22435005B002B60E4 /* Scatter.metal */; };
-		5759E67524DB496600C8A2D7 /* Camera.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67424DB496600C8A2D7 /* Camera.metal */; };
 		5759E67E24DB717400C8A2D7 /* Material.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67D24DB717400C8A2D7 /* Material.metal */; };
 		5759E68024DB723D00C8A2D7 /* HitRecord.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67F24DB723D00C8A2D7 /* HitRecord.metal */; };
 		5759E68424DCAC1E00C8A2D7 /* Noise.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E68324DCAC1E00C8A2D7 /* Noise.metal */; };
@@ -34,7 +32,6 @@
 		57874FD324DDF73900080AB7 /* Common.hh in Sources */ = {isa = PBXBuildFile; fileRef = 571FF88D24639A81002DDF02 /* Common.hh */; };
 		57874FD424DDFECC00080AB7 /* Ray.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67224DB483D00C8A2D7 /* Ray.hh */; };
 		57874FD524DDFECC00080AB7 /* Camera.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67324DB492500C8A2D7 /* Camera.hh */; };
-		57874FD624DDFECC00080AB7 /* Camera.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67424DB496600C8A2D7 /* Camera.metal */; };
 		57874FD724DDFECC00080AB7 /* Texture.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67624DB651400C8A2D7 /* Texture.hh */; };
 		57874FD824DDFECC00080AB7 /* Material.hh in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67724DB65F200C8A2D7 /* Material.hh */; };
 		57874FD924DDFECC00080AB7 /* Material.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5759E67D24DB717400C8A2D7 /* Material.metal */; };
@@ -93,7 +90,6 @@
 		5759E67124DB3EB900C8A2D7 /* Scatter.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Scatter.hh; sourceTree = "<group>"; };
 		5759E67224DB483D00C8A2D7 /* Ray.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Ray.hh; sourceTree = "<group>"; };
 		5759E67324DB492500C8A2D7 /* Camera.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Camera.hh; sourceTree = "<group>"; };
-		5759E67424DB496600C8A2D7 /* Camera.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Camera.metal; sourceTree = "<group>"; };
 		5759E67624DB651400C8A2D7 /* Texture.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Texture.hh; sourceTree = "<group>"; };
 		5759E67724DB65F200C8A2D7 /* Material.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Material.hh; sourceTree = "<group>"; };
 		5759E67824DB667400C8A2D7 /* AABB.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AABB.hh; sourceTree = "<group>"; };
@@ -131,6 +127,7 @@
 		57C64C7A24E1549A0054AB8C /* AAPLMesh.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = AAPLMesh.h; sourceTree = "<group>"; };
 		57C64C7B24E1549B0054AB8C /* AAPLMesh.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AAPLMesh.m; sourceTree = "<group>"; };
 		57C64C7D24E15A920054AB8C /* AAPLShaderTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AAPLShaderTypes.h; sourceTree = "<group>"; };
+		57C9D46226A6C86400C681AA /* Medium.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Medium.hh; sourceTree = "<group>"; };
 		57D7F39A266925F90063AF0A /* Triangle.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Triangle.hh; sourceTree = "<group>"; };
 		57DD3566241EEC110094632B /* Tracer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tracer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		57DD3569241EEC110094632B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -156,7 +153,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5701CE7724E591CE008F68BB /* SceneKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -194,7 +190,6 @@
 				578BE285250557E000FB56F1 /* BXDF.metal */,
 				5759E67224DB483D00C8A2D7 /* Ray.hh */,
 				5759E68124DC352E00C8A2D7 /* BVH.hh */,
-				5759E67424DB496600C8A2D7 /* Camera.metal */,
 				5759E67624DB651400C8A2D7 /* Texture.hh */,
 				5759E67724DB65F200C8A2D7 /* Material.hh */,
 				5759E67D24DB717400C8A2D7 /* Material.metal */,
@@ -212,6 +207,7 @@
 				573DD10A24335D6D00B09B0A /* Render.hh */,
 				573DD1082432B9D900B09B0A /* Render.metal */,
 				573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */,
+				57C9D46226A6C86400C681AA /* Medium.hh */,
 			);
 			path = Metal;
 			sourceTree = "<group>";
@@ -391,7 +387,6 @@
 				578BE28725055CB600FB56F1 /* BXDF.metal in Sources */,
 				57874FD424DDFECC00080AB7 /* Ray.hh in Sources */,
 				57874FD524DDFECC00080AB7 /* Camera.hh in Sources */,
-				57874FD624DDFECC00080AB7 /* Camera.metal in Sources */,
 				57874FD724DDFECC00080AB7 /* Texture.hh in Sources */,
 				57874FD824DDFECC00080AB7 /* Material.hh in Sources */,
 				57874FD924DDFECC00080AB7 /* Material.metal in Sources */,
@@ -438,7 +433,6 @@
 				571C09602439267700DA0BAC /* Tracer.mm in Sources */,
 				5749BCA32435005B002B60E4 /* Scatter.metal in Sources */,
 				57DD356C241EEC110094632B /* TracerViewController.swift in Sources */,
-				5759E67524DB496600C8A2D7 /* Camera.metal in Sources */,
 				578BE286250557E000FB56F1 /* BXDF.metal in Sources */,
 				57DD356A241EEC110094632B /* AppDelegate.swift in Sources */,
 				5759E68424DCAC1E00C8A2D7 /* Noise.metal in Sources */,
@@ -577,7 +571,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_ENABLE_MODULES = YES;
 				MTL_FAST_MATH = YES;
@@ -633,7 +627,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_ENABLE_MODULES = YES;
 				MTL_FAST_MATH = YES;
@@ -659,7 +653,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "-Wl,-stack_size,10000000";
 				PRODUCT_BUNDLE_IDENTIFIER = IA.Tracer;
@@ -687,7 +681,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				OTHER_LDFLAGS = "-Wl,-stack_size,10000000";
 				PRODUCT_BUNDLE_IDENTIFIER = IA.Tracer;
 				PRODUCT_NAME = "$(TARGET_NAME)";

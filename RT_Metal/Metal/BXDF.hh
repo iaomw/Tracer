@@ -42,30 +42,13 @@ inline bool Refract(const thread float3 &wo, const thread float3 &n, float eta, 
 
 template <typename BxType>
 struct BXDF_Wrapped {
-    
-    const BXDF_Data data;
-    
     const BxType bx;
+    const BXDF_Data data;
     
     BXDF_Wrapped(BXDF_Data data, BxType bx): data(data), bx(bx) {}
     
     bool MatchesFlags(BXDF_Type t) const {
        return (data.type & t) == data.type;
-    }
-    
-    float3 F(const thread float3 &wo, const thread float3 &wi) {
-        return bx.F(wo, wi);
-    }
-    
-    float PDF(const thread float3 &wo, const thread float3 &wi) const {
-        return bx.PDF(wi, wo);
-    }
-    
-    float3 S_F(const thread float3 &wo, thread float3 &wi,
-                const thread float2 *sample, thread float &pdf,
-                    thread BXDF_Type *sampledType = nullptr)  {
-        
-        return bx.S_F(wo, wi, sample, pdf, sampledType);
     }
 };
 
@@ -74,7 +57,9 @@ float3 FrConductor(float cosi, const thread float3 &eta, const thread float3 &k)
 //inline float FrComplex(float cosi, float eta);
 
 class FresnelConductor {
-  public:
+    //private:
+    float3 eta, k;
+public:
     // FresnelConductor Public Methods
     float3 Evaluate(float cosThetaI) const {
         return FrConductor(abs(cosThetaI), eta, k);
@@ -82,22 +67,18 @@ class FresnelConductor {
     
     FresnelConductor(const thread float3& eta, const thread float3& k)
         : eta(eta), k(k) {}
-    
-  //private:
-    float3 eta, k;
 };
 
 class FresnelDielectric {
-  public:
+    //private:
+    float eta;
+public:
     // FresnelDielectric Public Methods
     float3 Evaluate(float cosThetaI) const {
         return FrDielectric(cosThetaI, eta);
     }
     
     FresnelDielectric(float eta) : eta(eta) {}
-
-  //private:
-    float eta;
 };
 
 template <typename DistType>
