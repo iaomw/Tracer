@@ -79,7 +79,7 @@ struct Triangle {
         hitRecord.uv = u * _b->uv + v * _c->uv + w * _a->uv;
         
         hitRecord.checkFace(ray);
-        hitRecord.material = 18;
+        hitRecord.material = 19;
         
         return true;
     }

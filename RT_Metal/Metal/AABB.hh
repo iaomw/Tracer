@@ -170,7 +170,7 @@ struct AABB {
     
     bool hit(thread Ray& ray, const thread float2& range_t, thread HitRecord& record) constant {
         
-        float tmin = range_t.x;
+        float tmin = -FLT_MAX;
         float tmax = range_t.y;
         
         uint axisPick = 0;
@@ -201,13 +201,20 @@ struct AABB {
         }
         
         record.t = tmin < 0 ? tmax : tmin; // internal or external
-        record.n = float3(0); record.n[axisPick] = bound_min < bound_max ? -1:1;
+        
+        record.n = float3(0);
+        record.n[axisPick] = bound_min < bound_max ? -1:1;
+            
+        if (bound_min < 0) { record.n[axisPick] = 1; }
+        if (bound_max < 0) { record.n[axisPick] = -1; }
         
         auto hitPoint = ray.pointAt(record.t);
+        record.p = hitPoint;
         
         auto ratio = (hitPoint - mini) / (maxi - mini);
-        ratio[axisPick] = 0;
+        record.ratio = ratio;
         
+        //ratio[axisPick] = 0;
         uint2 axisUV = (uint2(1, 2) + axisPick) % 3;
         record.uv = float2(ratio[axisUV.x], ratio[axisUV.y]);
         
@@ -218,13 +225,13 @@ struct AABB {
     
     static AABB make(const float3& a, const float3& b) {
         
-        auto mini = simd_make_float3(fminf(a.x, b.x),
-                                      fminf(a.y, b.y),
-                                      fminf(a.z, b.z));
+        auto mini = float3{ fminf(a.x, b.x),
+                            fminf(a.y, b.y),
+                            fminf(a.z, b.z) };
         
-        auto maxi = simd_make_float3(fmaxf(a.x, b.x),
-                                     fmaxf(a.y, b.y),
-                                     fmaxf(a.z, b.z));
+        auto maxi = float3{ fmaxf(a.x, b.x),
+                            fmaxf(a.y, b.y),
+                            fmaxf(a.z, b.z) };
         
         AABB r; r.mini = mini; r.maxi = maxi;
         

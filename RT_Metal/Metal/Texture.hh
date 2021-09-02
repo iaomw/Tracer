@@ -1,8 +1,6 @@
 #ifndef Texture_h
 #define Texture_h
 
-#include "Common.hh"
-
 #include "Noise.hh"
 
 enum struct TextureType { Constant, Checker, Noise, Image };

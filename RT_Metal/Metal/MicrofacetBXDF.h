@@ -440,14 +440,14 @@ typedef MicrofacetReflection <TrowbridgeReitz, FresnelConductor> MetalMaterial;
 
 inline MetalMaterial createMetalMaterial() {
     
-    float2 uv_rough = {0.01, 0.2};
+    float2 uv_rough = {0.001, 0.001};
     
     //uv_rough[0] = TrowbridgeReitz::RoughnessToAlpha(0.1);
     //uv_rough[1] = TrowbridgeReitz::RoughnessToAlpha(0.2);
     
     float3 eta = { 0.18, 0.15, 0.81 };
     //float3 eta = float3(0.9);
-    float3 k = 0.11;
+    float3 k = 1;
     
     auto fr = FresnelConductor(eta, k);
     auto dist = TrowbridgeReitz(uv_rough[0], uv_rough[1]);
@@ -528,7 +528,6 @@ inline PlasticMaterial createPlasticMaterial() {
     auto dist = Beckmann(uv_rough[0], uv_rough[1]);
 
     auto px = PlasticX(1.0, fr, dist);
-    
     
     return PlasticMaterial(px);
 }

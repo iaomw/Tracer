@@ -25,5 +25,5 @@ float fresnel(float n1, float n2, float3 normal, float3 incident, float f0, floa
         float ret = r0+(1.0-r0)*x*x*x*x*x;
  
         // adjust reflect multiplier for object reflectivity
-        return mix(f0, f90, ret);
+        return Lerp(f0, f90, ret);
 }

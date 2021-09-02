@@ -5,7 +5,7 @@
 //#include "Medium.hh"
 //#include "Material.hh"
 
-enum struct MediumType { Homogeneous, GridDensity, Nill };
+enum struct MediumType { Nill, Homogeneous, GridDensity };
 
 #ifdef __METAL_VERSION__
 

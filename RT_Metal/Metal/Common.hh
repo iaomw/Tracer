@@ -3,8 +3,6 @@
 
     #ifdef __METAL_VERSION__
 
-        #define metal_constant constant
-
         #include <metal_stdlib>
         using namespace metal;
 
@@ -14,9 +12,6 @@
 
         #define let __auto_type const
         #define var __auto_type
-
-        #define metal_constant const
-        //#define thread /* thread */
 
         #include <MetalKit/MetalKit.h>
         #include <simd/simd.h>

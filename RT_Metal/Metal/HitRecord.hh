@@ -11,6 +11,13 @@ struct HitRecord {
     float t;
     float3 p;
     
+    Ray _r;
+    float _t;
+    float3 _p;
+    
+    float3 ratio;
+    float4x4 modelMatrix;
+    
     bool f;
     float3 n;
     float3 sn;

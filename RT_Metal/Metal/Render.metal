@@ -1,5 +1,5 @@
 #include "Render.hh"
-#include "Scatter.hh"
+#include "Camera.hh"
 
 typedef enum  {
     VertexInputIndexVertices = 0,
@@ -162,6 +162,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
 //    if ( edge_hitted ) { return float3(10); }
     
     bool hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
+    
      
     if ( hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
         
@@ -182,10 +183,16 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         
         MediumInteraction mi;
         
-        if (ray.medium != MediumType::Nill) {
+        if (ray.medium == MediumType::Homogeneous) {
             
             auto homo = HomogeneousMedium(0.04, 0.02, 0.5);
             ratio *= homo.Sample(ray, hitRecord, &mi, xsampler);
+        }
+        else if (ray.medium == MediumType::GridDensity) {
+            
+            GridDensityMedium dMedium = { packageEnv.densityInfo, packageEnv.densityArray };
+            auto x = dMedium.Sample(hitRecord._r, hitRecord, &mi, xsampler);
+            ratio *= x;
         }
         
         if (packageEnv.materials[hitRecord.material].type == MaterialType::Medium) {
@@ -199,16 +206,15 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                 ray.medium = MediumType::Nill;
             }
                        
-            if (mi.medium != nullptr) {
+            if (mi.medium != nullptr || mi.density != nullptr) {
                 
                 float3 wi, wo = -ray.direction;
                 //mi.phase->Sample_p(wo, wi, xsampler.sample2D());
                 HenyeyGreenstein(mi.phaseG).Sample_p(wo, wi, xsampler.sample2D());
                 
-                //auto medium = ray.medium;
-                //ray = Ray(mi.p, wi);
-                //ray.medium = medium;
-                ray.origin = mi.p;
+                auto pp = hitRecord.modelMatrix * float4(mi.p, 1.0);
+                
+                ray.origin = pp.xyz; //mi.p;
                 ray.direction = normalize(wi);
                 ray.medium = packageEnv.materials[hitRecord.material].medium;
             }
@@ -324,8 +330,8 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
 }
 
 kernel void
-tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
-             texture2d<half, access::write>     outTexture [[texture(1)]],
+tracerKernel(texture2d<float, access::read>       inTexture [[texture(0)]],
+             texture2d<float, access::write>     outTexture [[texture(1)]],
              
              texture2d<uint32_t, access::read>       inRNG [[texture(2)]],
              texture2d<uint32_t, access::write>     outRNG [[texture(3)]],
@@ -339,7 +345,6 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
              constant PackageEnv&  packageEnv [[buffer(8)]],
              constant PackagePBR*  packagePBR [[buffer(9)]])
 {
-    
     uint32_t rr = inRNG.read(thread_pos).r;
     uint32_t gg = inRNG.read(thread_pos).g;
     uint32_t bb = inRNG.read(thread_pos).b;
@@ -372,11 +377,10 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
         color = float3(0);
     }
     
-    float3 cached_color = float3( inTexture.read( thread_pos ).rgb );
+    float3 cached = float3( inTexture.read( thread_pos ).rgb );
+    float3 result = (cached.rgb * frame + color) / (frame + 1);
     
-    float3 result = (cached_color.rgb * frame + color) / (frame + 1);
-    
-    outTexture.write(half4(half3(result), 1.0), thread_pos);
+    outTexture.write(float4(result, 1.0), thread_pos);
     //outTexture.write(half4(xxx), thread_pos);
 
     gg = rng.state;

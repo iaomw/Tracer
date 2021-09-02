@@ -9,6 +9,10 @@ struct LightSampleRecord {
     float areaPDF;
 };
 
+inline float Lerp(float t, float s1, float s2) {
+    return (1 - t) * s1 + t * s2;
+}
+
 inline void CoordinateSystem(const thread float3& a, thread float3& b, thread float3& c) {
     
 //    if (abs(a.x) > abs(a.y))
@@ -105,7 +109,7 @@ inline float3 UniformSampleCone(const thread float2 &u, float cosThetaMax) {
 
 inline float3 UniformSampleCone(const thread float2 &u, float cosThetaMax,
                            const thread float3 &x, const thread float3 &y, const thread float3 &z) {
-    float cosTheta = mix(u[0], cosThetaMax, 1.f);
+    float cosTheta = Lerp(u[0], cosThetaMax, 1.f);
     float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
     float phi = u[1] * 2 * M_PI_F;
     return cos(phi) * sinTheta * x + sin(phi) * sinTheta * y + cosTheta * z;

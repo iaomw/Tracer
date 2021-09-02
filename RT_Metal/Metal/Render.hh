@@ -14,7 +14,6 @@
 #include "Square.hh"
 #include "Sphere.hh"
 
-#include "Geo.hh"
 #include "Light.hh"
 #include "Spectrum.hh"
 
@@ -26,6 +25,9 @@ struct PackageEnv {
     texture2d<float>       texUVT [[id(1)]];
     
     constant Material*  materials [[id(2)]];
+    
+    constant GridDensityInfo*   densityInfo [[id(3)]];
+    constant float*            densityArray [[id(4)]];
 };
 
 struct PackagePBR {

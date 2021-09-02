@@ -6,6 +6,8 @@
 #include "Tracer.hh"
 #include "BVH.hh"
 
+#include "Medium.hh"
+
 typedef struct
 {
     float x, y;
@@ -57,6 +59,9 @@ typedef struct
     id<MTLBuffer> _bvh_buffer;
     id<MTLBuffer> _idx_buffer;
     id<MTLBuffer> _tri_buffer;
+    
+    id<MTLBuffer> _densityInfoBuffer;
+    id<MTLBuffer> _densityArrayBuffer;
     
     id<MTLHeap> _heap;
    
@@ -190,6 +195,7 @@ typedef struct
         
         Material pbr;
         pbr.type = MaterialType::Medium;
+        pbr.medium = MediumType::Homogeneous;
         
         pbr.textureInfo.type = TextureType::Constant;
         pbr.textureInfo.albedo = simd_make_float3(1, 1, 1);
@@ -217,7 +223,7 @@ typedef struct
         
         let td = [[MTLTextureDescriptor alloc] init];
         td.textureType = MTLTextureType2D;
-        td.pixelFormat = MTLPixelFormatRGBA16Float;
+        td.pixelFormat = MTLPixelFormatRGBA32Float;
         td.width = width;
         td.height = height;
         td.mipmapLevelCount = mipCount;
@@ -340,10 +346,10 @@ typedef struct
 //            BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, PrimitiveType::Sphere, i, bvh_list);
 //        }
 
-//                for (int i=0; i<cube_list.size()-1; i++) {
-//                    auto& cube = cube_list[i];
-//                    BVH::buildNode(cube.boundingBOX, cube.model_matrix, ShapeType::Cube, i, bvh_list);
-//                }
+            for (int i=0; i<cube_list.size(); i++) {
+                auto& cube = cube_list[i];
+                BVH::buildNode(cube.box, cube.model_matrix, PrimitiveType::Cube, i, bvh_list);
+            }
 
         for (int i=4; i<7; i++) {
         //for (int i=0; i<cornell_box.size(); i++) {
@@ -446,7 +452,7 @@ typedef struct
                     
                     let triangleIndex = triangleIndexOffset + i/3;
                     
-                    BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
+                    //BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
                 }
                 
                 totalIndexBufferLength += submesh.indexBuffer.length; triangleIndexOffset += index_count/3;
@@ -480,8 +486,15 @@ typedef struct
                                                    length: sizeof(struct BVH)*bvh_list.size()
                                                   options: CommonStorageMode];
         
+        //float* xxxx = test_density;
+        auto _densityInfo = GridDensityInfo(10, 90, 0.5, 100, 100, 40);
+        
+        _densityInfoBuffer = [_device newBufferWithBytes: &_densityInfo length:sizeof(GridDensityInfo) options:CommonStorageMode];
+        _densityArrayBuffer = [_device newBufferWithBytes:test_density length:sizeof(test_density) options:CommonStorageMode];
+        
         _vectorBufferAll = { _cube_list_buffer, _square_list_buffer, _sphere_list_buffer,
-                                _bvh_buffer, _idx_buffer, _tri_buffer, _material_buffer };
+                                _bvh_buffer, _idx_buffer, _tri_buffer, _material_buffer,
+                                _densityInfoBuffer, _densityArrayBuffer };
         
         [self createHeap];
         [self copyToHeap];
@@ -493,7 +506,11 @@ typedef struct
         _bvh_buffer = _vectorBufferAll[3];
         _idx_buffer = _vectorBufferAll[4];
         _tri_buffer = _vectorBufferAll[5];
+        
         _material_buffer = _vectorBufferAll[6];
+        
+        _densityInfoBuffer = _vectorBufferAll[7];
+        _densityArrayBuffer = _vectorBufferAll[8];
         
         _vectorBufferAll.clear();
         
@@ -527,6 +544,9 @@ typedef struct
         [argumentEncoderEnv setTexture:_textureUVT atIndex:1];
         
         [argumentEncoderEnv setBuffer:_material_buffer offset:0 atIndex:2];
+        
+        [argumentEncoderEnv setBuffer:_densityInfoBuffer offset:0 atIndex:3];
+        [argumentEncoderEnv setBuffer:_densityArrayBuffer offset:0 atIndex:4];
         
         [argumentEncoderPri setArgumentBuffer:_argumentBufferPri offset:0];
         
@@ -587,7 +607,6 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         }
         
         //[self drag:simd_make_float2(1, 0) state:NO];
-        
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
             #if TARGET_OS_OSX
                 self->_view.needsDisplay = YES;

@@ -60,6 +60,7 @@
 		578F8A4225056FD800B40A13 /* Sobolmatrices.metal in Sources */ = {isa = PBXBuildFile; fileRef = 578F8A4025056FD800B40A13 /* Sobolmatrices.metal */; };
 		5792A15024F3D790002E6968 /* uv_test in Resources */ = {isa = PBXBuildFile; fileRef = 5792A14F24F3D790002E6968 /* uv_test */; };
 		5792A15124F3D790002E6968 /* uv_test in Resources */ = {isa = PBXBuildFile; fileRef = 5792A14F24F3D790002E6968 /* uv_test */; };
+		57B5460C26D28AC900E1DF31 /* Medium.h in Sources */ = {isa = PBXBuildFile; fileRef = 57B5460B26D28AC900E1DF31 /* Medium.h */; };
 		57C64C7824E149BD0054AB8C /* coatball in Resources */ = {isa = PBXBuildFile; fileRef = 57C64C7724E149BD0054AB8C /* coatball */; };
 		57C64C7924E14B920054AB8C /* coatball in Resources */ = {isa = PBXBuildFile; fileRef = 57C64C7724E149BD0054AB8C /* coatball */; };
 		57C64C7C24E1549B0054AB8C /* AAPLMesh.m in Sources */ = {isa = PBXBuildFile; fileRef = 57C64C7B24E1549B0054AB8C /* AAPLMesh.m */; };
@@ -123,6 +124,7 @@
 		57981F5A267A10770009FB22 /* Light.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Light.hh; sourceTree = "<group>"; };
 		57981F5D267B52080009FB22 /* Sampling.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Sampling.hh; sourceTree = "<group>"; };
 		5798730D2677B2FD007FB08D /* Spectrum.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Spectrum.hh; sourceTree = "<group>"; };
+		57B5460B26D28AC900E1DF31 /* Medium.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Medium.h; sourceTree = "<group>"; };
 		57C64C7724E149BD0054AB8C /* coatball */ = {isa = PBXFileReference; lastKnownFileType = folder; path = coatball; sourceTree = "<group>"; };
 		57C64C7A24E1549A0054AB8C /* AAPLMesh.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = AAPLMesh.h; sourceTree = "<group>"; };
 		57C64C7B24E1549B0054AB8C /* AAPLMesh.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AAPLMesh.m; sourceTree = "<group>"; };
@@ -207,6 +209,7 @@
 				573DD10A24335D6D00B09B0A /* Render.hh */,
 				573DD1082432B9D900B09B0A /* Render.metal */,
 				573DD10B2433793800B09B0A /* Tracer-Bridging-Header.h */,
+				57B5460B26D28AC900E1DF31 /* Medium.h */,
 				57C9D46226A6C86400C681AA /* Medium.hh */,
 			);
 			path = Metal;
@@ -437,6 +440,7 @@
 				57DD356A241EEC110094632B /* AppDelegate.swift in Sources */,
 				5759E68424DCAC1E00C8A2D7 /* Noise.metal in Sources */,
 				57C64C7C24E1549B0054AB8C /* AAPLMesh.m in Sources */,
+				57B5460C26D28AC900E1DF31 /* Medium.h in Sources */,
 				571FF88B246367E4002DDF02 /* AAPLRenderer.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -485,6 +489,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MTL_ENABLE_MODULES = YES;
+				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "IA.Tracer-iOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -509,6 +515,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MTL_ENABLE_MODULES = YES;
+				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "IA.Tracer-iOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

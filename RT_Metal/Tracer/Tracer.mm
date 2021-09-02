@@ -146,7 +146,6 @@ Cube MakeCube(float3 a, float3 b, uint32_t material) {
     
     Cube r;
     r.box = AABB::make(a, b);
-    r.boundingBOX = r.box;
     r.material = material;
     r.model_matrix = matrix_identity_float4x4;
     
@@ -173,28 +172,22 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     materials.emplace_back(metal);
     
     auto bigger = MakeCube(simd_make_float3(0, 0, 0),
-                           simd_make_float3(165, 330, 165), metal_index);
+                           simd_make_float3(1, 1, 1), metal_index);
     
     auto translate = translation4x4(265, 0, 295);
     auto rotate = rotation4x4(M_PI*15/180, simd_make_float3(0, 1, 0));
     // left-bottom-front point is the rotation point, that's bad.
+    auto scale = scale4x4(165, 330, 165);
     
-    bigger.model_matrix = simd_mul(translate, rotate);
+    bigger.model_matrix = simd_mul(simd_mul(translate, rotate), scale); //simd_mul(translate, rotate);
     bigger.inverse_matrix = simd_inverse(bigger.model_matrix);
     bigger.normal_matrix = simd_transpose(bigger.inverse_matrix);
     
     list.emplace_back(bigger);
     
-//    translate = matrix4x4_translation(126, 0, 295); //126
-//    rotate = matrix4x4_rotation(-0.5*M_PI*15/180, simd_make_float3(0, 1, 0));
-//
-//    bigger.model_matrix = simd_mul(translate, rotate);
-//    bigger.inverse_matrix = simd_inverse(bigger.model_matrix);
-//    bigger.normal_matrix = simd_transpose(bigger.inverse_matrix);
-//
-//    list.emplace_back(bigger);
-    
-    Material white; white.type = MaterialType::Isotropic;
+    Material white;
+    white.type = MaterialType::Glass;
+    white.medium = MediumType::Nill;
     white.textureInfo.albedo = simd_make_float3(0.73, 0.73, 0.73);
     white.textureInfo.albedo = simd_make_float3(1, 1, 1);
     white.eta = 0.01;
@@ -213,6 +206,29 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     smaller.normal_matrix = simd_transpose(smaller.inverse_matrix);
     
     list.emplace_back(smaller);
+    
+    Material density;
+    density.type = MaterialType::Medium;
+    density.medium = MediumType::GridDensity;
+    
+    auto density_index = (uint32_t)materials.size();
+    materials.emplace_back(density);
+    
+    auto tester = MakeCube(float3{0, 0, 0}, float3{1, 1, 1}, density_index);
+    
+    translate = translation4x4(0, 200, 65);
+    rotate = rotation4x4(0*M_PI, simd_make_float3(0, 1, 0));
+    scale = scale4x4(200, 200, 80);
+    
+    tester.model_matrix = //simd_mul(translate, simd_mul(rotate, scale));
+                        simd_mul(simd_mul(translate, rotate), scale);
+    tester.inverse_matrix = simd_inverse(tester.model_matrix);
+    tester.normal_matrix = simd_transpose(tester.inverse_matrix);
+    
+    //auto xx = simd_mul(tester.model_matrix, float4{1,1,1,1});
+    //auto yy = simd_mul(tester.inverse_matrix, xx);
+    
+    list.emplace_back(tester);
 }
 
 void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materials) {
