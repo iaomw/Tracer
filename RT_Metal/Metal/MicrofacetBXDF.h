@@ -440,7 +440,7 @@ typedef MicrofacetReflection <TrowbridgeReitz, FresnelConductor> MetalMaterial;
 
 inline MetalMaterial createMetalMaterial() {
     
-    float2 uv_rough = {0.001, 0.001};
+    float2 uv_rough = {0.05, 0.01};
     
     //uv_rough[0] = TrowbridgeReitz::RoughnessToAlpha(0.1);
     //uv_rough[1] = TrowbridgeReitz::RoughnessToAlpha(0.2);

@@ -2,8 +2,6 @@
 #define Ray_h
 
 #include "Common.hh"
-//#include "Medium.hh"
-//#include "Material.hh"
 
 enum struct MediumType { Nill, Homogeneous, GridDensity };
 

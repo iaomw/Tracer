@@ -1,16 +1,16 @@
 #ifndef Tracer_h
 #define Tracer_h
 
-#include "Common.hh"
-
 #include <vector>
+#include <iostream>
 
-//#include "Light.hh"
+#include "Common.hh"
 
 #include "Camera.hh"
 #include "Texture.hh"
 #include "Material.hh"
 
+#include "BVH.hh"
 #include "AABB.hh"
 
 #include "Cube.hh"
@@ -18,7 +18,6 @@
 #include "Sphere.hh"
 
 inline float Radians(float degree) {
-    
     return degree * M_PI / 180;
 }
 

@@ -5,8 +5,7 @@
     #include "Ray.hh"
     #include "Sampling.hh"
     #include "HitRecord.hh"
-#else
-    #include "Medium.h"
+
 #endif
 
 class HomogeneousMedium;
@@ -89,14 +88,15 @@ struct GridDensityInfo {
 #ifdef __METAL_VERSION__
     GridDensityInfo() {}
 #else
-    GridDensityInfo(float sigma_a, float sigma_s, float g, int nx, int ny, int nz)
+    GridDensityInfo(float sigma_a, float sigma_s, float g,
+                    int nx, int ny, int nz, float* _density)
         : sigma_a(sigma_a), sigma_s(sigma_s), g(g), nx(nx), ny(ny), nz(nz)
     {
         sigma_t = (sigma_a + sigma_s);
         
         float maxDensity = 0;
         for (int i = 0; i < (nx * ny * nz); ++i) {
-            maxDensity = fmax(maxDensity, test_density[i]);
+            maxDensity = fmax(maxDensity, _density[i]);
         }
         invMaxDensity = 1 / maxDensity;
     }
@@ -109,6 +109,20 @@ class GridDensityMedium {
   public:
     constant GridDensityInfo* info;
     constant float* density;
+    
+    float D(const thread int3 &p) const {
+        
+        auto nx = info->nx, ny = info->ny, nz = info->nz;
+        uint3 tmp = {nx, ny, nz};
+
+        if (min3(p.x, p.y, p.z) < 0) { return 0; }
+        int3 delta = (int3)tmp - p;
+
+        auto pick = min3(delta.x, delta.y, delta.z);
+        if (pick < 1) { return 0; }
+        
+        return density[(p.z * ny + p.y) * nx + p.x];
+    }
     
     // GridDensityMedium Public Methods
     float Density(const thread float3 &p) const {
@@ -129,73 +143,43 @@ class GridDensityMedium {
         return Lerp(d.z, d0, d1);
     }
     
-    float D(const thread int3 &p) const {
+    template <typename XSampler>
+    float3 Tr(const thread Ray& ray, const thread HitRecord& hitRecord, thread XSampler &sampler) const {
         
-        auto nx = info->nx, ny = info->ny, nz = info->nz;
-        uint3 tmp = {nx, ny, nz};
+        float tMax = hitRecord._t;
+        float t = 0, Tr = 1;
         
-        for (int i=0; i<3; i++) {
-            if (p[i] < 0 || p[i] >= tmp[i]) {
-                return 0;
+        while (true) {
+            t -= log(1 - sampler.sample1D()) * info->invMaxDensity / info->sigma_t;
+            
+            if (t >= tMax) break;
+            auto p = ray.pointAt(t);
+            
+            float density = Density(p);
+            Tr *= 1 - max(0.0, density * info->invMaxDensity);
+            // Added after book publication: when transmittance gets low,
+            // start applying Russian roulette to terminate sampling.
+            const float rrThreshold = .1;
+            if (Tr < rrThreshold) {
+                float q = max(.05, 1 - Tr);
+                if (sampler.sample1D() < q) return 0;
+                Tr /= 1 - q;
             }
         }
-
-//        if (min3(p.x, p.y, p.z) < 0) { return 0; }
-//
-//        auto nx = info->nx, ny = info->ny, nz = info->nz;
-//
-//        uint3 tmp = {nx, ny, nz};
-//        auto delta = (int3)tmp - p;
-//
-//        auto pick = min3(delta.x, delta.y, delta.z);
-//        if (pick < 1) { return 0; }
-        
-        return density[(p.z * ny + p.y) * nx + p.x];
+        return Tr;
     }
-    
-//    float3 Tr(const Ray &ray, Sampler &sampler) const {
-//
-//        Ray ray = WorldToMedium(
-//         Ray(rWorld.o, Normalize(rWorld.d), rWorld.tMax * rWorld.d.Length()));
-//        // Compute $[\tmin, \tmax]$ interval of _ray_'s overlap with medium bounds
-    //      &  const Bounds3f b(Point3f(0, 0, 0), Point3f(1, 1, 1));
-//        float tMin, tMax;
-//        if (!b.IntersectP(ray, &tMin, &tMax)) return Spectrum(1.f);
-//
-//        // Perform ratio tracking to estimate the transmittance value
-//        float Tr = 1, t = tMin;
-//        while (true) {
-//         ++nTrSteps;
-//         t -= log(1 - sampler.Get1D()) * invMaxDensity / sigma_t;
-//         if (t >= tMax) break;
-//         float density = Density(ray(t));
-//         Tr *= 1 - std::max((Float)0, density * invMaxDensity);
-//         // Added after book publication: when transmittance gets low,
-//         // start applying Russian roulette to terminate sampling.
-//         const Float rrThreshold = .1;
-//         if (Tr < rrThreshold) {
-//             Float q = std::max((Float).05, 1 - Tr);
-//             if (sampler.Get1D() < q) return 0;
-//             Tr /= 1 - q;
-//         }
-//        }
-//        return Spectrum(Tr);
-//    }
     
     template <typename XSampler>
     float3 Sample(const thread Ray &ray, const thread HitRecord& hitRecord, thread MediumInteraction *mi, thread XSampler &sampler) {
-        //float tMin,
+        
         float tMax = hitRecord._t;
-        //if (!b.IntersectP(ray, &tMin, &tMax)) return (1.f);
-
-        // Run delta-tracking iterations to sample a medium interaction
-        float t = 0;//tMin;
+        float t = 0;
         
         while (true)
         {
             t -= log(1 - sampler.sample1D()) * info->invMaxDensity / info->sigma_t;
-            if (t >= tMax) break;
             
+            if (t >= tMax) break;
             auto p = ray.pointAt(t);
             
             if (Density(p) * info->invMaxDensity > sampler.sample1D()) {
