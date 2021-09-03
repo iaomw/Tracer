@@ -1,6 +1,6 @@
 #include "Tracer.hh"
 
-float4x4 matrix4x4_scale(float sx, float sy, float sz) {
+float4x4 scale4x4(float sx, float sy, float sz) {
     return (float4x4) {{
         { sx,  0,  0,  0 },
         { 0,  sy,  0,  0 },
@@ -9,7 +9,7 @@ float4x4 matrix4x4_scale(float sx, float sy, float sz) {
     }};
 }
 
-float4x4 matrix4x4_rotation(float radians, float3 axis) {
+float4x4 rotation4x4(float radians, float3 axis) {
     axis = vector_normalize(axis);
     float ct = cosf(radians);
     float st = sinf(radians);
@@ -24,13 +24,56 @@ float4x4 matrix4x4_rotation(float radians, float3 axis) {
     }};
 }
 
-float4x4 matrix4x4_translation(float tx, float ty, float tz) {
+float4x4 translation4x4(float tx, float ty, float tz) {
     return (float4x4) {{
         { 1,   0,  0,  0 },
         { 0,   1,  0,  0 },
         { 0,   0,  1,  0 },
         { tx, ty, tz,  1 }
     }};
+}
+
+float4x4 LookAt(const float3 &pos, const float3 &look, const float3 &up) {
+    
+    float4x4 cameraToWorld;
+    
+    float3 dir = simd::normalize(look - pos);
+    
+    if (simd::length( simd::cross(simd::normalize(up), dir) ) == 0) {
+//        Error(
+//            "\"up\" vector (%f, %f, %f) and viewing direction (%f, %f, %f) "
+//            "passed to LookAt are pointing in the same direction.  Using "
+//            "the identity transformation.",
+//            up.x, up.y, up.z, dir.x, dir.y, dir.z);
+        return float4x4();
+    }
+    
+    float3 right = simd::normalize(simd::cross(simd::normalize(up), dir));
+    float3 newUp = simd::cross(dir, right);
+    
+    return simd::inverse(cameraToWorld);
+    
+    return float4x4 {{
+        {right.x, right.y, right.z, 0},
+        {newUp.x, newUp.y, newUp.z, 0},
+        {dir.x,   dir.y,   dir.z,   0},
+        {pos.x,   pos.y,   pos.z,   1},
+    }}; // or inverse
+}
+
+float4x4 Perspective(float fov, float n, float f) {
+    // Perform projective divide for perspective projection
+    float4x4 persp {{
+        { 1, 0, 0, 0 },
+        { 0, 1, 0, 0 },
+        { 0, 0, f / (f - n), -f * n / (f - n) },
+        { 0, 0, 1, 0 }
+    }}; // or inverse
+    // Scale canonical perspective view to specified field of view
+    float invTanAng = 1 / tan(Radians(fov) / 2);
+    auto scale = scale4x4(invTanAng, invTanAng, 1);
+    
+    return simd_mul(scale, persp);
 }
 
 void MakeCamera(Camera* camera,
@@ -103,7 +146,6 @@ Cube MakeCube(float3 a, float3 b, uint32_t material) {
     
     Cube r;
     r.box = AABB::make(a, b);
-    r.boundingBOX = r.box;
     r.material = material;
     r.model_matrix = matrix_identity_float4x4;
     
@@ -130,31 +172,25 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     materials.emplace_back(metal);
     
     auto bigger = MakeCube(simd_make_float3(0, 0, 0),
-                           simd_make_float3(165, 330, 165), metal_index);
+                           simd_make_float3(1, 1, 1), metal_index);
     
-    auto translate = matrix4x4_translation(265, 0, 295);
-    auto rotate = matrix4x4_rotation(M_PI*15/180, simd_make_float3(0, 1, 0));
+    auto translate = translation4x4(265, 0, 295);
+    auto rotate = rotation4x4(M_PI*15/180, simd_make_float3(0, 1, 0));
     // left-bottom-front point is the rotation point, that's bad.
+    auto scale = scale4x4(165, 330, 165);
     
-    bigger.model_matrix = simd_mul(translate, rotate);
+    bigger.model_matrix = simd_mul(simd_mul(translate, rotate), scale); //simd_mul(translate, rotate);
     bigger.inverse_matrix = simd_inverse(bigger.model_matrix);
     bigger.normal_matrix = simd_transpose(bigger.inverse_matrix);
     
     list.emplace_back(bigger);
     
-//    translate = matrix4x4_translation(126, 0, 295); //126
-//    rotate = matrix4x4_rotation(-0.5*M_PI*15/180, simd_make_float3(0, 1, 0));
-//
-//    bigger.model_matrix = simd_mul(translate, rotate);
-//    bigger.inverse_matrix = simd_inverse(bigger.model_matrix);
-//    bigger.normal_matrix = simd_transpose(bigger.inverse_matrix);
-//
-//    list.emplace_back(bigger);
-    
-    Material white; white.type = MaterialType::Isotropic;
+    Material white;
+    white.type = MaterialType::Glass;
+    white.medium = MediumType::Nill;
     white.textureInfo.albedo = simd_make_float3(0.73, 0.73, 0.73);
     white.textureInfo.albedo = simd_make_float3(1, 1, 1);
-    white.parameter = 0.01;
+    white.eta = 0.01;
     
     auto white_index = (uint32_t)materials.size();
     materials.emplace_back(white);
@@ -162,14 +198,37 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     auto smaller = MakeCube(simd_make_float3(0, 0, 0),
                             simd_make_float3(165, 165, 165), white_index);
     
-    translate = matrix4x4_translation(130, 0, 65);
-    rotate = matrix4x4_rotation(-0.1*M_PI, simd_make_float3(0, 1, 0));
+    translate = translation4x4(130, 0, 65);
+    rotate = rotation4x4(-0.1*M_PI, simd_make_float3(0, 1, 0));
     
     smaller.model_matrix = simd_mul(translate, rotate);
     smaller.inverse_matrix = simd_inverse(smaller.model_matrix);
     smaller.normal_matrix = simd_transpose(smaller.inverse_matrix);
     
     list.emplace_back(smaller);
+    
+    Material density;
+    density.type = MaterialType::Medium;
+    density.medium = MediumType::GridDensity;
+    
+    auto density_index = (uint32_t)materials.size();
+    materials.emplace_back(density);
+    
+    auto tester = MakeCube(float3{0, 0, 0}, float3{1, 1, 1}, density_index);
+    
+    translate = translation4x4(0, 200, 65);
+    rotate = rotation4x4(0*M_PI, simd_make_float3(0, 1, 0));
+    scale = scale4x4(200, 200, 80);
+    
+    tester.model_matrix = //simd_mul(translate, simd_mul(rotate, scale));
+                        simd_mul(simd_mul(translate, rotate), scale);
+    tester.inverse_matrix = simd_inverse(tester.model_matrix);
+    tester.normal_matrix = simd_transpose(tester.inverse_matrix);
+    
+    //auto xx = simd_mul(tester.model_matrix, float4{1,1,1,1});
+    //auto yy = simd_mul(tester.inverse_matrix, xx);
+    
+    list.emplace_back(tester);
 }
 
 void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materials) {
@@ -201,8 +260,7 @@ void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materia
     auto white_index = (uint32_t)materials.size();
     materials.emplace_back(white);
     
-    auto lightSource = MakeSquare(0, float2{200, 355}, 2, float2{200, 355}, 1, 554);
-    //auto lightSource = MakeSquare(0, simd_make_float2(113, 443), 2, simd_make_float2(127, 432), 1, 554);
+    auto lightSource = MakeSquare(0, float2{400, 555}, 2, float2{200, 355}, 1, 550);
     lightSource.material = light_index;
 
     auto right = MakeSquare(1, float2{0, 555}, 2, float2{0, 555}, 0, 800); //flip
@@ -228,6 +286,10 @@ void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materia
     list.emplace_back(bottom);
     
     list.emplace_back(lightSource);
+    
+    auto little = MakeSquare(1, float2{200, 300}, 2, float2{200, 300}, 0, -200);
+    little.material = light_index;
+    list.emplace_back(little);
 }
 
 void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materials) {
@@ -235,7 +297,7 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     Material glass; glass.type = MaterialType::Dielectric;
     glass.textureInfo.albedo = { 1.0, 1.0, 1.0 };
     glass.textureInfo.type = TextureType::Noise;
-    glass.parameter = 1.5;
+    glass.eta = 1.5;
     
     auto glass_index = (uint32_t)materials.size();
     materials.emplace_back(glass);
@@ -244,21 +306,21 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     sphere.material = glass_index;
     list.emplace_back(sphere);
     
-    Material specu; specu.type = MaterialType::Specular;
+    Material specu; specu.type = MaterialType::Demofox;
     
     specu.textureInfo.albedo = { 0.9, 0.25, 0.25 };
     specu.textureInfo.type = TextureType::Constant;
     specu.specularProb = 0.02f;
     specu.specularRoughness = 0.0;
     specu.specularColor = { 1.0f, 1.0f, 1.0f };
-    specu.parameter = 1.1f;
+    specu.eta = 1.1f;
     specu.refractionProb = 1.0f;
     specu.refractionRoughness = 0.0;
     specu.refractionColor = { 0.0f, 0.5f, 1.0f };
     
     for(auto i : {0, 1, 2, 3, 4, 5} ) {
         
-        sphere = MakeSphere(40, simd_make_float3(0 + 100 * (5-i), 50, 100));
+        sphere = MakeSphere(40, simd_make_float3(0 + 100 * (5-i), 50, 50));
         specu.specularRoughness = i * 0.2;
         specu.refractionRoughness = i * 0.2;
         
@@ -269,23 +331,23 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
         list.emplace_back(sphere);
     }
     
-    Material gloss; gloss.type = MaterialType::Specular;
+    Material gloss; gloss.type = MaterialType::Demofox;
     
     gloss.textureInfo.albedo = simd_make_float3(1.0);
     gloss.textureInfo.type = TextureType::Constant;
     gloss.specularProb = 1.0f;
     gloss.specularRoughness = 0.0;
     gloss.specularColor = {0.3f, 1.0f, 0.3f};
-    gloss.parameter = 1.1f;
+    gloss.eta = 1.1f;
     gloss.refractionProb = 0.0f;
     gloss.refractionRoughness = 0.0;
     gloss.refractionColor = {0.0f, 0.5f, 1.0f};
     
-    for(auto i : {0, 1, 2, 3, 4, 5} ) {
+    for(auto i : {0, 1, 2, 3, 4} ) {
         
-        sphere = MakeSphere(40, simd_make_float3(0 + 100 * i, 500, 400));
-        gloss.specularRoughness = fmax(FLT_MIN, i * 0.2);
-        gloss.refractionRoughness = fmax(FLT_MIN, i * 0.2);
+        sphere = MakeSphere(40, simd_make_float3(-10 + 150 * i, 500, 400));
+        gloss.specularRoughness = fmax(FLT_MIN, i * 0.25);
+        gloss.refractionRoughness = fmax(FLT_MIN, i * 0.25);
         
         auto m_index = (uint32_t)materials.size();
         materials.push_back(gloss);
@@ -303,7 +365,7 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     auto lookAt = simd_make_float3(278, 278, 278);
     auto viewUp = simd_make_float3(0, 1, 0);
     
-    auto dist_to_focus = 10;
+    auto dist_focus = 10;
     auto aperture = 0.01;
     
     auto vfov = 45 * (M_PI/180);
@@ -311,10 +373,10 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     
     let offset = simd_make_float4(lookFrom - lookAt, 0.0f);
     
-    let rotH = matrix4x4_rotation(rotate.x * hfov * 10, viewUp);
-    let rotV = matrix4x4_rotation(rotate.y * vfov * 10, simd_make_float3(1, 0, 0));
+    let rotH = rotation4x4(rotate.x * hfov * 10, viewUp);
+    let rotV = rotation4x4(rotate.y * vfov * 10, simd_make_float3(1, 0, 0));
     
     lookFrom = lookAt + simd_mul(simd_mul(rotH, rotV), offset).xyz;
     
-    MakeCamera(camera, lookFrom, lookAt, viewUp, aperture, aspect, vfov, dist_to_focus);
+    MakeCamera(camera, lookFrom, lookAt, viewUp, aperture, aspect, vfov, dist_focus);
 }

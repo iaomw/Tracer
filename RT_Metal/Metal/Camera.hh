@@ -2,7 +2,6 @@
 #define Camera_h
 
 #include "Ray.hh"
-#include "Random.hh"
 #include "Common.hh"
 
 struct Camera {
@@ -20,36 +19,24 @@ struct Camera {
     float3 cornerLowLeft;
 };
 
-#ifdef __METAL_VERSION__
+struct Transform {
+    float4x4 m, w;
+};
 
-void CoordinateSystem(const thread float3& a, thread float3& b, thread float3& c);
+#ifdef __METAL_VERSION__
 
 template <typename XSampler>
 Ray castRay(constant Camera* camera, float s, float t, thread XSampler* xsampler)
 {
     auto rd = camera->lenRadius * xsampler->sampleUnitInDisk();
-    //auto rd = 0.005 * randomInUnitDiskFF(seed);
     auto offset = camera->u*rd.x + camera->v*rd.y;
-    auto origin = camera->lookFrom + offset;
+    auto origin = camera->lookFrom + offset ;
+    
+    //thread uint *bits = reinterpret_cast<thread uint*>(&s);
+    
     auto sample = camera->cornerLowLeft + camera->horizontal*s + camera->vertical*t;
-    Ray ray = Ray(origin, sample - origin);
-    return ray;
-}
-
-#else
-
-static float4x4 LookAtMatrix(const float3 &pos, const float3 &look, const float3 &up) {
-    
-    auto zaxis = simd::normalize(look-pos);
-    auto xaxis = simd::normalize(simd::cross(up, zaxis));
-    auto yaxis = simd::cross(zaxis, xaxis);
-    
-    return float4x4 {{
-        { xaxis.x, yaxis.x, zaxis.x, 0.0 },
-        { xaxis.y, yaxis.y, zaxis.y, 0.0 },
-        { xaxis.z, yaxis.z, zaxis.z, 0.0 },
-        { -simd::dot(xaxis, pos),  -simd::dot(yaxis, pos),  -simd::dot(zaxis, pos),  1 }
-    }};
+    //Ray ray = Ray(float3(s * 1920, t * 1080, -1000), float3(FLT_MIN, FLT_MIN, 1));
+    return Ray(origin, sample - origin);
 }
 
 #endif

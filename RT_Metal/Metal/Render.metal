@@ -1,6 +1,5 @@
 #include "Render.hh"
-#include "Random.hh"
-#include "Scatter.hh"
+#include "Camera.hh"
 
 typedef enum  {
     VertexInputIndexVertices = 0,
@@ -22,19 +21,18 @@ typedef struct {
 
 typedef struct {
     vector_float2 position;
-    vector_float2 textureCoordinate;
+    vector_float2 coordinate;
 } VertexWithUV;
 
-float2 SampleSphericalMap(float3 v)
+inline float2 SampleSphericalMap(float3 v)
 {
     float2 uv = float2(atan2(v.z, v.x), asin(v.y));
     float2 invAtan = float2(0.1591, 0.3183);
-    uv *= invAtan;
-    uv += 0.5;
+    uv *= invAtan; uv += 0.5;
     return uv;
 }
 
-float3 LessThan(float3 f, float value)
+inline float3 LessThan(float3 f, float value)
 {
     return float3(
         (f.x < value) ? 1.0f : 0.0f,
@@ -42,7 +40,7 @@ float3 LessThan(float3 f, float value)
         (f.z < value) ? 1.0f : 0.0f);
 }
  
-float3 LinearToSRGB(float3 rgb)
+inline float3 LinearToSRGB(float3 rgb)
 {
     rgb = clamp(rgb, 0.0f, 1.0f);
     return mix(
@@ -52,7 +50,7 @@ float3 LinearToSRGB(float3 rgb)
     );
 }
  
-float3 SRGBToLinear(float3 rgb)
+inline float3 SRGBToLinear(float3 rgb)
 {
     rgb = clamp(rgb, 0.0f, 1.0f);
     return mix(
@@ -62,7 +60,7 @@ float3 SRGBToLinear(float3 rgb)
     );
 }
 
-float3 ACESTone(float3 color, float adapted_lum)
+inline float3 ACESTone(float3 color, float adapted_lum)
 {
     const float A = 2.51f;
     const float B = 0.03f;
@@ -74,12 +72,12 @@ float3 ACESTone(float3 color, float adapted_lum)
     return (color * (A * color + B)) / (color * (C * color + D) + E);
 }
 
-float3 CETone(float3 color, float adapted_lum)
+inline float3 CETone(float3 color, float adapted_lum)
 {
     return 1 - exp(-adapted_lum * color);
 }
 
-float CETone(float color, float adapted_lum)
+inline float CETone(float color, float adapted_lum)
 {
     return 1 - exp(-adapted_lum * color);
 }
@@ -95,7 +93,7 @@ vertexShader(uint     vertexID                  [[vertex_id]],
     out.position.xy = world_pos;
     out.position.zw = float2(0, 1);
     
-    out.texCoord = vertexArray[vertexID].textureCoordinate;
+    out.texCoord = vertexArray[vertexID].coordinate;
     
     return out;
 }
@@ -145,165 +143,183 @@ fragmentShader( RasterizerData input [[stage_in]],
 }
 
 template <typename XSampler>
-float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
+Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
                 
-                constant PackageEnv& packageEnv,
-                constant PackagePBR& packagePBR,
-                
-                constant Primitive&  primitives)
+                    constant PackageEnv& packageEnv,
+                    constant PackagePBR& packagePBR,
+
+                    constant Primitive&  primitives)
 {
     HitRecord hitRecord;
-    ScatRecord scatRecord;
+    BxRecord scatRecord;
     
-    float3 color = float3(0.0);
-    float3 ratio = float3(1.0);
+    Spectrum ratio = Spectrum(1.0);
+    Spectrum color = Spectrum(0.0);
     
-    float2 range_t;
-
+    Scene scene { primitives };
+    
+//    bool edge_hitted = false;
+//    if ( edge_hitted ) { return float3(10); }
+    
+    bool hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
+    
+     
+    if ( hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
+        
+        auto le = packageEnv.materials[hitRecord.material].textureInfo.albedo;
+        
+        auto w = dot(-ray.direction, -hitRecord.n);
+        return  le * abs(w);
+    }
+    
     do { // each ray
-            
-        uint the_index = 0;
-        uint tested_index = UINT_MAX;
         
-        uint32_t stack_mark = 0;
-        uint32_t stack_level = 0;
-        
-        range_t = float2(0.001, INFINITY);
-        
-        if ( primitives.bvhList[the_index].boundingBOX.hit(ray, range_t) ) {
-
-            do { // travel in bvh
-                
-                uint selected_index = UINT_MAX;
-                
-                uint left_index = primitives.bvhList[the_index].left;
-                uint right_index = primitives.bvhList[the_index].right;
-                uint parent_index = primitives.bvhList[the_index].parent;
-                
-                
-                {
-//                    auto center = (bvh_list[the_index].boundingBOX.maxi + bvh_list[the_index].boundingBOX.mini) / 2;
-//                    auto half_diagonal = (bvh_list[the_index].boundingBOX.maxi - bvh_list[the_index].boundingBOX.mini) / 2;
-//
-//                    auto p = ray.pointAt(ttt);
-//                    auto delta = abs(p - center);
-//
-//                    int cheker = 0;
-//                    for (int i=0; i<3; i++) {
-//                        if (abs(delta[i] - half_diagonal[i]) * 0.1 < 0.2 * 1 ) {
-//                            cheker+=1;
-//                            if (cheker == 2) { return float3(0, 1, 0);}
-//                        }
-//                    }
-//
-                }
-                
-                if (tested_index != left_index && tested_index != right_index) {
-                    
-                    float t_left = FLT_MAX, t_right = FLT_MAX;
-                    
-                    bool left_test = primitives.bvhList[left_index].boundingBOX.hit_get_t(ray, range_t, t_left);
-                    bool right_test = primitives.bvhList[right_index].boundingBOX.hit_get_t(ray, range_t, t_right);
-                    
-                    if (!left_test && !right_test) {
-                        
-                        tested_index = the_index;
-                        the_index = parent_index;
-                        stack_level -= 1; // pop stack
-                        
-                        continue;
-                    }
-                    
-                    selected_index = (t_left < t_right)? left_index : right_index;
-                    
-                    bool needTestAnother = (left_test) && (right_test);
-                    if (needTestAnother) { stack_mark |= 1U << stack_level; }
-                    
-                } // came from parent
-                
-                else { // came back child
-                    
-                    uint needCheckChild = (stack_mark >> stack_level) & 1U;
-                    // don't need check child in case of go back;
-                    stack_mark &= ~(1U << stack_level);
-                    
-                    if (0 == needCheckChild) { // go up
-                        
-                        tested_index = the_index;
-                        the_index = parent_index;
-                        stack_level -= 1; // pop stack
-                        
-                        continue;
-                    }
-                    
-                    if (tested_index == left_index) {
-                        selected_index = right_index;
-                    } else {
-                        selected_index = left_index;
-                    }
-                }
-                
-                auto pIndex = primitives.bvhList[selected_index].pIndex;
-                
-                switch(primitives.bvhList[selected_index].pType) {
-                        
-                    case PrimitiveType::BVH: { // Should already tested before reaching this step
-                         
-                        the_index = selected_index;
-                        stack_level += 1;
-                        continue;
-                    }
-                    case PrimitiveType::Sphere: {
-                        primitives.sphereList[pIndex].hit_test(ray, range_t, hitRecord); break;
-                    }
-                    case PrimitiveType::Square: {
-                        primitives.squareList[pIndex].hit_test(ray, range_t, hitRecord); break;
-                    }
-                    case PrimitiveType::Cube: {
-                        primitives.cubeList[pIndex].hit_test(ray, range_t, hitRecord); break;
-                    }
-                    case  PrimitiveType::Triangle: {
-                        auto index_r = pIndex * 3;
-                        auto index_a = primitives.idxList[index_r];
-                        auto index_b = primitives.idxList[index_r + 1];
-                        auto index_c = primitives.idxList[index_r + 2];
-                        
-                        uint3 abc {index_a, index_b, index_c};
-                        auto tri = Triangle(primitives.triList, abc);
-                        tri.hit_test(ray, range_t, hitRecord); break;
-                    }
-                    default: { return float3(0); }
-                } // switch
-                
-                tested_index = selected_index;
-                
-            } while (tested_index != 0);
-        }
-
-        if ( isinf(range_t.y ) ) {
-            float3 sphereVector = ray.origin + 1000000 * ray.direction;
+        if ( !hitted ) {
+            float3 sphereVector = ray.direction; //ray.origin + 1000000 * ray.direction;
             float2 uv = SampleSphericalMap(normalize(sphereVector));
             auto ambient = packageEnv.texHDR.sample(textureSampler, uv);
-            return ratio * ambient.rgb;
+            color += ratio * ambient.rgb; break;
         }
         
-        float3 emit_color;
-        if ( emit(hitRecord, emit_color, packageEnv.materials) ) {
-            return ratio * emit_color;
+        MediumInteraction mi;
+        
+        if (ray.medium == MediumType::Homogeneous) {
+            
+            auto homo = HomogeneousMedium(0.04, 0.02, 0.5);
+            ratio *= homo.Sample(ray, hitRecord, &mi, xsampler);
+        }
+        else if (ray.medium == MediumType::GridDensity) {
+            
+            GridDensityMedium dMedium = { packageEnv.densityInfo, packageEnv.densityArray };
+            auto x = dMedium.Sample(hitRecord._r, hitRecord, &mi, xsampler);
+            ratio *= x;
         }
         
-        if ( !scatter(ray, xsampler, hitRecord, scatRecord, packageEnv.materials, packagePBR) ) {
-            //return float3(1, 0, 1);
-            return float3(0);
+        if (packageEnv.materials[hitRecord.material].type == MaterialType::Medium) {
+            
+            if (dot(ray.direction, hitRecord.n) < 0) {
+                ray = Ray(hitRecord.p - 0.01*hitRecord.n, ray.direction);
+                ray.medium = packageEnv.materials[hitRecord.material].medium;
+            }
+            else {
+                ray = Ray(hitRecord.p + 0.01*hitRecord.n, ray.direction);
+                ray.medium = MediumType::Nill;
+            }
+                       
+            if (mi.medium != nullptr || mi.density != nullptr) {
+                
+                float3 wi, wo = -ray.direction;
+                //mi.phase->Sample_p(wo, wi, xsampler.sample2D());
+                HenyeyGreenstein(mi.phaseG).Sample_p(wo, wi, xsampler.sample2D());
+                
+                auto pp = hitRecord.modelMatrix * float4(mi.p, 1.0);
+                
+                ray.origin = pp.xyz; //mi.p;
+                ray.direction = normalize(wi);
+                ray.medium = packageEnv.materials[hitRecord.material].medium;
+            }
+            
+            hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
+            
+            if (hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
+                
+                auto li = packageEnv.materials[hitRecord.material].textureInfo.albedo;
+                auto cosOnLight = abs( dot(ray.direction, hitRecord.sn) );
+                return ratio * cosOnLight * li;
+            }
+            
+            continue;
+        } //Volume
+        
+        LightSampleRecord lsr;
+        float2 uu = xsampler.sample2D();
+        
+        auto _origin = hitRecord.p + hitRecord.sn * 0.01;
+        
+        if (xsampler.random() < 0.5) {
+            primitives.squareList[5].sample(uu, _origin, lsr);
+        } else {
+            primitives.squareList[6].sample(uu, _origin, lsr);
+        }
+
+        auto _dir = lsr.p - _origin;
+        auto _nor = normalize(_dir);
+        
+        float3 nx, ny;
+        CoordinateSystem(hitRecord.sn, nx, ny);
+        float3x3 stw = { nx, ny, hitRecord.sn };
+        float3x3 wts = transpose(stw);
+        
+        auto _ray = Ray(_origin, _nor); HitRecord shr;
+        //auto blocked = scene.block(_ray, shr, length(_dir)-0.01);
+        auto blocked = scene.hit(_ray, shr, length(_dir)-0.01, nullptr);
+        
+        float3 tr = 1.0;
+            
+        if( !blocked ) {    // packageEnv.materials[hitRecord.material].type != MaterialType::Specular
+            
+                auto wo = wts * (-ray.direction);
+                auto wi = wts * (_ray.direction); float bxPDF;
+                
+            float3 weight = packageEnv.materials[hitRecord.material].F(wo, wi, hitRecord.uv, bxPDF, uu);
+            
+            auto cosOnLight = abs( dot(lsr.n, -_nor) );
+            
+            auto Li = packageEnv.materials[shr.material].textureInfo.albedo;
+            weight *= Li * cosOnLight;
+            
+            auto dist2 = distance_squared(lsr.p, _origin);
+            auto liPDF = dist2 * lsr.areaPDF / cosOnLight;
+            
+            weight *= PowerHeuristic(1, liPDF, 1, bxPDF);
+            color += tr * ratio * weight / liPDF;
         }
         
-        ratio *= scatRecord.attenuation;
+        // BXDF Sampling
+        
+        float3 wi; float bxPDF;
+        float3 wo = wts * (-ray.direction);
+        
+        //uu = xsampler.sample2D();
+        
+        scatRecord.attenuation = packageEnv.materials[hitRecord.material].S_F(wo, wi, hitRecord.uv, uu, bxPDF);
+        scatRecord.bxPDF = bxPDF;
+        
+        if (bxPDF <= 0) { break; }
+        
+        if (wi.z < 0) {
+            ray = Ray(_origin - hitRecord.sn * 0.02, stw * wi);
+        } else {
+            ray = Ray(_origin, stw * wi);
+        }
+        
+        //ray = Ray(_origin, stw * wi);
+        //auto cosOnObject = dot(ray.direction, hitRecord.sn);
+        
+        hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
+        
+        if (hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
+                
+            auto Li = packageEnv.materials[hitRecord.material].textureInfo.albedo;
+            auto cosOnLight = dot(-ray.direction, hitRecord.sn);
+            
+            auto weight = scatRecord.attenuation * Li * cosOnLight;
+            
+            auto dist2 = distance_squared(hitRecord.p, ray.origin);
+            auto lightPDF =  hitRecord.PDF * dist2 / cosOnLight;
+            
+            weight *= PowerHeuristic(1, scatRecord.bxPDF, 1, lightPDF);
+            color += ratio * weight / scatRecord.bxPDF;
+            
+            break;
+        }
+        
+        ratio *= scatRecord.attenuation / scatRecord.bxPDF;
         
         { // Russian Roulette
-            float p = max3(ratio.r, ratio.g, ratio.b);
-            //thread auto& rng = xsampler.rng;
-            if (xsampler.random() > p)
-                break;
+            float3 xyz; RGBToXYZ(ratio, xyz);
+            float p = xyz.y; //max3(ratio);
+            if (xsampler.random() > p) break;
             // Add the energy we 'lose' by randomly terminating paths
             ratio *= 1.0f / p;
         }
@@ -314,8 +330,8 @@ float3 traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
 }
 
 kernel void
-tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
-             texture2d<half, access::write>     outTexture [[texture(1)]],
+tracerKernel(texture2d<float, access::read>       inTexture [[texture(0)]],
+             texture2d<float, access::write>     outTexture [[texture(1)]],
              
              texture2d<uint32_t, access::read>       inRNG [[texture(2)]],
              texture2d<uint32_t, access::write>     outRNG [[texture(3)]],
@@ -329,7 +345,6 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
              constant PackageEnv&  packageEnv [[buffer(8)]],
              constant PackagePBR*  packagePBR [[buffer(9)]])
 {
-    
     uint32_t rr = inRNG.read(thread_pos).r;
     uint32_t gg = inRNG.read(thread_pos).g;
     uint32_t bb = inRNG.read(thread_pos).b;
@@ -349,18 +364,23 @@ tracerKernel(texture2d<half, access::read>       inTexture [[texture(0)]],
     auto ray = castRay(camera, u, v, &rs);
     
     //uint2 vsize = { inTexture.get_width(), inTexture.get_height()};
-    //auto ss = pbrt::SobolSampler(rng, frame_count, thread_pos, vsize);
+    //auto ss = pbrt::SobolSampler(rng, frame, thread_pos, vsize);
     
-    color = traceBVH(32, ray, rs,
+    color = traceBVH(10, ray, rs,
                         packageEnv,
                         packagePBR[1],
                         primitives);
     
-    float3 cached_color = float3( inTexture.read( thread_pos ).rgb );
+    auto bad = isinf(color) || isnan(color);
     
-    float3 result = (cached_color.rgb * frame + color) / (frame + 1);
+    if( bad[0] || bad[1] || bad[2]) {
+        color = float3(0);
+    }
     
-    outTexture.write(half4(half3(result), 1.0), thread_pos);
+    float3 cached = float3( inTexture.read( thread_pos ).rgb );
+    float3 result = (cached.rgb * frame + color) / (frame + 1);
+    
+    outTexture.write(float4(result, 1.0), thread_pos);
     //outTexture.write(half4(xxx), thread_pos);
 
     gg = rng.state;

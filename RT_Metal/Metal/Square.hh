@@ -22,6 +22,34 @@ struct Square {
     
 #ifdef __METAL_VERSION__
     
+    float area() constant {
+        auto i = range_i[1] - range_i[0];
+        auto j = range_j[1] - range_j[0];
+        
+        return 2 * i * j;
+    }
+    
+    float aeraPDF() constant { return 1 / area(); }
+    
+    void sample(const thread float2& u, const thread float3& pos, thread LightSampleRecord& lsr) constant {
+        
+        lsr.p[axis_k] = value_k;
+        
+        lsr.p[axis_i] = range_i.x + u[0] * (range_i.y - range_i.x);
+        lsr.p[axis_j] = range_j.x + u[1] * (range_j.y - range_j.x);
+        
+        lsr.n = float3(0);
+        lsr.n[axis_k] = 1;
+        
+        auto w = normalize(pos - lsr.p);
+        
+        if ( dot(w, lsr.n) < 0 ) {
+            lsr.n = -lsr.n;
+        }
+        
+        lsr.areaPDF = aeraPDF();
+    }
+    
     bool hit_test(const thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) constant {
         
         auto t = (value_k-ray.origin[axis_k]) / ray.direction[axis_k];
@@ -41,10 +69,14 @@ struct Square {
         hitRecord.n = float3(0);
         hitRecord.n[axis_k] = 1;
         hitRecord.checkFace(ray);
+        hitRecord.n = hitRecord.sn;
+        
         hitRecord.p = ray.pointAt(t);
         hitRecord.material = material;
         
         range_t.y = hitRecord.t;
+        
+        hitRecord.PDF = aeraPDF();
         
         return true;
     }

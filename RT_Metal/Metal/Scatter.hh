@@ -5,14 +5,6 @@
 #include "Camera.hh"
 #include "Texture.hh"
 #include "Material.hh"
-#include "AABB.hh"
-
-#include "BVH.hh"
-#include "Cube.hh"
-#include "Square.hh"
-#include "Sphere.hh"
-
-#include "BXDF.hh"
 
 #include "HitRecord.hh"
 #include "SobolSampler.hh"
@@ -113,19 +105,19 @@ template <typename XSampler>
 bool scatter(thread Ray& ray,
              thread XSampler& xsampler,
              thread HitRecord& hitRecord,
-             thread ScatRecord& scatRecord,
+             thread BxRecord& bxRecord,
              
              constant Material* materials,
              
              constant PackagePBR& packPBR)
 {
-    auto normal = hitRecord.normal();
+    auto normal = hitRecord.sn;
     auto materialID = hitRecord.material;
     constant auto& material = materials[materialID];
     
     switch(material.type) {
             
-        case MaterialType::Diffuse: { return false; }
+        //case MaterialType::Diffuse: { return false; }
             
         case MaterialType::Lambert: {
 
@@ -147,69 +139,21 @@ bool scatter(thread Ray& ray,
 
             float3 wi = { x, y, z };
             auto direction = stw * wi;
-            ray = Ray(hitRecord.p, direction);
+            ray = Ray(hitRecord.p + hitRecord.sn * 0.001 , direction);
             
-            float3 wo = transpose(stw) * (-ray.direction);
+            //float3 wo = transpose(stw) * (-ray.direction);
             
             auto attenuation = material.textureInfo.value(nullptr, hitRecord.uv, hitRecord.p);
             
-            auto on = OrenNayar(attenuation.r);
+            //auto on = OrenNayar(attenuation.r);
             
-            scatRecord.attenuation = attenuation * on.f(wo, wi);
+            bxRecord.attenuation = attenuation / M_PI_F; //* on.f(wo, wi);
             
-            return true;
-        }
-            
-        case MaterialType::PBRT: {
-            
-            float3 nx, ny;
-            CoordinateSystem(normal, nx, ny);
-            float3x3 stw = { nx, ny, normal };
-            
-            float3 wo = transpose(stw) * (-ray.direction);
-            
-            float pdf;
-            
-            auto r0 = xsampler.sample1D();
-            auto r1 = xsampler.sample1D();
-
-            float sinTheta = sqrt( max(r0, kEpsilon) );
-            float cosTheta = sqrt( max(1-r0, kEpsilon) );
-
-            float phi = 2.0 * M_PI_F * r1;
-
-            float x = sinTheta * cos(phi);
-            float y = sinTheta * sin(phi);
-            float z = cosTheta;
-
-            float3 wi = { x, y, z };
-            
-            
-            //auto fr = FresnelDielectric(1.0, 1.8);
-            auto fr = FresnelConductor(1.0, 1.8, 0.5);
-            auto dist = TrowbridgeReitzDistribution(0.01, 0.01);
-            auto sr = ConductorBXDF<TrowbridgeReitzDistribution, FresnelConductor>(dist, fr);
-            
-            //auto bxdf_data = BXDF_Data(BXDF_Type(BSDF_REFLECTION | BSDF_SPECULAR), 1.0);
-            //auto bx = BXDF_Wrapped<MicrofacetDistribution<TrowbridgeReitzDistribution, FresnelDielectric>> (bxdf_data, sr);
-            
-            //auto intense = bx.f(wo, wi);
-            //auto pd = sr.PDF(wo, wi);
-            
-            auto direction = stw * wi;
-            ray = Ray(hitRecord.p, direction);
-            
-            //auto wm = normalize(wo + wi);
-            
-            float2 uu = {r0, r1};
-            
-            auto rr = sr.sample_f(wo, wi, &uu, pdf, nullptr);
-            
-            scatRecord.attenuation = rr /pdf;//100 * dist.D(wi, wm) * dist.G(wo, wi) / (4 * wo.z * wi.z);
+            bxRecord.bxPDF = abs(wi.z) / M_PI_F;
             
             return true;
         }
-//
+            
 //        case MaterialType::Metal: {
 //
 //            auto fuzz = 0.01 * xsampler.sampleUnitInSphere();
@@ -309,7 +253,7 @@ bool scatter(thread Ray& ray,
                 microNormal = normalize(fixedDir + nextDir); // not specular
                 
                 ray = Ray(hitRecord.p, stw * nextDir);
-                scatRecord.attenuation = albedo / (1.0-pSpecular);
+                bxRecord.attenuation = albedo / (1.0-pSpecular);
                 //auto pdf = nextDir.z;// / M_PI_F;
                 //scatRecord.attenuation /= pdf;
                 
@@ -319,7 +263,7 @@ bool scatter(thread Ray& ray,
                 
                 float pdf;
                 microNormal = GGX_SampleVisibleNormal(fixedDir, r0, r1, &pdf, a2);
-//                microNormal = normalize( {x, y, z} );
+                // microNormal = normalize( {x, y, z} );
                 nextDir = reflect(-fixedDir, microNormal);
             }
             
@@ -338,24 +282,25 @@ bool scatter(thread Ray& ray,
             auto kD = (1.0 - metallic) * (1.0 - kS);
 
             ray = Ray(hitRecord.p, stw * nextDir);
-            scatRecord.attenuation = ao * kD * diffuse + specular;
+            bxRecord.attenuation = ao * kD * diffuse + specular;
             
             //auto diffusePD = wi.z / M_PI_F;
             //auto specularPD = D * microNormal.z
             // 1 / (dot(nextDir, microNormal) * 4);
             
-            scatRecord.attenuation /= pSpecular;
+            //scatRecord.attenuation /= pSpecular;
             //scatRecord.attenuation *= nextDir.z;
+            //scatRecord.bxPDF =
             
             return true;
         }
             
-        case MaterialType::Specular: {
+        case MaterialType::Demofox: {
             
             float rayProbability = 1.0f;
             auto throughput = float3(1.0);
             
-            auto theIOR = hitRecord.f? (1.0/material.parameter) : material.parameter;
+            auto theIOR = hitRecord.f? (1.0/material.eta) : material.eta;
             
             if (!hitRecord.f) {
                 throughput *= exp(-material.refractionColor * hitRecord.t);
@@ -368,8 +313,8 @@ bool scatter(thread Ray& ray,
             if (specularProb > 0.0f) {
                 
                 specularProb = fresnel(
-                        hitRecord.f? 1.0 : material.parameter,
-                        !hitRecord.f? 1.0 : material.parameter,
+                        hitRecord.f? 1.0 : material.eta,
+                        !hitRecord.f? 1.0 : material.eta,
                         normal, ray.direction, material.specularProb, 1.0f);
                         //ray.direction, hitRecord.n, hitRecord.material.specularProb, 1.0f);
                 
@@ -418,16 +363,16 @@ bool scatter(thread Ray& ray,
             direction = mix(direction, refractionDir, doRefraction);
             
             ray = Ray(origin, direction);
-            scatRecord.attenuation = throughput;
+            bxRecord.attenuation = throughput;
             
             if (doRefraction == 0.0f) {
                 
-                scatRecord.attenuation *= mix(material.textureInfo.albedo,
+                bxRecord.attenuation *= mix(material.textureInfo.albedo,
                                               material.specularColor,
                                               doSpecular);
             }
             
-            scatRecord.attenuation /= rayProbability;
+            bxRecord.attenuation /= rayProbability;
             
             return true;
         }

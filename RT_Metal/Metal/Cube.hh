@@ -11,7 +11,6 @@ struct Cube {
     
     AABB box;
     uint material;
-    AABB boundingBOX;
     
 #ifdef __METAL_VERSION__
     
@@ -20,64 +19,33 @@ struct Cube {
         auto origin = inverse_matrix * float4(ray.origin, 1.0);
         auto direction = inverse_matrix * float4(ray.direction, 0.0);
         
-        Ray testRay = Ray(origin.xyz, direction.xyz);
+        HitRecord _record;
+        auto _ray = Ray(origin.xyz, direction.xyz);
+        if(!box.hit(_ray, range_t, _record)) { return false; }
         
-        if(!box.hit(testRay, range_t, hitRecord)) {return false;}
+        _record._p = _record.p;
+        auto p = float4(_record.p, 1.0);
+        _record.p = (model_matrix * p).xyz;
         
-        hitRecord.material = material;
-        hitRecord.p = ray.pointAt(hitRecord.t);
+        _record._r = _ray;
+        _record._t = _record.t;
         
-        hitRecord.checkFace(testRay);
-        auto normal = float4(hitRecord.normal(), 0.0);
-        hitRecord.n = normalize((normal_matrix * normal).xyz);
+        _record.t = distance(ray.origin, _record.p);
         
-        range_t.y = hitRecord.t;
-        
-        return true;
-    }
-    
-    bool hit_medium(thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord, thread pcg32_t* seed) constant {
-        
-        auto origin = inverse_matrix * float4(ray.origin, 1.0);
-        auto direction = inverse_matrix * float4(ray.direction, 0.0);
-        
-        Ray testRay = Ray(origin.xyz, direction.xyz);
-
-        HitRecord rec1, rec2;
-        
-        if (!boundingBOX.hit(testRay, float2(-FLT_MAX, FLT_MAX), rec1))
-            return false;
-
-        if (!boundingBOX.hit(testRay, float2(rec1.t+0.0001, FLT_MAX), rec2))
-            return false;
-        
-        rec1.t = max(rec1.t, range_t.x);
-        rec2.t = min(rec2.t, range_t.y);
-
-        if (rec1.t >= rec2.t) return false;
-
-        rec1.t = max(rec1.t, 0.0f);
-        
-        auto neg_inv_density = -1.0f/0.01f;
-
-        const auto ray_length = length(testRay.direction);
-        const auto distance_inside = (rec2.t - rec1.t) * ray_length;
-        //const auto hit_distance = neg_inv_density * log( randomF(seed) );
-        //const auto hit_distance = -100 * log(0.99999 + 0.00002 * randomF(seed));
-        const auto hit_distance = neg_inv_density * log(0.99999 + 0.00002 * randomF(seed));
-        
-        if (hit_distance > distance_inside) {
+        if (_record.t < range_t.y) {
+            range_t.y = _record.t;
+        } else {
             return false;
         }
-
-        hitRecord.t = rec1.t + hit_distance / ray_length;
-        hitRecord.p = ray.pointAt(hitRecord.t);
         
-        hitRecord.n = float3(0,0,0);
-        hitRecord.material = material;
+        _record.material = material;
+        _record.modelMatrix = model_matrix;
         
-        range_t.y = hitRecord.t;
+        auto normal = float4(_record.n, 0.0);
+        _record.n = normalize((normal_matrix * normal).xyz);
+        _record.checkFace(ray);
         
+        hitRecord = _record;
         return true;
     }
     

@@ -53,6 +53,25 @@ struct AABB {
     
 #ifdef __METAL_VERSION__
     
+    bool hit_edge(const thread Ray& ray, const thread float2& range_t, float ttt, float level) constant {
+        
+        auto center = (maxi + mini) / 2;
+        auto half_diagonal = (maxi - mini) / 2;
+
+        auto p = ray.pointAt(ttt);
+        auto delta = abs(p - center);
+
+        int cheker = 0;
+        for (int i=0; i<3; i++) {
+            if (abs(delta[i] - half_diagonal[i]) < 1 / (level + 1) ) {
+                cheker+=1;
+                if (cheker == 2) { return true; }
+            }
+        }
+        
+        return false;
+    }
+    
     // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms/
     bool hit(const thread Ray& ray, const thread float2& range_t) constant {
         
@@ -89,7 +108,10 @@ struct AABB {
         tmin = max(tmin, range_t.x);
         tmax = min(tmax, range_t.y);
 
-        if (tmax < tmin || tmax < 0) {return false;}
+        if (tmax <= tmin || tmax < 0) {return false;}
+        
+//        range_t[0] = tmin;
+//        range_t[1] = tmax;
         
         range_t = float2(tmin, tmax);
         
@@ -148,7 +170,7 @@ struct AABB {
     
     bool hit(thread Ray& ray, const thread float2& range_t, thread HitRecord& record) constant {
         
-        float tmin = range_t.x;
+        float tmin = -FLT_MAX;
         float tmax = range_t.y;
         
         uint axisPick = 0;
@@ -179,13 +201,20 @@ struct AABB {
         }
         
         record.t = tmin < 0 ? tmax : tmin; // internal or external
-        record.n = float3(0); record.n[axisPick] = bound_min < bound_max ? -1:1;
+        
+        record.n = float3(0);
+        record.n[axisPick] = bound_min < bound_max ? -1:1;
+            
+        if (bound_min < 0) { record.n[axisPick] = 1; }
+        if (bound_max < 0) { record.n[axisPick] = -1; }
         
         auto hitPoint = ray.pointAt(record.t);
+        record.p = hitPoint;
         
         auto ratio = (hitPoint - mini) / (maxi - mini);
-        ratio[axisPick] = 0;
+        record.ratio = ratio;
         
+        //ratio[axisPick] = 0;
         uint2 axisUV = (uint2(1, 2) + axisPick) % 3;
         record.uv = float2(ratio[axisUV.x], ratio[axisUV.y]);
         
@@ -196,13 +225,13 @@ struct AABB {
     
     static AABB make(const float3& a, const float3& b) {
         
-        auto mini = simd_make_float3(fminf(a.x, b.x),
-                                      fminf(a.y, b.y),
-                                      fminf(a.z, b.z));
+        auto mini = float3{ fminf(a.x, b.x),
+                            fminf(a.y, b.y),
+                            fminf(a.z, b.z) };
         
-        auto maxi = simd_make_float3(fmaxf(a.x, b.x),
-                                     fmaxf(a.y, b.y),
-                                     fmaxf(a.z, b.z));
+        auto maxi = float3{ fmaxf(a.x, b.x),
+                            fmaxf(a.y, b.y),
+                            fmaxf(a.z, b.z) };
         
         AABB r; r.mini = mini; r.maxi = maxi;
         

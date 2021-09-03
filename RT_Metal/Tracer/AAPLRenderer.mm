@@ -3,8 +3,10 @@
 
 #include "AAPLRenderer.hh"
 
+#include "Medium.hh"
 #include "Tracer.hh"
-#include "BVH.hh"
+
+#include "minipbrt.h"
 
 typedef struct
 {
@@ -58,6 +60,9 @@ typedef struct
     id<MTLBuffer> _idx_buffer;
     id<MTLBuffer> _tri_buffer;
     
+    id<MTLBuffer> _densityInfoBuffer;
+    id<MTLBuffer> _densityDataBuffer;
+    
     id<MTLHeap> _heap;
    
     Camera _camera;
@@ -95,10 +100,15 @@ typedef struct
     {
         // Get the display ID of the display in which the view appears
         //CGDirectDisplayID viewDisplayID = (CGDirectDisplayID) [_view.window.screen.deviceDescription[@"NSScreenNumber"] unsignedIntegerValue];
-
         // Get the Metal device that drives the display
         //id<MTLDevice> preferredDevice = CGDirectDisplayCopyCurrentMetalDevice(viewDisplayID);
         
+//        id <NSObject> deviceObserver  = nil;
+//        NSArray<id<MTLDevice>> *deviceList = nil;
+//        deviceList = MTLCopyAllDevicesWithObserver(&deviceObserver,
+//                                                   ^(id<MTLDevice> device, MTLDeviceNotificationName name) {
+//                                                       //[self handleExternalGPUEventsForDevice:device notification:name];
+//                                                   }); MTLCopyAllDevices();
         _view = view;
         _device = view.preferredDevice;
         //_view.preferredFramesPerSecond = 30;
@@ -184,12 +194,13 @@ typedef struct
                                                   options: CommonStorageMode];
         
         Material pbr;
-        pbr.type = MaterialType::PBR;
-        materials.emplace_back(pbr);
+        pbr.type = MaterialType::Medium;
+        pbr.medium = MediumType::Homogeneous;
         
-        Material pbrt;
-        pbrt.type = MaterialType::PBRT;
-        materials.emplace_back(pbrt);
+        pbr.textureInfo.type = TextureType::Constant;
+        pbr.textureInfo.albedo = simd_make_float3(1, 1, 1);
+        
+        materials.emplace_back(pbr);
         
         _material_buffer = [_device newBufferWithBytes: materials.data()
                                                 length: sizeof(struct Material)*materials.size()
@@ -212,7 +223,7 @@ typedef struct
         
         let td = [[MTLTextureDescriptor alloc] init];
         td.textureType = MTLTextureType2D;
-        td.pixelFormat = MTLPixelFormatRGBA16Float;
+        td.pixelFormat = MTLPixelFormatRGBA32Float;
         td.width = width;
         td.height = height;
         td.mipmapLevelCount = mipCount;
@@ -262,7 +273,7 @@ typedef struct
         
         [blitCommandEncoder endEncoding];
         
-        MTKTextureLoader *loader = [[MTKTextureLoader alloc] initWithDevice: _device];
+        MTKTextureLoader *textureLoader = [[MTKTextureLoader alloc] initWithDevice: _device];
         
         NSDictionary *textureLoaderOptions = @ {
                     MTKTextureLoaderOptionSRGB: @NO,
@@ -284,37 +295,36 @@ typedef struct
             //UIImagePNGRepresentation(image);
         #endif
         
-        _textureHDR = [loader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
+        _textureHDR = [textureLoader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
         
         let mdlUVT = [MDLTexture textureNamed:@"uv_test/uv_test.png"];
-        _textureUVT = [loader newTextureWithMDLTexture:mdlUVT options:textureLoaderOptions error:&ERROR];
+        _textureUVT = [textureLoader newTextureWithMDLTexture:mdlUVT options:textureLoaderOptions error:&ERROR];
         
         let mdlAO = [MDLTexture textureNamed:@"coatball/tex_ao.png"];
-        var _textureAO = [loader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
+        var _textureAO = [textureLoader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
         
         var mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
         var mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
         var mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
         var mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
         
-        var _textureAlbedo = [loader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
-        var _textureNormal = [loader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
-        var _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
-        var _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
+        var _textureAlbedo = [textureLoader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
+        var _textureNormal = [textureLoader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
+        var _textureMetallic = [textureLoader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
+        var _textureRoughness = [textureLoader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
         
         auto tmp = std::vector<id<MTLTexture>>{ _textureAO, _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
         vectorTexPBR.insert(vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
                 
+            mdlAlbedo = [MDLTexture textureNamed:@"scuffed/gold-scuffed_base.png"];
+            mdlNormal = [MDLTexture textureNamed:@"scuffed/gold-scuffed_normal.png"];
+            mdlMetallic = [MDLTexture textureNamed:@"scuffed/gold-scuffed_metallic.png"];
+            mdlRoughness = [MDLTexture textureNamed:@"scuffed/gold-scuffed_roughness.png"];
 
-            mdlAlbedo = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_basecolor.png"];
-            mdlNormal = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_normal.png"];
-            mdlMetallic = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_metallic.png"];
-            mdlRoughness = [MDLTexture textureNamed:@"goldscuffed/gold-scuffed_roughness.png"];
-
-            _textureAlbedo = [loader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
-            _textureNormal = [loader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
-            _textureMetallic = [loader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
-            _textureRoughness = [loader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
+            _textureAlbedo = [textureLoader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
+            _textureNormal = [textureLoader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
+            _textureMetallic = [textureLoader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
+            _textureRoughness = [textureLoader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
         
         tmp = std::vector<id<MTLTexture>>{ _textureAO, _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
         vectorTexPBR.insert(vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
@@ -330,24 +340,25 @@ typedef struct
         
         std::vector<BVH> bvh_list;
         
-        for (int i=1; i<sphere_list.size(); i++) {
-            auto& sphere = sphere_list[i];
-            BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, PrimitiveType::Sphere, i, bvh_list);
-        }
+//        for (int i=1; i<sphere_list.size(); i++) {
+//            auto& sphere = sphere_list[i];
+//            BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, PrimitiveType::Sphere, i, bvh_list);
+//        }
 
-//                for (int i=0; i<cube_list.size()-1; i++) {
-//                    auto& cube = cube_list[i];
-//                    BVH::buildNode(cube.boundingBOX, cube.model_matrix, ShapeType::Cube, i, bvh_list);
-//                }
+            for (int i=0; i<cube_list.size(); i++) {
+                auto& cube = cube_list[i];
+                BVH::buildNode(cube.box, cube.model_matrix, PrimitiveType::Cube, i, bvh_list);
+            }
 
-        for (int i=4; i<5; i++) {
+        for (int i=4; i<7; i++) {
         //for (int i=0; i<cornell_box.size(); i++) {
             auto& square = cornell_box[i];
             BVH::buildNode(square.boundingBOX, square.model_matrix, PrimitiveType::Square, i, bvh_list);
         }
         
         //let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
-        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/bunny" ofType:@"obj"];
+        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/dragon" ofType:@"obj"];
+        //let modelPath = [NSBundle.mainBundle pathForResource:@"uv_test/uv_test" ofType:@"obj"];
         let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
                 
             MDLVertexDescriptor *modelIOVertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_defaultVertexDescriptor);
@@ -374,8 +385,9 @@ typedef struct
         let testAsset = [[MDLAsset alloc] initWithURL: modelURL
                                      vertexDescriptor: modelIOVertexDescriptor
                                       bufferAllocator: allocator]; // preserveTopology: NO
+        
         let testMesh = (MDLMesh *) [testAsset objectAtIndex:0];
-        [testMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0];
+        [testMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:1];
         //let voxelArray = [[MDLVoxelArray alloc] initWithAsset:testAsset divisions:1 patchRadius:0.2];
                 
             let bBox = testMesh.boundingBox;
@@ -388,7 +400,7 @@ typedef struct
             let maxAxis = meshBox.maximumExtent();
             let maxDime = meshBox.diagonal()[maxAxis];
             
-            auto meshScale = 400.0 / maxDime;
+            auto meshScale = 500.0 / maxDime;
             auto meshOffset = float3(278)-centroid;
             meshOffset.y = 20 - minB.y * meshScale;
         
@@ -439,7 +451,7 @@ typedef struct
                     
                     let triangleIndex = triangleIndexOffset + i/3;
                     
-                    BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
+                    //BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
                 }
                 
                 totalIndexBufferLength += submesh.indexBuffer.length; triangleIndexOffset += index_count/3;
@@ -466,17 +478,41 @@ typedef struct
                                                   options: CommonStorageMode]; free(totalIndexData);
                 
                 _tri_buffer = [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
-                                                    length: testMesh.vertexBuffers.firstObject.length
-                                                   options: CommonStorageMode];
+                                                   length: testMesh.vertexBuffers.firstObject.length
+                                                  options: CommonStorageMode];
                 
                 _bvh_buffer = [_device newBufferWithBytes: bvh_list.data()
                                                    length: sizeof(struct BVH)*bvh_list.size()
                                                   options: CommonStorageMode];
         
         
+                minipbrt::Loader loaderPBRT;
+                auto pathPBRT = [NSBundle.mainBundle pathForResource:@"cloud/cloud" ofType:@"pbrt"];
+        
+                if (loaderPBRT.load([pathPBRT UTF8String])) {
+                    minipbrt::Scene* scene = loaderPBRT.take_scene();
+                    auto* medium = dynamic_cast<minipbrt::HeterogeneousMedium*>(scene->mediums[0]);
+                    
+                    auto size_grid = sizeof(float) * medium->nx * medium->ny * medium->nz;
+                    auto info_grid = GridDensityInfo(10, 90, 0.5, medium->nx, medium->ny, medium->nz, medium->density);
+                    
+                    _densityInfoBuffer = [_device newBufferWithBytes: &info_grid length: sizeof(info_grid) options: CommonStorageMode];
+                    _densityDataBuffer = [_device newBufferWithBytes: medium->density length: size_grid options: CommonStorageMode];
+                    
+                    delete scene;
+                }
+                else {
+                    // If parsing failed, the parser will have an error object.
+                    const minipbrt::Error* err = loaderPBRT.error();
+                    fprintf(stderr, "[%s, line %lld, column %lld] %s\n",
+                            err->filename(), err->line(), err->column(), err->message());
+                    // Don't delete err, it's still owned by the parser.
+                    return nil;
+                }
         
         _vectorBufferAll = { _cube_list_buffer, _square_list_buffer, _sphere_list_buffer,
-                                _bvh_buffer, _idx_buffer, _tri_buffer, _material_buffer };
+                                _bvh_buffer, _idx_buffer, _tri_buffer, _material_buffer,
+                                _densityInfoBuffer, _densityDataBuffer };
         
         [self createHeap];
         [self copyToHeap];
@@ -488,7 +524,11 @@ typedef struct
         _bvh_buffer = _vectorBufferAll[3];
         _idx_buffer = _vectorBufferAll[4];
         _tri_buffer = _vectorBufferAll[5];
+        
         _material_buffer = _vectorBufferAll[6];
+        
+        _densityInfoBuffer = _vectorBufferAll[7];
+        _densityDataBuffer = _vectorBufferAll[8];
         
         _vectorBufferAll.clear();
         
@@ -522,6 +562,9 @@ typedef struct
         [argumentEncoderEnv setTexture:_textureUVT atIndex:1];
         
         [argumentEncoderEnv setBuffer:_material_buffer offset:0 atIndex:2];
+        
+        [argumentEncoderEnv setBuffer:_densityInfoBuffer offset:0 atIndex:3];
+        [argumentEncoderEnv setBuffer:_densityDataBuffer offset:0 atIndex:4];
         
         [argumentEncoderPri setArgumentBuffer:_argumentBufferPri offset:0];
         
@@ -582,7 +625,6 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         }
         
         //[self drag:simd_make_float2(1, 0) state:NO];
-        
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
             #if TARGET_OS_OSX
                 self->_view.needsDisplay = YES;
