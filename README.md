@@ -1,44 +1,55 @@
-# Tracer
-This is simply a repository for my **Ray Tracing** code.
+# Lǐ
+This is simply a repository for my **Ray Tracing** code. My purpose is make it into PBRT on Metal.
 
+# Requirement
+RT_Metal requires `Metal 2 Tier 2` device, typically any AMD dGPU & eGPU woking on macOS. However, I only tested with my device, so it's not guaranteed to work with yours. For M1 and iDevice, they need some minor modification to source code.
+
+The deplyment target is macOS 11.0, but it should work on Catalina and Mojave. I am avoiding using new APIs added after 2019, case Apple is narrowing down new APIs support on old devices.
+
+![](Captures/capture_r.jpg)
+![](Captures/capture_q.jpg)
+![](Captures/capture_p.jpg)
+![](Captures/capture_o.jpg)
 ![](Captures/capture_n.jpg)
-![](Captures/capture_m.jpg)
-![](Captures/capture_l.jpg)
 ![](Captures/capture_k.jpg)
-![](Captures/capture_j.jpg)
 
-### Bigger things to-do:
-- [x] [Ray Tracing: In One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
-- [x] [Ray Tracing: The Next Week](https://raytracing.github.io/books/RayTracingTheNextWeek.html)
-- [x] [Ray Tracing: The Rest of Your Life](https://raytracing.github.io/books/RayTracingTheRestOfYourLife.html)
+### Features:
 - [ ] [Metal Kernel](https://developer.apple.com/documentation/metal)
-    - [ ] Spatiotemporal Variance-Guided Filtering
-    - [ ] MPS Acceleration & Denoise
+    - [ ] MPS Acceleration & SVGF Denoise
     - [x] Stackless BVH backtrace on GPU
+    - [x] Bindless resources
     - [x] pcg-random
-    - [x] GGX & PBR
-- [ ] [**Physically Based Rendering** __*third edition*__](http://www.pbr-book.org/)
-    - [x] Sobol’ Sampler
-    - [x] ***BVH*** Surface Area Heuristic
-    - [x] Oren-Nayar Diffuse
-    - [x] TrowbridgeReitz Distribution
-    - [ ] Multiple importance sampling
-    - [ ] Volume Rendering
-    - [ ] Stochastic Progressive Photon Mapping
-    - [ ] Metropolis Light Transport
    
-- [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)
-- [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
+- [ ] [**Physically Based Rendering,** __*Third Edition*__](http://www.pbr-book.org/)
+    - [ ] Halton Sampler
+    - [x] Sobol’ Sampler
+    - [ ] ***BVH*** 
+        - [x] Surface Area Heuristic
+        - [ ] LBVHs, Morton Encoding
+    - [x] Microfacet
+        - [x] Beckmann
+        - [x] TrowbridgeReitz
+    - [x] Multiple importance sampling
+    - [ ] Ray Differential
+    - [ ] Volume Rendering
+        - [x] Homogeneous Medium
+        - [x] Heterogeneous Medium
+        - [ ] BSSRDF
+    - [ ] Stochastic Progressive Photon Mapping
+    - [ ] Bidirectional Path Tracing
+    - [ ] Metropolis Light Transport
+    - [ ] Support PBRT file format 
 
-### Small things to-do:
-- [x] Basic GUI & Menu
-- [ ] Pretty GUI 
-- [ ] Copy to pasteboard
+ ### References:  
+
+- [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
+- [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)
+- [ ] [Dartmouth Rendering Algorithms](https://cs87-dartmouth.github.io/syllabus/)
+- [x] [Ray Tracing mini books by Peter Shirley](https://raytracing.github.io/)
+- [ ] [Eric Veach, Ph.D. dissertation, December 1997](http://graphics.stanford.edu/papers/veach_thesis/)
+
+### Other things to-do:
+- [ ] Basic GUI & Menu
 - [ ] Export as PNG file
 - [ ] Cancelable tasks 
-- [x] Camera control
-
-### Problems
-- Using too many SIMD commands could block the main thread.
-- Inconsistent Metal shader running results on AMD and Intel GPU.
-
+- [ ] Quaternion camera
