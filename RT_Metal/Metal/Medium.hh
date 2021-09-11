@@ -5,7 +5,6 @@
     #include "Ray.hh"
     #include "Sampling.hh"
     #include "HitRecord.hh"
-
 #endif
 
 class HomogeneousMedium;
@@ -15,8 +14,10 @@ class GridDensityMedium;
 struct MediumInteraction {
     float3 p, wo;
     float phaseG;
+    
+    thread void* test = nullptr;
     //thread HenyeyGreenstein *phase = nullptr;
-    thread HomogeneousMedium *medium = nullptr;
+    thread HomogeneousMedium *homogen = nullptr;
     thread GridDensityMedium *density = nullptr;
 };
 #endif
@@ -51,7 +52,9 @@ class HomogeneousMedium {
             mi->wo = -ray.direction;
             //auto hg = HenyeyGreenstein(g);
             mi->phaseG = g;
-            mi->medium = this;
+            mi->homogen = this;
+            
+            mi->test = this;
         }
         
         // Compute the transmittance and sampling density
@@ -185,10 +188,13 @@ class GridDensityMedium {
             if (Density(p) * info->invMaxDensity > sampler.sample1D()) {
                 
                 //auto phase = HenyeyGreenstein(g);
-                mi->p = p;
+                
+                mi->p = (hitRecord.modelMatrix * float4(p, 1.0)).xyz;
                 mi->wo = 0;
                 mi->phaseG = info->g;
                 mi->density = this;
+                
+                mi->test = this;
                 
                 return info->sigma_s / info->sigma_t;
             }

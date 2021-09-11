@@ -187,9 +187,8 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     
     Material white;
     white.type = MaterialType::Glass;
-    white.medium = MediumType::Nill;
-    white.textureInfo.albedo = simd_make_float3(0.73, 0.73, 0.73);
-    white.textureInfo.albedo = simd_make_float3(1, 1, 1);
+    white.medium = MediumType::_NIL_;
+    white.textureInfo.albedo = {1, 1, 1};
     white.eta = 0.01;
     
     auto white_index = (uint32_t)materials.size();
@@ -208,8 +207,9 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     list.emplace_back(smaller);
     
     Material density;
-    density.type = MaterialType::Medium;
+    density.type = MaterialType::Glass;
     density.medium = MediumType::GridDensity;
+    density.textureInfo.albedo = {1, 1, 1};
     
     auto density_index = (uint32_t)materials.size();
     materials.emplace_back(density);

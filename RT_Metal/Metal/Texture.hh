@@ -21,15 +21,8 @@ public:
                 
             case TextureType::Checker: {
                 
-//                auto sample = texture->sample(textureSampler, uv);
-//                auto result = dot(sample.rgb, {0.299, 0.587, 0.114});
-//                return float3(result);
-                
                 auto sines = sin( 8 * M_PI_F * uv.x) * cos(M_PI_F/2 + 4 * M_PI_F * uv.y);
-                if (sines < 0)
-                    return albedo * 0.5;
-                else
-                    return albedo;
+                return albedo * (0.5 * step(0, sines) + 0.5);
             }
                 
             case TextureType::Image: {

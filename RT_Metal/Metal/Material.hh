@@ -16,8 +16,8 @@
 #endif
 
 enum struct MaterialType { Diffuse, Lambert, OrenNayar,
-                            Plastic, Metal, Glass, Medium,
-                            Isotropic, Dielectric, Demofox, PBR, Nill };
+                            Plastic, Metal, Glass,
+                            Isotropic, Dielectric, Demofox, PBR, _NIL_ };
 
 class Material {
 public:

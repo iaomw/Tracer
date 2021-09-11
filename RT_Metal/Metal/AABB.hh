@@ -174,8 +174,49 @@ struct AABB {
         float tmax = range_t.y;
         
         uint axisPick = 0;
-        float bound_min = 0.0;
-        float bound_max = 0.0;
+        
+        float3 ddd = ray.origin - mini;
+        float3 bbb = ray.origin - maxi;
+        
+        if (min3(ddd.x, ddd.y, ddd.z) > 0 && max3(bbb.x, bbb.y, bbb.z) < 0) { // internal hit
+            
+            for (auto i : {0, 1, 2}) {
+                
+                auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
+                auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
+                
+                auto ts = min(max_bound, min_bound);
+                auto te = max(max_bound, min_bound);
+                
+                tmin = max(ts, tmin);
+                //tmax = min(te, tmax);
+                
+                if (te <= tmax) {
+                    tmax = te;
+                    axisPick = i;
+                }
+                
+                //if (tmax < tmin) { return false; }
+                if (tmax <= tmin || tmax < 0) { return false; }
+            }
+            
+            record.t = tmax;
+            
+            record.n = float3(0);
+            record.n[axisPick] = ray.direction[axisPick] > 0 ? 1:-1;
+            
+            auto hitPoint = ray.pointAt(record.t);
+            record.p = hitPoint;
+            
+            auto ratio = (hitPoint - mini) / (maxi - mini);
+            record.ratio = ratio;
+            
+            //ratio[axisPick] = 0;
+            uint2 axisUV = (uint2(1, 2) + axisPick) % 3;
+            record.uv = float2(ratio[axisUV.x], ratio[axisUV.y]);
+            
+            return true;
+        }
         
         for (auto i : {0, 1, 2}) {
             
@@ -188,25 +229,20 @@ struct AABB {
             //tmin = max(ts, tmin);
             tmax = min(te, tmax);
             
-            if (ts > tmin) {
+            if (ts >= tmin) {
                 
                 tmin = ts;
                 axisPick = i;
-                bound_min = min_bound;
-                bound_max = max_bound;
             }
             
             //if (tmax < tmin) { return false; }
             if (tmax <= tmin || tmax < 0) { return false; }
         }
         
-        record.t = tmin < 0 ? tmax : tmin; // internal or external
+        record.t = tmin; // external
         
         record.n = float3(0);
-        record.n[axisPick] = bound_min < bound_max ? -1:1;
-            
-        if (bound_min < 0) { record.n[axisPick] = 1; }
-        if (bound_max < 0) { record.n[axisPick] = -1; }
+        record.n[axisPick] = ray.direction[axisPick] > 0 ? -1:1;
         
         auto hitPoint = ray.pointAt(record.t);
         record.p = hitPoint;

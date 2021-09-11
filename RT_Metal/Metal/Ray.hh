@@ -3,21 +3,27 @@
 
 #include "Common.hh"
 
-enum struct MediumType { Nill, Homogeneous, GridDensity };
+enum struct MediumType { _NIL_, Homogeneous, GridDensity };
 
 #ifdef __METAL_VERSION__
 
 struct Ray {
     float3 origin;
     float3 direction;
-    //Float time;
+    
+    //float time;
     float eta = 1.0;
     
-    MediumType medium = MediumType::Nill;
+    MediumType medium = MediumType::_NIL_;
     
     Ray(): origin(0), direction(0) {}
     
     Ray(float3 o, float3 d): origin(o) {
+        direction = normalize(d);
+    }
+    
+    void update(float3 o, float3 d) {
+        origin = o;
         direction = normalize(d);
     }
     

@@ -153,8 +153,8 @@ typedef struct
         
         _canvas_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: CommonStorageMode];
         
-        uint width = 1920;
-        uint height = 1080;
+        uint width = 1920/2;
+        uint height = 1080/2;
         
         _complex.frame_count = 0;
         _complex.running_time = 0;
@@ -163,14 +163,14 @@ typedef struct
         _complex.view_size = float2 {static_cast<float>(width), static_cast<float>(height)};
         
         _complex_buffer = [_device newBufferWithBytes: &_complex
-                                                  length: sizeof(Complex)
-                                                 options: MTLResourceStorageModeShared];
+                                               length: sizeof(Complex)
+                                              options: MTLResourceStorageModeShared];
         
         _camera_rotation = simd_make_float2(0, 0);
         
         prepareCamera(&_camera, _complex.tex_size, _camera_rotation);
         _camera_buffer = [_device newBufferWithBytes: &_camera
-                                              length: sizeof(struct Camera)
+                                              length: sizeof(Camera)
                                              options: MTLResourceStorageModeShared];
         
         std::vector<Material> materials;
@@ -178,32 +178,32 @@ typedef struct
         std::vector<Cube> cube_list;
         prepareCubeList(cube_list, materials);
         _cube_list_buffer = [_device newBufferWithBytes: cube_list.data()
-                                                 length: sizeof(struct Cube)*cube_list.size()
+                                                 length: sizeof(Cube)*cube_list.size()
                                                 options: CommonStorageMode];
         
         std::vector<Square> cornell_box;
         prepareCornellBox(cornell_box, materials);
         _square_list_buffer = [_device newBufferWithBytes: cornell_box.data()
-                                                   length: sizeof(struct Square)*cornell_box.size()
+                                                   length: sizeof(Square)*cornell_box.size()
                                                   options: CommonStorageMode];
         
         std::vector<Sphere> sphere_list;
         prepareSphereList(sphere_list, materials);
         _sphere_list_buffer = [_device newBufferWithBytes: sphere_list.data()
-                                                   length: sizeof(struct Sphere)*sphere_list.size()
+                                                   length: sizeof(Sphere)*sphere_list.size()
                                                   options: CommonStorageMode];
         
         Material pbr;
-        pbr.type = MaterialType::Medium;
+        pbr.type = MaterialType::Glass;
         pbr.medium = MediumType::Homogeneous;
         
         pbr.textureInfo.type = TextureType::Constant;
-        pbr.textureInfo.albedo = simd_make_float3(1, 1, 1);
+        pbr.textureInfo.albedo = float3 {1, 1, 1};
         
         materials.emplace_back(pbr);
         
         _material_buffer = [_device newBufferWithBytes: materials.data()
-                                                length: sizeof(struct Material)*materials.size()
+                                                length: sizeof(Material)*materials.size()
                                                options: CommonStorageMode];
         
         // Create a reusable pipeline state object.
@@ -431,6 +431,8 @@ typedef struct
                         
                         ele->nz *= -1;
                         
+                        ele->vx += 300;
+                        
                         ele->vx += meshOffset.x;
                         ele->vy += meshOffset.y;
                         ele->vz += meshOffset.z;
@@ -451,7 +453,7 @@ typedef struct
                     
                     let triangleIndex = triangleIndexOffset + i/3;
                     
-                    //BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
+                    BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
                 }
                 
                 totalIndexBufferLength += submesh.indexBuffer.length; triangleIndexOffset += index_count/3;
@@ -482,7 +484,7 @@ typedef struct
                                                   options: CommonStorageMode];
                 
                 _bvh_buffer = [_device newBufferWithBytes: bvh_list.data()
-                                                   length: sizeof(struct BVH)*bvh_list.size()
+                                                   length: sizeof(BVH)*bvh_list.size()
                                                   options: CommonStorageMode];
         
         
