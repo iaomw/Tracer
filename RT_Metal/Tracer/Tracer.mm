@@ -33,6 +33,14 @@ float4x4 translation4x4(float tx, float ty, float tz) {
     }};
 }
 
+inline float4x4 scale4x4(float3& s) {
+    return scale4x4(s.x, s.y, s.z);
+}
+
+inline float4x4 translation4x4(float3& t) {
+    return translation4x4(t.x, t.y, t.z);
+}
+
 float4x4 LookAt(const float3 &pos, const float3 &look, const float3 &up) {
     
     float4x4 cameraToWorld;
@@ -166,20 +174,20 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     Material metal; metal.type = MaterialType::Metal;
     
     metal.textureInfo.type = TextureType::Constant;
-    metal.textureInfo.albedo = simd_make_float3(0.8, 0.85, 0.88);
+    metal.textureInfo.albedo = float3{0.8, 0.85, 0.88};
     
     auto metal_index = (uint32_t)materials.size();
     materials.emplace_back(metal);
     
-    auto bigger = MakeCube(simd_make_float3(0, 0, 0),
-                           simd_make_float3(1, 1, 1), metal_index);
+    auto bigger = MakeCube(float3{0, 0, 0},
+                           float3{1, 1, 1}, metal_index);
     
     auto translate = translation4x4(265, 0, 295);
-    auto rotate = rotation4x4(M_PI*15/180, simd_make_float3(0, 1, 0));
+    auto rotate = rotation4x4(M_PI*15/180, float3{0, 1, 0});
     // left-bottom-front point is the rotation point, that's bad.
     auto scale = scale4x4(165, 330, 165);
     
-    bigger.model_matrix = simd_mul(simd_mul(translate, rotate), scale); //simd_mul(translate, rotate);
+    bigger.model_matrix = translate * rotate * scale;
     bigger.inverse_matrix = simd_inverse(bigger.model_matrix);
     bigger.normal_matrix = simd_transpose(bigger.inverse_matrix);
     
@@ -194,13 +202,14 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     auto white_index = (uint32_t)materials.size();
     materials.emplace_back(white);
     
-    auto smaller = MakeCube(simd_make_float3(0, 0, 0),
-                            simd_make_float3(165, 165, 165), white_index);
+    auto smaller = MakeCube(float3{0, 0, 0},
+                            float3{1, 1, 1}, white_index);
     
+    scale = scale4x4(165, 165, 165);
     translate = translation4x4(130, 0, 65);
-    rotate = rotation4x4(-0.1*M_PI, simd_make_float3(0, 1, 0));
+    rotate = rotation4x4(-0.1*M_PI, float3{0, 1, 0});
     
-    smaller.model_matrix = simd_mul(translate, rotate);
+    smaller.model_matrix = translate * rotate * scale;
     smaller.inverse_matrix = simd_inverse(smaller.model_matrix);
     smaller.normal_matrix = simd_transpose(smaller.inverse_matrix);
     
@@ -217,11 +226,10 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     auto tester = MakeCube(float3{0, 0, 0}, float3{1, 1, 1}, density_index);
     
     translate = translation4x4(0, 200, 65);
-    rotate = rotation4x4(0*M_PI, simd_make_float3(0, 1, 0));
+    rotate = rotation4x4(0*M_PI, float3{0, 1, 0});
     scale = scale4x4(200, 200, 80);
     
-    tester.model_matrix = //simd_mul(translate, simd_mul(rotate, scale));
-                        simd_mul(simd_mul(translate, rotate), scale);
+    tester.model_matrix = translate * rotate * scale;
     tester.inverse_matrix = simd_inverse(tester.model_matrix);
     tester.normal_matrix = simd_transpose(tester.inverse_matrix);
     
@@ -310,19 +318,19 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     
     specu.textureInfo.albedo = { 0.9, 0.25, 0.25 };
     specu.textureInfo.type = TextureType::Constant;
-    specu.specularProb = 0.02f;
-    specu.specularRoughness = 0.0;
-    specu.specularColor = { 1.0f, 1.0f, 1.0f };
-    specu.eta = 1.1f;
-    specu.refractionProb = 1.0f;
-    specu.refractionRoughness = 0.0;
-    specu.refractionColor = { 0.0f, 0.5f, 1.0f };
+//    specu.specularProb = 0.02f;
+//    specu.specularRoughness = 0.0;
+//    specu.specularColor = { 1.0f, 1.0f, 1.0f };
+//    specu.eta = 1.1f;
+//    specu.refractionProb = 1.0f;
+//    specu.refractionRoughness = 0.0;
+//    specu.refractionColor = { 0.0f, 0.5f, 1.0f };
     
     for(auto i : {0, 1, 2, 3, 4, 5} ) {
         
         sphere = MakeSphere(40, simd_make_float3(0 + 100 * (5-i), 50, 50));
-        specu.specularRoughness = i * 0.2;
-        specu.refractionRoughness = i * 0.2;
+//        specu.specularRoughness = i * 0.2;
+//        specu.refractionRoughness = i * 0.2;
         
         auto m_index = (uint32_t)materials.size();
         materials.push_back(specu);
@@ -335,19 +343,19 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     
     gloss.textureInfo.albedo = simd_make_float3(1.0);
     gloss.textureInfo.type = TextureType::Constant;
-    gloss.specularProb = 1.0f;
-    gloss.specularRoughness = 0.0;
-    gloss.specularColor = {0.3f, 1.0f, 0.3f};
-    gloss.eta = 1.1f;
-    gloss.refractionProb = 0.0f;
-    gloss.refractionRoughness = 0.0;
-    gloss.refractionColor = {0.0f, 0.5f, 1.0f};
+//    gloss.specularProb = 1.0f;
+//    gloss.specularRoughness = 0.0;
+//    gloss.specularColor = {0.3f, 1.0f, 0.3f};
+//    gloss.eta = 1.1f;
+//    gloss.refractionProb = 0.0f;
+//    gloss.refractionRoughness = 0.0;
+//    gloss.refractionColor = {0.0f, 0.5f, 1.0f};
     
     for(auto i : {0, 1, 2, 3, 4} ) {
         
         sphere = MakeSphere(40, simd_make_float3(-10 + 150 * i, 500, 400));
-        gloss.specularRoughness = fmax(FLT_MIN, i * 0.25);
-        gloss.refractionRoughness = fmax(FLT_MIN, i * 0.25);
+//        gloss.specularRoughness = fmax(FLT_MIN, i * 0.25);
+//        gloss.refractionRoughness = fmax(FLT_MIN, i * 0.25);
         
         auto m_index = (uint32_t)materials.size();
         materials.push_back(gloss);

@@ -11,6 +11,7 @@ struct LightSampleRecord {
 
 inline float Lerp(float t, float s1, float s2) {
     return (1 - t) * s1 + t * s2;
+    //return mix(s1, s2, t);
 }
 
 inline void CoordinateSystem(const thread float3& a, thread float3& b, thread float3& c) {

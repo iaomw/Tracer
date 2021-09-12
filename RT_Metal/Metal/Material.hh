@@ -25,15 +25,14 @@ public:
     enum MediumType medium;
     
     float eta;
-    //float3 albedo;
     
-    float specularProb;
-    float specularRoughness;
-    float3  specularColor;
-    
-    float refractionProb;
-    float refractionRoughness;
-    float3  refractionColor;
+//    float specularProb;
+//    float specularRoughness;
+//    float3  specularColor;
+//    
+//    float refractionProb;
+//    float refractionRoughness;
+//    float3  refractionColor;
     
     TextureInfo textureInfo;
     

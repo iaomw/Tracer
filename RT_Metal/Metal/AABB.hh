@@ -208,12 +208,11 @@ struct AABB {
             auto hitPoint = ray.pointAt(record.t);
             record.p = hitPoint;
             
-            auto ratio = (hitPoint - mini) / (maxi - mini);
-            record.ratio = ratio;
-            
+            //auto ratio = (hitPoint - mini) / (maxi - mini);
             //ratio[axisPick] = 0;
+            
             uint2 axisUV = (uint2(1, 2) + axisPick) % 3;
-            record.uv = float2(ratio[axisUV.x], ratio[axisUV.y]);
+            record.uv = float2(hitPoint[axisUV.x], hitPoint[axisUV.y]);
             
             return true;
         }
@@ -247,12 +246,11 @@ struct AABB {
         auto hitPoint = ray.pointAt(record.t);
         record.p = hitPoint;
         
-        auto ratio = (hitPoint - mini) / (maxi - mini);
-        record.ratio = ratio;
-        
+        //auto ratio = (hitPoint - mini) / (maxi - mini);
         //ratio[axisPick] = 0;
+        
         uint2 axisUV = (uint2(1, 2) + axisPick) % 3;
-        record.uv = float2(ratio[axisUV.x], ratio[axisUV.y]);
+        record.uv = float2(hitPoint[axisUV.x], hitPoint[axisUV.y]);
         
         return true;
     }

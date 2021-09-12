@@ -153,8 +153,8 @@ typedef struct
         
         _canvas_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: CommonStorageMode];
         
-        uint width = 1920/2;
-        uint height = 1080/2;
+        uint width = 1920;
+        uint height = 1080;
         
         _complex.frame_count = 0;
         _complex.running_time = 0;

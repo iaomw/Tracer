@@ -21,9 +21,20 @@ inline float Radians(float degree) {
     return degree * M_PI / 180;
 }
 
+//inline float4x4 operator* (const simd_float4x4 l, const simd_float4x4 r){
+//    return simd_mul(l, r);
+//}
+
+inline float4x4 operator* (const float4x4& l, const float4x4& r){
+    return simd_mul(l, r);
+}
+
 float4x4 scale4x4(float sx, float sy, float sz);
 float4x4 rotation4x4(float radians, float3 axis);
 float4x4 translation4x4(float tx, float ty, float tz);
+
+inline float4x4 scale4x4(float3& s);
+inline float4x4 translation4x4(float3& t);
 
 float4x4 LookAt(const float3 &pos, const float3 &look, const float3 &up);
 

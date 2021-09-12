@@ -37,7 +37,7 @@ public:
                 return float3( noise(p * 0.1) );
                 
             default:
-                return albedo;
+                return 1.0;
         }
     }
     

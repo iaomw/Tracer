@@ -32,11 +32,9 @@ struct Cube {
         
         _record.t = distance(ray.origin, _record.p);
         
-        if (_record.t < range_t.y) {
-            range_t.y = _record.t;
-        } else {
-            return false;
-        }
+        if (_record.t >= range_t.y) { return false; }
+        
+        range_t.y = _record.t;
         
         _record.material = material;
         _record.modelMatrix = model_matrix;

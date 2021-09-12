@@ -251,30 +251,30 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         float3x3 stw = { nx, ny, hitRecord.sn };
         float3x3 wts = transpose(stw);
         
-//        auto _ray = Ray(_origin, _nor); HitRecord shr;
-//        //auto blocked = scene.block(_ray, shr, length(_dir)-0.01);
-//        auto blocked = scene.hit(_ray, shr, length(_dir)-0.01, nullptr);
-//
-//        float3 tr = 1.0;
-//
-//        if( !blocked ) { // Light Sampling
-//
-//                auto wo = wts * (-ray.direction);
-//                auto wi = wts * (_ray.direction); float bxPDF;
-//
-//            float3 weight = packageEnv.materials[hitRecord.material].F(wo, wi, hitRecord.uv, bxPDF, uu);
-//
-//            auto cosOnLight = abs( dot(lsr.n, -_nor) );
-//
-//            auto Li = packageEnv.materials[shr.material].textureInfo.albedo;
-//            weight *= Li * cosOnLight;
-//
-//            auto dist2 = distance_squared(lsr.p, _origin);
-//            auto liPDF = dist2 * lsr.areaPDF / cosOnLight;
-//
-//            weight *= PowerHeuristic(1, liPDF, 1, bxPDF);
-//            color += tr * ratio * weight / liPDF;
-//        }
+        auto _ray = Ray(_origin, _nor); HitRecord shr;
+        //auto blocked = scene.block(_ray, shr, length(_dir)-0.01);
+        auto blocked = scene.hit(_ray, shr, length(_dir)-0.01, nullptr);
+
+        float3 tr = 1.0;
+
+        if( !blocked ) { // Light Sampling
+
+                auto wo = wts * (-ray.direction);
+                auto wi = wts * (_ray.direction); float bxPDF;
+
+            float3 weight = packageEnv.materials[hitRecord.material].F(wo, wi, hitRecord.uv, bxPDF, uu);
+
+            auto cosOnLight = abs( dot(lsr.n, -_nor) );
+
+            auto Li = packageEnv.materials[shr.material].textureInfo.albedo;
+            weight *= Li * cosOnLight;
+
+            auto dist2 = distance_squared(lsr.p, _origin);
+            auto liPDF = dist2 * lsr.areaPDF / cosOnLight;
+
+            weight *= PowerHeuristic(1, liPDF, 1, bxPDF);
+            color += tr * ratio * weight / liPDF;
+        }
         
         // BXDF Sampling
         
@@ -290,7 +290,6 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         if (wi.z < 0) { // Transmission
             
             wi = stw * wi;
-            //ray = Ray(_origin - hitRecord.sn * 0.02, wi);
             ray.update(_origin - hitRecord.sn * 0.02, wi);
             
             if (dot(wi, hitRecord.n) < 0) { // enter
