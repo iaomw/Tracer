@@ -44,6 +44,6 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials);
 void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materials);
 void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materials);
 
-void prepareCamera(struct Camera* pointer, float2 viewSize, float2 rotate);
+void prepareCamera(Camera* pointer, float2 viewSize, float2 rotate);
 
 #endif /* Tracer_h */

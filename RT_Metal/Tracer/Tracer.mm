@@ -369,9 +369,9 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     
     auto aspect = viewSize.x/viewSize.y;
     
-    auto lookFrom = simd_make_float3(278, 278, -800);
-    auto lookAt = simd_make_float3(278, 278, 278);
-    auto viewUp = simd_make_float3(0, 1, 0);
+    auto lookFrom = float3{278, 278, -800};
+    auto lookAt = float3{278, 278, 278};
+    auto viewUp = float3{0, 1, 0};
     
     auto dist_focus = 10;
     auto aperture = 0.01;
@@ -379,12 +379,22 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     auto vfov = 45 * (M_PI/180);
     auto hfov = 2 * atan(tan(vfov * 0.5) * aspect);
     
-    let offset = simd_make_float4(lookFrom - lookAt, 0.0f);
+    auto offset = lookFrom - lookAt;
     
-    let rotH = rotation4x4(rotate.x * hfov * 10, viewUp);
-    let rotV = rotation4x4(rotate.y * vfov * 10, simd_make_float3(1, 0, 0));
+//    let rotH = rotation4x4(rotate.x * hfov * 10, viewUp);
+//    let rotV = rotation4x4(rotate.y * vfov * 10, float3{1, 0, 0});
+//
+//    lookFrom = lookAt + simd_mul(simd_mul(rotH, rotV), offset).xyz;
     
-    lookFrom = lookAt + simd_mul(simd_mul(rotH, rotV), offset).xyz;
+    auto qH = simd_quaternion(rotate.x * hfov * 10, float3{0, 1, 0});
+    auto qV = simd_quaternion(rotate.y * vfov * 10, float3{1, 0, 0});
+    
+    //simd_quat
+    auto rot = simd_mul(qH, qV);
+    offset = simd_act(rot, offset);
+    
+    lookFrom = lookAt + offset;
+    viewUp = simd_act(rot, viewUp);
     
     MakeCamera(camera, lookFrom, lookAt, viewUp, aperture, aspect, vfov, dist_focus);
 }
