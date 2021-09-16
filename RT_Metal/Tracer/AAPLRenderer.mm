@@ -193,14 +193,14 @@ typedef struct
                                                    length: sizeof(Sphere)*sphere_list.size()
                                                   options: CommonStorageMode];
         
-        Material pbr;
-        pbr.type = MaterialType::Glass;
-        pbr.medium = MediumType::Homogeneous;
+        Material testMaterial;
+        testMaterial.type = MaterialType::Glass;
+        testMaterial.medium = MediumType::Homogeneous;
         
-        pbr.textureInfo.type = TextureType::Constant;
-        pbr.textureInfo.albedo = float3 {1, 1, 1};
+        testMaterial.textureInfo.type = TextureType::Constant;
+        testMaterial.textureInfo.albedo = float3 {1, 1, 1};
         
-        materials.emplace_back(pbr);
+        materials.emplace_back(testMaterial);
         
         _material_buffer = [_device newBufferWithBytes: materials.data()
                                                 length: sizeof(Material)*materials.size()
@@ -400,7 +400,7 @@ typedef struct
             let maxAxis = meshBox.maximumExtent();
             let maxDime = meshBox.diagonal()[maxAxis];
             
-            auto meshScale = 500.0 / maxDime;
+            auto meshScale = 400.0 / maxDime;
             auto meshOffset = float3(278)-centroid;
             meshOffset.y = 20 - minB.y * meshScale;
         
@@ -453,7 +453,7 @@ typedef struct
                     
                     let triangleIndex = triangleIndexOffset + i/3;
                     
-                    //BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
+                    BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
                 }
                 
                 totalIndexBufferLength += submesh.indexBuffer.length; triangleIndexOffset += index_count/3;

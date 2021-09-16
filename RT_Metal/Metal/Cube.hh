@@ -21,9 +21,8 @@ struct Cube {
         
         HitRecord _record;
         auto _ray = Ray(origin.xyz, direction.xyz);
-        if(!box.hit(_ray, range_t, _record)) { return false; }
+        if( !box.hit(_ray, range_t, _record) ) { return false; }
         
-        _record._p = _record.p;
         auto p = float4(_record.p, 1.0);
         _record.p = (model_matrix * p).xyz;
         

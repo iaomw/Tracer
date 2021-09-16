@@ -161,7 +161,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
 //    bool edge_hitted = false;
 //    if ( edge_hitted ) { return float3(10); }
     
-    bool hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
+    bool hitted = scene.hit(ray, hitRecord, FLT_MAX);
     
     do { // each ray
         
@@ -227,7 +227,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         }
         
         if (need_test) {
-            hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
+            hitted = scene.hit(ray, hitRecord, FLT_MAX);
         }
         
         if (!need_bsdf) { continue; }
@@ -251,16 +251,16 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         float3x3 stw = { nx, ny, hitRecord.sn };
         float3x3 wts = transpose(stw);
         
+        auto _tr = 1.0;
+        auto _dis = length(_dir);
         auto _ray = Ray(_origin, _nor); HitRecord shr;
         //auto blocked = scene.block(_ray, shr, length(_dir)-0.01);
-        auto blocked = scene.hit(_ray, shr, length(_dir)-0.01, nullptr);
-
-        float3 tr = 1.0;
+        auto blocked = scene.hit(_ray, shr, _dis, false);
 
         if( !blocked ) { // Light Sampling
 
-                auto wo = wts * (-ray.direction);
-                auto wi = wts * (_ray.direction); float bxPDF;
+            auto wo = wts * (-ray.direction);
+            auto wi = wts * (_ray.direction); float bxPDF;
 
             float3 weight = packageEnv.materials[hitRecord.material].F(wo, wi, hitRecord.uv, bxPDF, uu);
 
@@ -273,7 +273,9 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
             auto liPDF = dist2 * lsr.areaPDF / cosOnLight;
 
             weight *= PowerHeuristic(1, liPDF, 1, bxPDF);
-            color += tr * ratio * weight / liPDF;
+            color += _tr * ratio * weight / liPDF;
+        } else {
+            //return float3(shr.t, _dis, blocked);
         }
         
         // BXDF Sampling
@@ -314,7 +316,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
             ratio *= 1.0f / p;
         }
         
-        hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
+        hitted = scene.hit(ray, hitRecord, FLT_MAX);
         
         if (hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
                 

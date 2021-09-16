@@ -20,8 +20,7 @@ struct HitRecord {
     
     float PDF;
     
-    Ray _r;
-    float _t; float3 _p;
+    Ray _r; float _t;
     float4x4 modelMatrix;
     
     void checkFace(const thread Ray& ray) {

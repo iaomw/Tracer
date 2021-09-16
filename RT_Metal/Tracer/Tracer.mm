@@ -134,15 +134,17 @@ Square MakeSquare(uint8_t axis_i, float2 range_i, uint8_t axis_j, float2 range_j
     r.axis_k = axis_k;
     r.value_k = k;
     
+    auto delta = SquarePadding;
+    
     auto a = float3();
     a[axis_i] = range_i.x;
     a[axis_j] = range_j.x;
-    a[axis_k] = k - 0.0001;
+    a[axis_k] = k - delta;
     
     auto b = float3();
     b[axis_i] = range_i.y;
     b[axis_j] = range_j.y;
-    b[axis_k] = k + 0.0001;
+    b[axis_k] = k + delta;
     
     r.boundingBOX = AABB::make(a, b);
     r.model_matrix = matrix_identity_float4x4;
@@ -182,7 +184,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     auto bigger = MakeCube(float3{0, 0, 0},
                            float3{1, 1, 1}, metal_index);
     
-    auto translate = translation4x4(265, 0, 295);
+    auto translate = translation4x4(265, 1, 295);
     auto rotate = rotation4x4(M_PI*15/180, float3{0, 1, 0});
     // left-bottom-front point is the rotation point, that's bad.
     auto scale = scale4x4(165, 330, 165);
@@ -206,7 +208,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
                             float3{1, 1, 1}, white_index);
     
     scale = scale4x4(165, 165, 165);
-    translate = translation4x4(130, 0, 65);
+    translate = translation4x4(130, 1, 65);
     rotate = rotation4x4(-0.1*M_PI, float3{0, 1, 0});
     
     smaller.model_matrix = translate * rotate * scale;
@@ -216,7 +218,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     list.emplace_back(smaller);
     
     Material density;
-    density.type = MaterialType::Glass;
+    density.type = MaterialType::_NIL_;
     density.medium = MediumType::GridDensity;
     density.textureInfo.albedo = {1, 1, 1};
     
