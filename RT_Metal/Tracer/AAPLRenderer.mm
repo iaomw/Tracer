@@ -453,7 +453,7 @@ typedef struct
                     
                     let triangleIndex = triangleIndexOffset + i/3;
                     
-                    BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
+                    //BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
                 }
                 
                 totalIndexBufferLength += submesh.indexBuffer.length; triangleIndexOffset += index_count/3;

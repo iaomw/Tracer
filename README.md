@@ -1,14 +1,15 @@
-# Lǐ
-This is simply a repository for my **Ray Tracing** code. My purpose is make it into PBRT on Metal.
+# Lǐ - PBRT on Metal
+This is simply a repository for my **Ray Tracing** code.
 
 # Requirement
-RT_Metal requires `Metal 2 Tier 2` device, typically any AMD dGPU & eGPU woking on macOS. However, I only tested with my device, so it's not guaranteed to work with yours. For M1 and iDevice, they need some minor modification to source code.
+RT_Metal requires `Metal 2 Tier 2` device, typically any AMD dGPU & eGPU woking on macOS. However, I only tested with my device, it's not guaranteed to work with yours. Not tested for M1, it may require some minor modification to source code.
 
-The deplyment target is macOS 11.0, but it should work on Catalina and Mojave. I am avoiding using new APIs added after 2019, case Apple is narrowing down new APIs support on old devices.
+The deplyment target is macOS 11, but it should work on Catalina and Mojave. I am avoiding using new APIs added after 2019, case Apple is narrowing down new APIs support on old devices.
 
-![](Captures/capture_r.jpg)
-![](Captures/capture_q.jpg)
-![](Captures/capture_p.jpg)
+| ![](Captures/capture_s.jpg) | ![](Captures/capture_r.jpg) |
+|:---------------------------:|:---------------------------:|
+| ![](Captures/capture_q.jpg) | ![](Captures/capture_p.jpg) |
+
 ![](Captures/capture_o.jpg)
 ![](Captures/capture_n.jpg)
 ![](Captures/capture_k.jpg)
@@ -19,7 +20,6 @@ The deplyment target is macOS 11.0, but it should work on Catalina and Mojave. I
     - [x] Stackless BVH backtrace on GPU
     - [x] Bindless resources
     - [x] pcg-random
-   
 - [ ] [**Physically Based Rendering,** __*Third Edition*__](http://www.pbr-book.org/)
     - [ ] Halton Sampler
     - [x] Sobol’ Sampler
@@ -38,18 +38,17 @@ The deplyment target is macOS 11.0, but it should work on Catalina and Mojave. I
     - [ ] Stochastic Progressive Photon Mapping
     - [ ] Bidirectional Path Tracing
     - [ ] Metropolis Light Transport
-    - [ ] Support PBRT file format 
-
- ### References:  
-
-- [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
-- [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)
-- [ ] [Dartmouth Rendering Algorithms](https://cs87-dartmouth.github.io/syllabus/)
-- [x] [Ray Tracing mini books by Peter Shirley](https://raytracing.github.io/)
-- [ ] [Eric Veach, Ph.D. dissertation, December 1997](http://graphics.stanford.edu/papers/veach_thesis/)
+    - [ ] Support pbrt-v3 file format 
 
 ### Other things to-do:
 - [ ] Basic GUI & Menu
 - [ ] Export as PNG file
 - [ ] Cancelable tasks 
-- [ ] Quaternion camera
+- [x] Quaternion camera
+
+ ### References:  
+- [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
+- [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)
+- [ ] [Dartmouth Rendering Algorithms](https://cs87-dartmouth.github.io/syllabus/)
+- [x] [Ray Tracing mini books by Peter Shirley](https://raytracing.github.io/)
+- [ ] [Eric Veach, Ph.D. dissertation, December 1997](http://graphics.stanford.edu/papers/veach_thesis/)

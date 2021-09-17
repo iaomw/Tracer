@@ -254,8 +254,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         auto _tr = 1.0;
         auto _dis = length(_dir);
         auto _ray = Ray(_origin, _nor); HitRecord shr;
-        //auto blocked = scene.block(_ray, shr, length(_dir)-0.01);
-        auto blocked = scene.hit(_ray, shr, _dis, false);
+        auto blocked = scene.hit(_ray, shr, _dis, true);
 
         if( !blocked ) { // Light Sampling
 
@@ -274,8 +273,6 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
 
             weight *= PowerHeuristic(1, liPDF, 1, bxPDF);
             color += _tr * ratio * weight / liPDF;
-        } else {
-            //return float3(shr.t, _dis, blocked);
         }
         
         // BXDF Sampling
@@ -284,6 +281,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         float3 wo = wts * (-ray.direction);
         
         //uu = xsampler.sample2D();
+        
         scatRecord.attenuation = packageEnv.materials[hitRecord.material].S_F(wo, wi, hitRecord.uv, uu, bxPDF);
         scatRecord.bxPDF = bxPDF;
         
