@@ -161,16 +161,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
 //    bool edge_hitted = false;
 //    if ( edge_hitted ) { return float3(10); }
     
-    bool hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
-    
-     
-    if ( hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
-        
-        auto le = packageEnv.materials[hitRecord.material].textureInfo.albedo;
-        
-        auto w = dot(-ray.direction, -hitRecord.n);
-        return  le * abs(w);
-    }
+    bool hitted = scene.hit(ray, hitRecord, FLT_MAX);
     
     do { // each ray
         
@@ -181,55 +172,65 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
             color += ratio * ambient.rgb; break;
         }
         
+        if ( packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse ) {
+            auto le = packageEnv.materials[hitRecord.material].textureInfo.albedo;
+            auto w = dot(-ray.direction, -hitRecord.n);
+            return ratio * le * abs(w);
+        }
+        
         MediumInteraction mi;
         
         if (ray.medium == MediumType::Homogeneous) {
             
-            auto homo = HomogeneousMedium(0.04, 0.02, 0.5);
+            auto homo = HomogeneousMedium(0.02, 0.08, 0.5);
             ratio *= homo.Sample(ray, hitRecord, &mi, xsampler);
         }
         else if (ray.medium == MediumType::GridDensity) {
             
-            GridDensityMedium dMedium = { packageEnv.densityInfo, packageEnv.densityArray };
-            auto x = dMedium.Sample(hitRecord._r, hitRecord, &mi, xsampler);
-            ratio *= x;
+            GridDensityMedium dMedium { packageEnv.densityInfo, packageEnv.densityArray };
+            ratio *= dMedium.Sample(hitRecord._r, hitRecord, &mi, xsampler);
         }
         
-        if (packageEnv.materials[hitRecord.material].type == MaterialType::Medium) {
+        bool need_test = false;
+        bool need_bsdf = false;
+        
+        if (mi.homogen != nullptr || mi.density != nullptr) {
+
+            float3 wi, wo = -ray.direction;
+            HenyeyGreenstein(mi.phaseG).Sample_p(wo, wi, xsampler.sample2D());
             
-            if (dot(ray.direction, hitRecord.n) < 0) {
-                ray = Ray(hitRecord.p - 0.01*hitRecord.n, ray.direction);
-                ray.medium = packageEnv.materials[hitRecord.material].medium;
-            }
+            ray.update(mi.p, wi);
+            ray.medium = packageEnv.materials[hitRecord.material].medium;
+            
+            need_test = true;
+            
+        } else {
+            
+            if (packageEnv.materials[hitRecord.material].type == MaterialType::_NIL_) {
+                
+                if (dot(ray.direction, hitRecord.n) < 0) { // enter
+                    ray = Ray(hitRecord.p - 0.01*hitRecord.n, ray.direction);
+                    ray.medium = packageEnv.materials[hitRecord.material].medium;
+                }
+                else { // depart
+                    ray = Ray(hitRecord.p + 0.01*hitRecord.n, ray.direction);
+                    ray.medium = MediumType::_NIL_;
+                }
+
+                need_test = true;
+            } //Volume
             else {
-                ray = Ray(hitRecord.p + 0.01*hitRecord.n, ray.direction);
-                ray.medium = MediumType::Nill;
+                
+                need_test = false;
+                need_bsdf = true;
             }
-                       
-            if (mi.medium != nullptr || mi.density != nullptr) {
-                
-                float3 wi, wo = -ray.direction;
-                //mi.phase->Sample_p(wo, wi, xsampler.sample2D());
-                HenyeyGreenstein(mi.phaseG).Sample_p(wo, wi, xsampler.sample2D());
-                
-                auto pp = hitRecord.modelMatrix * float4(mi.p, 1.0);
-                
-                ray.origin = pp.xyz; //mi.p;
-                ray.direction = normalize(wi);
-                ray.medium = packageEnv.materials[hitRecord.material].medium;
-            }
-            
-            hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
-            
-            if (hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
-                
-                auto li = packageEnv.materials[hitRecord.material].textureInfo.albedo;
-                auto cosOnLight = abs( dot(ray.direction, hitRecord.sn) );
-                return ratio * cosOnLight * li;
-            }
-            
-            continue;
-        } //Volume
+        }
+        
+        if (need_test) {
+            hitted = scene.hit(ray, hitRecord, FLT_MAX);
+        }
+        
+        if (!need_bsdf) { continue; }
         
         LightSampleRecord lsr;
         float2 uu = xsampler.sample2D();
@@ -250,29 +251,28 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         float3x3 stw = { nx, ny, hitRecord.sn };
         float3x3 wts = transpose(stw);
         
+        auto _tr = 1.0;
+        auto _dis = length(_dir);
         auto _ray = Ray(_origin, _nor); HitRecord shr;
-        //auto blocked = scene.block(_ray, shr, length(_dir)-0.01);
-        auto blocked = scene.hit(_ray, shr, length(_dir)-0.01, nullptr);
-        
-        float3 tr = 1.0;
-            
-        if( !blocked ) {    // packageEnv.materials[hitRecord.material].type != MaterialType::Specular
-            
-                auto wo = wts * (-ray.direction);
-                auto wi = wts * (_ray.direction); float bxPDF;
-                
+        auto blocked = scene.hit(_ray, shr, _dis, true);
+
+        if( !blocked ) { // Light Sampling
+
+            auto wo = wts * (-ray.direction);
+            auto wi = wts * (_ray.direction); float bxPDF;
+
             float3 weight = packageEnv.materials[hitRecord.material].F(wo, wi, hitRecord.uv, bxPDF, uu);
-            
+
             auto cosOnLight = abs( dot(lsr.n, -_nor) );
-            
+
             auto Li = packageEnv.materials[shr.material].textureInfo.albedo;
             weight *= Li * cosOnLight;
-            
+
             auto dist2 = distance_squared(lsr.p, _origin);
             auto liPDF = dist2 * lsr.areaPDF / cosOnLight;
-            
+
             weight *= PowerHeuristic(1, liPDF, 1, bxPDF);
-            color += tr * ratio * weight / liPDF;
+            color += _tr * ratio * weight / liPDF;
         }
         
         // BXDF Sampling
@@ -285,18 +285,36 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         scatRecord.attenuation = packageEnv.materials[hitRecord.material].S_F(wo, wi, hitRecord.uv, uu, bxPDF);
         scatRecord.bxPDF = bxPDF;
         
-        if (bxPDF <= 0) { break; }
+        if (bxPDF <= 0) {break;}
         
-        if (wi.z < 0) {
-            ray = Ray(_origin - hitRecord.sn * 0.02, stw * wi);
-        } else {
-            ray = Ray(_origin, stw * wi);
+        if (wi.z < 0) { // Transmission
+            
+            wi = stw * wi;
+            ray.update(_origin - hitRecord.sn * 0.02, wi);
+            
+            if (dot(wi, hitRecord.n) < 0) { // enter
+                //if (packageEnv.materials[hitRecord.material].medium != MediumType::_NIL_) {
+                    ray.medium = packageEnv.materials[hitRecord.material].medium;
+                //} else { ray.medium = MediumType::_NIL_; }
+            } else { // depart
+                ray.medium = MediumType::_NIL_;
+            }
+            
+        } else { // do not change medium
+            ray.update(_origin, stw * wi);
         }
         
-        //ray = Ray(_origin, stw * wi);
-        //auto cosOnObject = dot(ray.direction, hitRecord.sn);
+        ratio *= scatRecord.attenuation / scatRecord.bxPDF;
         
-        hitted = scene.hit(ray, hitRecord, FLT_MAX, nullptr);
+        { // Russian Roulette
+            float3 xyz; RGBToXYZ(ratio, xyz);
+            float p = xyz.y;   //max3(ratio);
+            if (xsampler.random() > p) break;
+            // Add the energy we 'lose'
+            ratio *= 1.0f / p;
+        }
+        
+        hitted = scene.hit(ray, hitRecord, FLT_MAX);
         
         if (hitted && packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse) {
                 
@@ -312,16 +330,6 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
             color += ratio * weight / scatRecord.bxPDF;
             
             break;
-        }
-        
-        ratio *= scatRecord.attenuation / scatRecord.bxPDF;
-        
-        { // Russian Roulette
-            float3 xyz; RGBToXYZ(ratio, xyz);
-            float p = xyz.y; //max3(ratio);
-            if (xsampler.random() > p) break;
-            // Add the energy we 'lose' by randomly terminating paths
-            ratio *= 1.0f / p;
         }
         
     } while( (--depth) > 0 );

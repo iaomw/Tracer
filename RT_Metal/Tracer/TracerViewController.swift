@@ -83,7 +83,12 @@ class TracerViewController: NSViewController {
     
     override func keyUp(with event: NSEvent) {
         
-        metalRender?.drag(simd_float2( 0,  0), state: true)
+        switch event.keyCode {
+        case kSpaceKeyCode:
+            metalRender?.drag(simd_float2( 0,  0), state: true)
+        default:
+            break
+        }
     }
 }
 

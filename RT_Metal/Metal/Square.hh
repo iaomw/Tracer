@@ -3,6 +3,8 @@
 
 #include "Common.hh"
 
+#define SquarePadding 0.001;
+
 struct Square {
     
     uint8_t axis_i;
@@ -44,7 +46,11 @@ struct Square {
         auto w = normalize(pos - lsr.p);
         
         if ( dot(w, lsr.n) < 0 ) {
-            lsr.n = -lsr.n;
+            lsr.n[axis_k] = -1;
+            lsr.p[axis_k] -= SquarePadding;
+        } else {
+            lsr.n[axis_k] = +1;
+            lsr.p[axis_k] += SquarePadding;
         }
         
         lsr.areaPDF = aeraPDF();
@@ -52,33 +58,50 @@ struct Square {
     
     bool hit_test(const thread Ray& ray, thread float2& range_t, thread HitRecord& hitRecord) constant {
         
-        auto t = (value_k-ray.origin[axis_k]) / ray.direction[axis_k];
-        if (t<range_t.x || t>range_t.y) { return false; }
-        
-        auto a = ray.origin[axis_i] + t*ray.direction[axis_i];
-        if (a<range_i.x || a>range_i.y) { return false; }
+        if( !boundingBOX.hit_t(ray, range_t, hitRecord.t) ) { return false; }
 
-        auto b = ray.origin[axis_j] + t*ray.direction[axis_j];
-        if (b<range_j.x || b>range_j.y) { return false; }
-        
-        hitRecord.uv[0] = (a-range_i.x)/(range_i.y-range_i.x);
-        hitRecord.uv[1] = (b-range_j.x)/(range_j.y-range_j.x);
-        
-        hitRecord.t = t;
-        
         hitRecord.n = float3(0);
         hitRecord.n[axis_k] = 1;
         hitRecord.checkFace(ray);
         hitRecord.n = hitRecord.sn;
-        
-        hitRecord.p = ray.pointAt(t);
+
+        hitRecord.PDF = aeraPDF();
         hitRecord.material = material;
-        
+
         range_t.y = hitRecord.t;
         
-        hitRecord.PDF = aeraPDF();
-        
+        hitRecord.p = ray.pointAt(range_t.y);
+        hitRecord.uv[0] = (hitRecord.p[axis_i] - range_i.x) / (range_i.y - range_i.x);
+        hitRecord.uv[1] = (hitRecord.p[axis_j] - range_j.x) / (range_j.y - range_j.x);
+
         return true;
+        
+//        auto t = (value_k-ray.origin[axis_k]) / ray.direction[axis_k];
+//        if (t<range_t.x || t>range_t.y) { return false; }
+//
+//        auto a = ray.origin[axis_i] + t*ray.direction[axis_i];
+//        if (a<range_i.x || a>range_i.y) { return false; }
+//
+//        auto b = ray.origin[axis_j] + t*ray.direction[axis_j];
+//        if (b<range_j.x || b>range_j.y) { return false; }
+//
+//        hitRecord.uv[0] = (a-range_i.x)/(range_i.y-range_i.x);
+//        hitRecord.uv[1] = (b-range_j.x)/(range_j.y-range_j.x);
+//
+//        hitRecord.t = t;
+//
+//        hitRecord.n = float3(0);
+//        hitRecord.n[axis_k] = 1;
+//        hitRecord.checkFace(ray);
+//        hitRecord.n = hitRecord.sn;
+//
+//        hitRecord.p = ray.pointAt(t);
+//        hitRecord.material = material;
+//
+//        range_t.y = t;
+//        hitRecord.PDF = aeraPDF();
+//
+//        return true;
     }
     
 #endif

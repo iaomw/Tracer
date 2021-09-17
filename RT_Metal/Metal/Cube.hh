@@ -21,9 +21,8 @@ struct Cube {
         
         HitRecord _record;
         auto _ray = Ray(origin.xyz, direction.xyz);
-        if(!box.hit(_ray, range_t, _record)) { return false; }
+        if( !box.hit(_ray, range_t, _record) ) { return false; }
         
-        _record._p = _record.p;
         auto p = float4(_record.p, 1.0);
         _record.p = (model_matrix * p).xyz;
         
@@ -32,11 +31,9 @@ struct Cube {
         
         _record.t = distance(ray.origin, _record.p);
         
-        if (_record.t < range_t.y) {
-            range_t.y = _record.t;
-        } else {
-            return false;
-        }
+        if (_record.t >= range_t.y) { return false; }
+        
+        range_t.y = _record.t;
         
         _record.material = material;
         _record.modelMatrix = model_matrix;

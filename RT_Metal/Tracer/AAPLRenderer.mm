@@ -163,14 +163,14 @@ typedef struct
         _complex.view_size = float2 {static_cast<float>(width), static_cast<float>(height)};
         
         _complex_buffer = [_device newBufferWithBytes: &_complex
-                                                  length: sizeof(Complex)
-                                                 options: MTLResourceStorageModeShared];
+                                               length: sizeof(Complex)
+                                              options: MTLResourceStorageModeShared];
         
         _camera_rotation = simd_make_float2(0, 0);
         
         prepareCamera(&_camera, _complex.tex_size, _camera_rotation);
         _camera_buffer = [_device newBufferWithBytes: &_camera
-                                              length: sizeof(struct Camera)
+                                              length: sizeof(Camera)
                                              options: MTLResourceStorageModeShared];
         
         std::vector<Material> materials;
@@ -178,32 +178,32 @@ typedef struct
         std::vector<Cube> cube_list;
         prepareCubeList(cube_list, materials);
         _cube_list_buffer = [_device newBufferWithBytes: cube_list.data()
-                                                 length: sizeof(struct Cube)*cube_list.size()
+                                                 length: sizeof(Cube)*cube_list.size()
                                                 options: CommonStorageMode];
         
         std::vector<Square> cornell_box;
         prepareCornellBox(cornell_box, materials);
         _square_list_buffer = [_device newBufferWithBytes: cornell_box.data()
-                                                   length: sizeof(struct Square)*cornell_box.size()
+                                                   length: sizeof(Square)*cornell_box.size()
                                                   options: CommonStorageMode];
         
         std::vector<Sphere> sphere_list;
         prepareSphereList(sphere_list, materials);
         _sphere_list_buffer = [_device newBufferWithBytes: sphere_list.data()
-                                                   length: sizeof(struct Sphere)*sphere_list.size()
+                                                   length: sizeof(Sphere)*sphere_list.size()
                                                   options: CommonStorageMode];
         
-        Material pbr;
-        pbr.type = MaterialType::Medium;
-        pbr.medium = MediumType::Homogeneous;
+        Material testMaterial;
+        testMaterial.type = MaterialType::Glass;
+        testMaterial.medium = MediumType::Homogeneous;
         
-        pbr.textureInfo.type = TextureType::Constant;
-        pbr.textureInfo.albedo = simd_make_float3(1, 1, 1);
+        testMaterial.textureInfo.type = TextureType::Constant;
+        testMaterial.textureInfo.albedo = float3 {1, 1, 1};
         
-        materials.emplace_back(pbr);
+        materials.emplace_back(testMaterial);
         
         _material_buffer = [_device newBufferWithBytes: materials.data()
-                                                length: sizeof(struct Material)*materials.size()
+                                                length: sizeof(Material)*materials.size()
                                                options: CommonStorageMode];
         
         // Create a reusable pipeline state object.
@@ -400,7 +400,7 @@ typedef struct
             let maxAxis = meshBox.maximumExtent();
             let maxDime = meshBox.diagonal()[maxAxis];
             
-            auto meshScale = 500.0 / maxDime;
+            auto meshScale = 400.0 / maxDime;
             auto meshOffset = float3(278)-centroid;
             meshOffset.y = 20 - minB.y * meshScale;
         
@@ -430,6 +430,8 @@ typedef struct
                         ele->vz *= -meshScale;
                         
                         ele->nz *= -1;
+                        
+                        ele->vx += 300;
                         
                         ele->vx += meshOffset.x;
                         ele->vy += meshOffset.y;
@@ -482,7 +484,7 @@ typedef struct
                                                   options: CommonStorageMode];
                 
                 _bvh_buffer = [_device newBufferWithBytes: bvh_list.data()
-                                                   length: sizeof(struct BVH)*bvh_list.size()
+                                                   length: sizeof(BVH)*bvh_list.size()
                                                   options: CommonStorageMode];
         
         

@@ -11,13 +11,6 @@ struct HitRecord {
     float t;
     float3 p;
     
-    Ray _r;
-    float _t;
-    float3 _p;
-    
-    float3 ratio;
-    float4x4 modelMatrix;
-    
     bool f;
     float3 n;
     float3 sn;
@@ -26,6 +19,9 @@ struct HitRecord {
     uint material;
     
     float PDF;
+    
+    Ray _r; float _t;
+    float4x4 modelMatrix;
     
     void checkFace(const thread Ray& ray) {
         f = dot(ray.direction, n) <= 0 ;

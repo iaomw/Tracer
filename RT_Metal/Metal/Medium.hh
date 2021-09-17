@@ -5,7 +5,6 @@
     #include "Ray.hh"
     #include "Sampling.hh"
     #include "HitRecord.hh"
-
 #endif
 
 class HomogeneousMedium;
@@ -13,17 +12,18 @@ class GridDensityMedium;
 
 #ifdef __METAL_VERSION__
 struct MediumInteraction {
-    float3 p, wo;
-    float phaseG;
+    
+    float3 p; float phaseG;
+    
+    //thread void* test = nullptr;
     //thread HenyeyGreenstein *phase = nullptr;
-    thread HomogeneousMedium *medium = nullptr;
+    thread HomogeneousMedium *homogen = nullptr;
     thread GridDensityMedium *density = nullptr;
 };
 #endif
 
 class HomogeneousMedium {
   public:
-    // HomogeneousMedium Public Methods
 #ifdef __METAL_VERSION__
     HomogeneousMedium(const thread float3 &sigma_a, const thread float3 &sigma_s, float g)
         : sigma_a(sigma_a), sigma_s(sigma_s), sigma_t(sigma_s + sigma_a), g(g) {}
@@ -42,30 +42,36 @@ class HomogeneousMedium {
         int channel = min((int)(xsampler.sample1D() * nSamples), nSamples - 1);
         
         float dist = -log(1 - xsampler.sample1D()) / sigma_t[channel];
+        
         float t = min(dist, hitRecord.t);
         bool sampledMedium = t < hitRecord.t;
+        
+        float3 Tr = exp(-sigma_t * min(t, FLT_MAX));
+        
+        float3 density = Tr;
+        float3 result = Tr;
         
         if (sampledMedium) {
 
             mi->p = ray.pointAt(t);
-            mi->wo = -ray.direction;
-            //auto hg = HenyeyGreenstein(g);
+            
             mi->phaseG = g;
-            mi->medium = this;
+            mi->homogen = this;
+            
+            density *= sigma_t;
+            result *= sigma_s;
         }
         
-        // Compute the transmittance and sampling density
-        float3 Tr = exp(-sigma_t * min(t, FLT_MAX)); //* ray.d.Length());
-        // Return weighting factor for scattering from homogeneous medium
-        float3 density = sampledMedium ? (sigma_t * Tr) : Tr;
-        
-        float pdf = 0.0f; //float tmp = dot( float3(1.0), density );
-        for (int i = 0; i < nSamples; ++i) { pdf += density[i]; }
+//        float pdf = 0; int i = 0;
+//        while(i < nSamples) {
+//            pdf += density[i]; ++i;
+//        }
+        float pdf = dot(float3(1.0), density);
         
         if (0.0f >= pdf) { pdf = 1.0f; }
         else { pdf = pdf / nSamples; }
         
-        return sampledMedium ? (Tr * sigma_s / pdf) : (Tr / pdf);
+        return result / pdf;
     }
 #else
     HomogeneousMedium(const float3 &sigma_a, const float3 &sigma_s, float g)
@@ -112,15 +118,10 @@ class GridDensityMedium {
     
     float D(const thread int3 &p) const {
         
-        auto nx = info->nx, ny = info->ny, nz = info->nz;
-        uint3 tmp = {nx, ny, nz};
-
-        if (min3(p.x, p.y, p.z) < 0) { return 0; }
-        int3 delta = (int3)tmp - p;
-
-        auto pick = min3(delta.x, delta.y, delta.z);
-        if (pick < 1) { return 0; }
+        int nx = info->nx, ny = info->ny, nz = info->nz;
+        int3 tmp = int3(nx, ny, nz);
         
+        if (any(p<0) || any(p>=tmp)) { return 0; }
         return density[(p.z * ny + p.y) * nx + p.x];
     }
     
@@ -128,8 +129,8 @@ class GridDensityMedium {
     float Density(const thread float3 &p) const {
         // Compute voxel coordinates and offsets for _p_
         float nx = info->nx, ny = info->ny, nz = info->nz;
+        float3 pSamples = p * float3(nx, ny, nz) - 0.5;
         
-        float3 pSamples(p.x * nx - .5f, p.y * ny - .5f, p.z * nz - .5f);
         int3 pi = (int3) floor(pSamples);
         float3 d = pSamples - (float3)pi;
 
@@ -184,9 +185,8 @@ class GridDensityMedium {
             
             if (Density(p) * info->invMaxDensity > sampler.sample1D()) {
                 
-                //auto phase = HenyeyGreenstein(g);
-                mi->p = p;
-                mi->wo = 0;
+                mi->p = (hitRecord.modelMatrix * float4(p, 1.0)).xyz;
+                //hitRecord.p - hitRecord.w * hitRecord.t *(1.0-t/tMax);
                 mi->phaseG = info->g;
                 mi->density = this;
                 
@@ -194,7 +194,7 @@ class GridDensityMedium {
             }
         }
         
-        return (1.f);
+        return 1.0;
     }
 #endif
 };

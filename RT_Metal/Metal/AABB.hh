@@ -45,10 +45,7 @@ struct AABB {
             return 0;
         }
         
-        if (d.y > d.z)
-            return 1;
-        else
-            return 2;
+        return d.y > d.z ? 1 : 2;
     }
     
 #ifdef __METAL_VERSION__
@@ -92,33 +89,7 @@ struct AABB {
         return ! (tmax < tmin || tmax < 0);
     }
     
-    bool hit_range(const thread Ray& ray, thread float2& range_t) constant {
-        
-        auto inverse = 1.0 / ray.direction;
-
-        auto ts = (mini - ray.origin) * inverse;
-        auto te = (maxi - ray.origin) * inverse;
-        
-        auto a = min(ts, te);
-        auto b = max(ts, te);
-        
-        float tmin = max3(a.x, a.y, a.z);
-        float tmax = min3(b.x, b.y, b.z);
-
-        tmin = max(tmin, range_t.x);
-        tmax = min(tmax, range_t.y);
-
-        if (tmax <= tmin || tmax < 0) {return false;}
-        
-//        range_t[0] = tmin;
-//        range_t[1] = tmax;
-        
-        range_t = float2(tmin, tmax);
-        
-        return true;
-    }
-    
-    bool hit_get_t(const thread Ray& ray, const thread float2& range_t, thread float& t) constant {
+    bool hit_t(const thread Ray& ray, const thread float2& range_t, thread float& t) constant {
         
         auto inverse = 1.0 / ray.direction;
 
@@ -140,42 +111,54 @@ struct AABB {
         return true;
     }
     
-    bool hit_get_range(const thread Ray& ray, const thread float2& range_t, thread float& t, thread float2& range_new) constant {
-        
-        auto inverse = 1.0 / ray.direction;
-
-        auto ts = (mini - ray.origin) * inverse;
-        auto te = (maxi - ray.origin) * inverse;
-        
-        auto a = min(ts, te);
-        auto b = max(ts, te);
-        
-        float tmin = max3(a.x, a.y, a.z);
-        float tmax = min3(b.x, b.y, b.z);
-
-        tmin = max(tmin, range_t.x);
-        tmax = min(tmax, range_t.y);
-
-        if (tmax < tmin || tmax < 0) { return false; }
-        t = (tmin < 0)? tmax : tmin; // maybe internal
-        
-        if (tmin < 0) {
-            range_new = float2(0.001, tmax);
-        } else {
-            range_new = float2(tmin, tmax);
-        }
-        
-        return true;
-    }
-    
-    bool hit(thread Ray& ray, const thread float2& range_t, thread HitRecord& record) constant {
+    bool hit(const thread Ray& ray, const thread float2& range_t, thread HitRecord& record) constant {
         
         float tmin = -FLT_MAX;
         float tmax = range_t.y;
         
         uint axisPick = 0;
-        float bound_min = 0.0;
-        float bound_max = 0.0;
+        
+        float3 ddd = ray.origin - mini;
+        float3 bbb = ray.origin - maxi;
+        
+        if (all(ddd > 0) && all(bbb < 0)) { // internal hit
+            
+            for (auto i : {0, 1, 2}) {
+                
+                auto min_bound = (mini[i] - ray.origin[i])/ray.direction[i];
+                auto max_bound = (maxi[i] - ray.origin[i])/ray.direction[i];
+                
+                auto ts = min(max_bound, min_bound);
+                auto te = max(max_bound, min_bound);
+                
+                tmin = max(ts, tmin);
+                //tmax = min(te, tmax);
+                
+                if (te < tmax) {
+                    tmax = te;
+                    axisPick = i;
+                }
+                
+                //if (tmax < tmin) { return false; }
+                if (tmax < tmin || tmax < 0) { return false; }
+            }
+            
+            record.t = tmax;
+            
+            record.n = float3(0);
+            record.n[axisPick] = ray.direction[axisPick] > 0 ? 1:-1;
+            
+            auto hitPoint = ray.pointAt(record.t);
+            record.p = hitPoint;
+            
+            //auto ratio = (hitPoint - mini) / (maxi - mini);
+            //ratio[axisPick] = 0;
+            
+            uint2 axisUV = (uint2(1, 2) + axisPick) % 3;
+            record.uv = float2(hitPoint[axisUV.x], hitPoint[axisUV.y]);
+            
+            return true;
+        }
         
         for (auto i : {0, 1, 2}) {
             
@@ -192,31 +175,25 @@ struct AABB {
                 
                 tmin = ts;
                 axisPick = i;
-                bound_min = min_bound;
-                bound_max = max_bound;
             }
             
             //if (tmax < tmin) { return false; }
-            if (tmax <= tmin || tmax < 0) { return false; }
+            if (tmax < tmin || tmax < 0) { return false; }
         }
         
-        record.t = tmin < 0 ? tmax : tmin; // internal or external
+        record.t = tmin; // external
         
         record.n = float3(0);
-        record.n[axisPick] = bound_min < bound_max ? -1:1;
-            
-        if (bound_min < 0) { record.n[axisPick] = 1; }
-        if (bound_max < 0) { record.n[axisPick] = -1; }
+        record.n[axisPick] = ray.direction[axisPick] > 0 ? -1:1;
         
         auto hitPoint = ray.pointAt(record.t);
         record.p = hitPoint;
         
-        auto ratio = (hitPoint - mini) / (maxi - mini);
-        record.ratio = ratio;
-        
+        //auto ratio = (hitPoint - mini) / (maxi - mini);
         //ratio[axisPick] = 0;
+        
         uint2 axisUV = (uint2(1, 2) + axisPick) % 3;
-        record.uv = float2(ratio[axisUV.x], ratio[axisUV.y]);
+        record.uv = float2(hitPoint[axisUV.x], hitPoint[axisUV.y]);
         
         return true;
     }

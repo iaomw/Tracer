@@ -70,9 +70,8 @@ public:
 };
 
 class FresnelDielectric {
-    //private:
-    float eta;
 public:
+    float eta;
     // FresnelDielectric Public Methods
     float3 Evaluate(float cosThetaI) const {
         return FrDielectric(cosThetaI, eta);

@@ -16,8 +16,8 @@
 #endif
 
 enum struct MaterialType { Diffuse, Lambert, OrenNayar,
-                            Plastic, Metal, Glass, Medium,
-                            Isotropic, Dielectric, Demofox, PBR, Nill };
+                            Plastic, Metal, Glass,
+                            Isotropic, Dielectric, Demofox, PBR, _NIL_ };
 
 class Material {
 public:
@@ -25,15 +25,14 @@ public:
     enum MediumType medium;
     
     float eta;
-    //float3 albedo;
     
-    float specularProb;
-    float specularRoughness;
-    float3  specularColor;
-    
-    float refractionProb;
-    float refractionRoughness;
-    float3  refractionColor;
+//    float specularProb;
+//    float specularRoughness;
+//    float3  specularColor;
+//    
+//    float refractionProb;
+//    float refractionRoughness;
+//    float3  refractionColor;
     
     TextureInfo textureInfo;
     

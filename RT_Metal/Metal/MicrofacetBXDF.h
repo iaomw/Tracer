@@ -32,7 +32,7 @@ public:
         wh = normalize(wh);
         // For the Fresnel call, make sure that wh is in the same hemisphere
         // as the surface normal, so that TIR is handled correctly.
-        float3 F = fresnel.Evaluate(dot(wi, -Faceforward(wh, float3(0,0,1))));
+        float3 F = fresnel.Evaluate(dot(wi, Faceforward(wh, float3(0,0,1))));
         
         return R * distribution.D(wh) * distribution.G(wo, wi) * F /
                (4 * cosThetaI * cosThetaO);
@@ -66,21 +66,19 @@ public:
 template <typename DistType, typename FrType>
 class MicrofacetTransmission {
   private:
-    // MicrofacetTransmission Private Data
+    // Private Data
     const float3 T;
-    const DistType distribution;
+    const DistType dist;
     const float etaA, etaB;
     const TransportMode mode;
     const FresnelDielectric fresnel;
     
   public:
     // MicrofacetTransmission Public Methods
-    MicrofacetTransmission(const float3 T,
-                           thread DistType &distribution,
+    MicrofacetTransmission(const float3 T, thread DistType &dist,
                            float etaA, float etaB, TransportMode mode)
         : //BxDF(BxDFType(BSDF_TRANSMISSION | BSDF_GLOSSY)),
-          T(T),
-          distribution(distribution),
+          T(T), dist(dist),
           etaA(etaA), etaB(etaB),
           fresnel(etaA), mode(mode) {}
     
@@ -89,7 +87,7 @@ class MicrofacetTransmission {
 
         float cosThetaO = CosTheta(wo);
         float cosThetaI = CosTheta(wi);
-        if (cosThetaI == 0 || cosThetaO == 0) return float3(0);
+        if (cosThetaI == 0 || cosThetaO == 0) return 0;
 
         // Compute $\wh$ from $\wo$ and $\wi$ for microfacet transmission
         float eta = CosTheta(wo) > 0 ? (etaB / etaA) : (etaA / etaB);
@@ -97,14 +95,14 @@ class MicrofacetTransmission {
         if (wh.z < 0) wh = -wh;
 
         // Same side?
-        if (dot(wo, wh) * dot(wi, wh) > 0) return float3(0);
+        if (dot(wo, wh) * dot(wi, wh) > 0) return 0;
 
         float3 F = fresnel.Evaluate(dot(wo, wh));
 
         float sqrtDenom = dot(wo, wh) + eta * dot(wi, wh);
         float factor = (mode == TransportMode::Radiance) ? (1 / eta) : 1;
 
-        return (1.0 - F) * T * abs(distribution.D(wh) * distribution.G(wo, wi) * eta * eta *
+        return (1.0 - F) * T * abs(dist.D(wh) * dist.G(wo, wi) * eta * eta *
                         abs(dot(wi, wh)) * abs(dot(wo, wh)) * factor * factor /
                         (cosThetaI * cosThetaO * sqrtDenom * sqrtDenom));
     }
@@ -120,15 +118,16 @@ class MicrofacetTransmission {
         // Compute change of variables _dwh\_dwi_ for microfacet transmission
         float sqrtDenom = dot(wo, wh) + eta * dot(wi, wh);
         float dwh_dwi = abs((eta * eta * dot(wi, wh)) / (sqrtDenom * sqrtDenom));
-        return distribution.PDF(wo, wh) * dwh_dwi;
+        return dist.PDF(wo, wh) * dwh_dwi;
     }
     
     float3 S_F(const thread float3 &wo, thread float3 &wi,
                const thread float2 &uu, thread float &pdf) const {
-        if (wo.z == 0) return 0.;
         
-        float3 wh = distribution.sample_wh(wo, uu);
-        if (dot(wo, wh) < 0) return 0.;  // Should be rare
+        if (wo.z == 0) return 0;
+        
+        float3 wh = dist.sample_wh(wo, uu);
+        if (dot(wo, wh) < 0) return 0;  // Should be rare
 
         float eta = CosTheta(wo) > 0 ? (etaA / etaB) : (etaB / etaA);
         if (!Refract(wo, wh, eta, wi)) return 0;
@@ -139,8 +138,8 @@ class MicrofacetTransmission {
 
 struct Beckmann {
     
-private:
-    // BeckmannDistribution Private Data
+  private:
+    // Private Data
     const float alphax, alphay;
     
     // BeckmannDistribution Private Methods
@@ -541,7 +540,7 @@ struct GlassMaterial {
     
     GlassMaterial(thread FresnelDielectric &fr, thread Beckmann &dist):
         _mr( kr, fr, dist ),
-        _mt( kt, dist, 1.0, 1.5, TransportMode::Radiance) {}
+        _mt( kt, dist, 1.0, fr.eta, TransportMode::Importance) {}
     
     float3 F(const thread float3 &wo, const thread float3 &wi, const thread float2 &uu)  {
         
@@ -577,7 +576,7 @@ struct GlassMaterial {
 inline GlassMaterial createGlass() {
     
     float eta = 1.5;
-    float2 rough {0.01, 0.1};
+    float2 rough {0.01, 0.01};
  
     auto fr = FresnelDielectric(eta);
     auto dist = Beckmann(rough[0], rough[1]);
