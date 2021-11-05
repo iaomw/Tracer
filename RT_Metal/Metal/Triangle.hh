@@ -75,7 +75,7 @@ struct Triangle {
         hitRecord.t = t;
         hitRecord.p = ray.pointAt(t);
     
-        hitRecord.n = u * _b->n + v * _c->n + w * _a->n;
+        hitRecord.gn = u * _b->n + v * _c->n + w * _a->n;
         hitRecord.uv = u * _b->uv + v * _c->uv + w * _a->uv;
         
         hitRecord.checkFace(ray);

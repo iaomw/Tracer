@@ -38,8 +38,8 @@ struct Cube {
         _record.material = material;
         _record.modelMatrix = model_matrix;
         
-        auto normal = float4(_record.n, 0.0);
-        _record.n = normalize((normal_matrix * normal).xyz);
+        auto normal = float4(_record.gn, 0.0);
+        _record.gn = normalize((normal_matrix * normal).xyz);
         _record.checkFace(ray);
         
         hitRecord = _record;

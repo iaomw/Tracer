@@ -12,7 +12,7 @@ struct HitRecord {
     float3 p;
     
     bool f;
-    float3 n;
+    float3 gn;
     float3 sn;
    
     float2 uv;
@@ -24,8 +24,8 @@ struct HitRecord {
     float4x4 modelMatrix;
     
     void checkFace(const thread Ray& ray) {
-        f = dot(ray.direction, n) <= 0 ;
-        sn = f? n:-n;
+        f = dot(ray.direction, gn) <= 0 ;
+        sn = f? gn:-gn;
     }
 };
 

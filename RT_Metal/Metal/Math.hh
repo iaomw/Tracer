@@ -3,6 +3,76 @@
 
 #include "Common.hh"
 
+// Global Inline Functions
+inline int32_t FloatToInt(float f) {
+    return as_type<int32_t>(f);
+}
+
+inline float IntToFloat(int32_t i) {
+    return as_type<float>(i);
+}
+
+inline uint32_t FloatToBits(float f) {
+    uint32_t ui = as_type<uint32_t>(f);
+    return ui;
+}
+
+inline float BitsToFloat(uint32_t ui) {
+    float f = as_type<float>(ui);
+    return f;
+}
+
+inline float NextFloatUp(float v) {
+    // Handle infinity and negative zero for _NextFloatUp()_
+    if (isinf(v) && v > 0.) return v;
+    if (v == -0.f) v = 0.f;
+
+    // Advance _v_ to next higher float
+    uint32_t ui = FloatToBits(v);
+    if (v >= 0)
+        ++ui;
+    else
+        --ui;
+    return BitsToFloat(ui);
+}
+
+inline float NextFloatDown(float v) {
+    // Handle infinity and positive zero for _NextFloatDown()_
+    if (isinf(v) && v < 0.) return v;
+    if (v == 0.f) v = -0.f;
+    uint32_t ui = FloatToBits(v);
+    if (v > 0)
+        --ui;
+    else
+        ++ui;
+    return BitsToFloat(ui);
+}
+
+#define MachineEpsilon FLT_EPSILON * 0.5
+
+inline constexpr float gamma(int n) {
+    return (n * MachineEpsilon) / (1 - n * MachineEpsilon);
+}
+
+constexpr float origin()      { return 1.0f / 32.0f; }
+constexpr float float_scale() { return 1.0f / 65536.0f; }
+constexpr float int_scale()   { return 256.0f; }
+
+// Normal points outward for rays exiting the surface, else is flipped.
+inline float3 offset_ray(const float3 p, const float3 n)
+{
+  int3 of_i(int_scale() * n.x, int_scale() * n.y, int_scale() * n.z);
+
+  float3 p_i(
+             IntToFloat(FloatToInt(p.x) + ((p.x < 0) ? -of_i.x : of_i.x)),
+             IntToFloat(FloatToInt(p.y) + ((p.y < 0) ? -of_i.y : of_i.y)),
+             IntToFloat(FloatToInt(p.z) + ((p.z < 0) ? -of_i.z : of_i.z)));
+    
+  return float3(abs(p.x) < origin() ? p.x+float_scale()*n.x : p_i.x,
+                abs(p.y) < origin() ? p.y+float_scale()*n.y : p_i.y,
+                abs(p.z) < origin() ? p.z+float_scale()*n.z : p_i.z);
+}
+
 inline float PBRT_Log2(float x) {
     const float invLog2 = 1.442695040888963387004650940071;
     return log(x) * invLog2;

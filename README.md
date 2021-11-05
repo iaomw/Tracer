@@ -2,7 +2,9 @@
 This is simply a repository for my **Ray Tracing** code.
 
 # Requirement
-RT_Metal requires `Metal 2 Tier 2` device, typically any AMD dGPU & eGPU woking on macOS. However, I only tested with my device, it's not guaranteed to work with yours. Not tested for M1, it may require some minor modification to source code.
+RT_Metal requires `Metal 2 Tier 2` device, typically any AMD dGPU & eGPU woking on macOS. However, I only tested with my device, it's not guaranteed to work with yours. 
+
+Not tested on M1.
 
 The deplyment target is macOS 11, but it should work on Catalina and Mojave. I am avoiding using new APIs added after 2019, case Apple is narrowing down new APIs support on old devices.
 
@@ -20,6 +22,8 @@ The deplyment target is macOS 11, but it should work on Catalina and Mojave. I a
     - [x] Stackless BVH backtrace on GPU
     - [x] Bindless resources
     - [x] pcg-random
+- [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
+    - [x] A Fast and Robust Method for Avoiding Self-Intersection
 - [ ] [**Physically Based Rendering,** __*Third Edition*__](http://www.pbr-book.org/)
     - [ ] Halton Sampler
     - [x] Sobol’ Sampler
@@ -29,6 +33,7 @@ The deplyment target is macOS 11, but it should work on Catalina and Mojave. I a
     - [x] Microfacet
         - [x] Beckmann
         - [x] TrowbridgeReitz
+    - [ ] IEEE 754 float rounding error
     - [x] Multiple importance sampling
     - [ ] Ray Differential
     - [ ] Volume Rendering
@@ -47,7 +52,6 @@ The deplyment target is macOS 11, but it should work on Catalina and Mojave. I a
 - [x] Quaternion camera
 
  ### References:  
-- [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
 - [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)
 - [ ] [Dartmouth Rendering Algorithms](https://cs87-dartmouth.github.io/syllabus/)
 - [x] [Ray Tracing mini books by Peter Shirley](https://raytracing.github.io/)

@@ -28,7 +28,7 @@ public:
     
 //    float specularProb;
 //    float specularRoughness;
-//    float3  specularColor;
+//    float3  specularColor;1
 //    
 //    float refractionProb;
 //    float refractionRoughness;

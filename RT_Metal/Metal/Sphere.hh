@@ -50,9 +50,9 @@ struct Sphere {
         if (temp < t_max && temp > t_min) {
             hitRecord.t = temp;
             hitRecord.p = ray.pointAt(hitRecord.t);
-            hitRecord.n = (hitRecord.p-center)/radius;
+            hitRecord.gn = (hitRecord.p-center)/radius;
             hitRecord.checkFace(ray);
-            sphereUV(hitRecord.n, hitRecord.uv);
+            sphereUV(hitRecord.gn, hitRecord.uv);
             hitRecord.material = material;
             
             range_t.y = hitRecord.t;
@@ -64,9 +64,9 @@ struct Sphere {
         if (temp < t_max && temp > t_min) {
             hitRecord.t = temp;
             hitRecord.p = ray.pointAt(hitRecord.t);
-            hitRecord.n = (hitRecord.p-center)/radius;
+            hitRecord.gn = (hitRecord.p-center)/radius;
             hitRecord.checkFace(ray);
-            sphereUV(hitRecord.n, hitRecord.uv);
+            sphereUV(hitRecord.gn, hitRecord.uv);
             hitRecord.material = material;
             
             range_t.y = hitRecord.t;
