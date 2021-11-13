@@ -22,7 +22,7 @@ struct AABB {
         return mini + d;
     }
     
-    float surfaceArea() const {
+    float area() const {
         auto d = diagonal();
         return 2 * (d.x * d.y + d.x * d.z + d.y * d.z);
     }
@@ -43,9 +43,7 @@ struct AABB {
         
         if (d.x > d.y && d.x > d.z) {
             return 0;
-        }
-        
-        return d.y > d.z ? 1 : 2;
+        }; return d.y > d.z ? 1 : 2;
     }
     
 #ifdef __METAL_VERSION__

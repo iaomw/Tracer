@@ -8,9 +8,12 @@ Not tested on M1.
 
 The deplyment target is macOS 11, but it should work on Catalina and Mojave. I am avoiding using new APIs added after 2019, case Apple is narrowing down new APIs support on old devices.
 
-| ![](Captures/capture_s.jpg) | ![](Captures/capture_r.jpg) |
+![](Captures/capture_s.jpg)
+
+|                             |                             |
 |:---------------------------:|:---------------------------:|
 | ![](Captures/capture_q.jpg) | ![](Captures/capture_p.jpg) |
+|                             |                             |
 
 ![](Captures/capture_o.jpg)
 ![](Captures/capture_n.jpg)
