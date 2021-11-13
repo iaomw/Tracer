@@ -293,7 +293,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         if (wi.z < 0) { // Transmission
             
             wi = stw * wi;
-            ray.update(offset_ray($origin - 2 * hitRecord.sn * SquarePadding, -hitRecord.sn), wi);
+            ray.update(offset_ray($origin, -hitRecord.sn), wi);
             //ray.update(_origin - hitRecord.sn * 0.02, wi);
             
             if (dot(wi, hitRecord.gn) < 0) { // enter
@@ -386,10 +386,7 @@ tracerKernel(texture2d<float, access::read>       inTexture [[texture(0)]],
                         primitives);
     
     auto bad = isinf(color) || isnan(color);
-    
-    if( bad[0] || bad[1] || bad[2]) {
-        color = float3(0);
-    }
+    if( any(bad) ) { color = float3(0); }
     
     float3 cached = float3( inTexture.read( thread_pos ).rgb );
     float3 result = (cached.rgb * frame + color) / (frame + 1);
