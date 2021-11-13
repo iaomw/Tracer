@@ -2,18 +2,16 @@
 This is simply a repository for my **Ray Tracing** code.
 
 # Requirement
-RT_Metal requires `Metal 2 Tier 2` device, typically any AMD dGPU & eGPU woking on macOS. However, I only tested with my device, it's not guaranteed to work with yours. 
+RT_Metal requires `Metal 2 Tier 2` device, typically any AMD dGPU & eGPU woking on macOS. **`Not tested on M1.`**
 
-Not tested on M1.
-
-The deplyment target is macOS 11, but it should work on Catalina and Mojave. I am avoiding using new APIs added after 2019, case Apple is narrowing down new APIs support on old devices.
+It may work on Catalina and Mojave. I am avoiding new APIs added since macOS 11, many of them don't work on my device.
 
 ![](Captures/capture_s.jpg)
 
 |                             |                             |
 |:---------------------------:|:---------------------------:|
 | ![](Captures/capture_q.jpg) | ![](Captures/capture_p.jpg) |
-|                             |                             |
+<!-- |                             |                             | -->
 
 ![](Captures/capture_o.jpg)
 ![](Captures/capture_n.jpg)
