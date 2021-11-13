@@ -31,7 +31,7 @@ The deplyment target is macOS 11, but it should work on Catalina and Mojave. I a
     - [ ] Halton Sampler
     - [x] Sobol’ Sampler
     - [ ] ***BVH*** 
-        - [x] Surface Area Heuristic
+        - [x] SAH (Parallel recursion)
         - [ ] LBVHs, Morton Encoding
     - [x] Microfacet
         - [x] Beckmann
@@ -54,7 +54,11 @@ The deplyment target is macOS 11, but it should work on Catalina and Mojave. I a
 - [ ] Cancelable tasks 
 - [x] Quaternion camera
 
+
+
  ### References:  
+- [x] [PCG Random](https://github.com/imneme/pcg-c-basic)
+- [x] [mini PBRT parser](https://github.com/vilya/minipbrt)
 - [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)
 - [ ] [Dartmouth Rendering Algorithms](https://cs87-dartmouth.github.io/syllabus/)
 - [x] [Ray Tracing mini books by Peter Shirley](https://raytracing.github.io/)
