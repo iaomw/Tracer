@@ -22,7 +22,7 @@ struct AABB {
         return mini + d;
     }
     
-    float surfaceArea() const {
+    float area() const {
         auto d = diagonal();
         return 2 * (d.x * d.y + d.x * d.z + d.y * d.z);
     }
@@ -43,9 +43,7 @@ struct AABB {
         
         if (d.x > d.y && d.x > d.z) {
             return 0;
-        }
-        
-        return d.y > d.z ? 1 : 2;
+        }; return d.y > d.z ? 1 : 2;
     }
     
 #ifdef __METAL_VERSION__
@@ -131,6 +129,9 @@ struct AABB {
                 auto ts = min(max_bound, min_bound);
                 auto te = max(max_bound, min_bound);
                 
+                //ensure robust ray--bounds intersection
+                te *= 1 + 2 * gamma(3);
+                
                 tmin = max(ts, tmin);
                 //tmax = min(te, tmax);
                 
@@ -145,11 +146,13 @@ struct AABB {
             
             record.t = tmax;
             
-            record.n = float3(0);
-            record.n[axisPick] = ray.direction[axisPick] > 0 ? 1:-1;
+            record.gn = float3(0);
+            record.gn[axisPick] = ray.direction[axisPick] > 0 ? 1:-1;
             
             auto hitPoint = ray.pointAt(record.t);
             record.p = hitPoint;
+            
+            record.p[axisPick] = ray.direction[axisPick] > 0 ? maxi[axisPick] : mini[axisPick];
             
             //auto ratio = (hitPoint - mini) / (maxi - mini);
             //ratio[axisPick] = 0;
@@ -168,6 +171,9 @@ struct AABB {
             auto ts = min(max_bound, min_bound);
             auto te = max(max_bound, min_bound);
             
+            //ensure robust ray--bounds intersection
+            te *= 1 + 2 * gamma(3);
+            
             //tmin = max(ts, tmin);
             tmax = min(te, tmax);
             
@@ -183,11 +189,13 @@ struct AABB {
         
         record.t = tmin; // external
         
-        record.n = float3(0);
-        record.n[axisPick] = ray.direction[axisPick] > 0 ? -1:1;
+        record.gn = float3(0);
+        record.gn[axisPick] = ray.direction[axisPick] > 0 ? -1:1;
         
         auto hitPoint = ray.pointAt(record.t);
         record.p = hitPoint;
+        
+        record.p[axisPick] = ray.direction[axisPick] > 0 ? mini[axisPick] : maxi[axisPick];
         
         //auto ratio = (hitPoint - mini) / (maxi - mini);
         //ratio[axisPick] = 0;

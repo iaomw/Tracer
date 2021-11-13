@@ -2,13 +2,16 @@
 This is simply a repository for my **Ray Tracing** code.
 
 # Requirement
-RT_Metal requires `Metal 2 Tier 2` device, typically any AMD dGPU & eGPU woking on macOS. However, I only tested with my device, it's not guaranteed to work with yours. Not tested for M1, it may require some minor modification to source code.
+RT_Metal requires `Metal 2 Tier 2` device, typically any AMD dGPU & eGPU woking on macOS. **`Not tested on M1.`**
 
-The deplyment target is macOS 11, but it should work on Catalina and Mojave. I am avoiding using new APIs added after 2019, case Apple is narrowing down new APIs support on old devices.
+It may work on Catalina and Mojave. I am avoiding new APIs added since macOS 11, many of them don't work on my device.
 
-| ![](Captures/capture_s.jpg) | ![](Captures/capture_r.jpg) |
+![](Captures/capture_s.jpg)
+
+|                             |                             |
 |:---------------------------:|:---------------------------:|
 | ![](Captures/capture_q.jpg) | ![](Captures/capture_p.jpg) |
+<!-- |                             |                             | -->
 
 ![](Captures/capture_o.jpg)
 ![](Captures/capture_n.jpg)
@@ -20,15 +23,18 @@ The deplyment target is macOS 11, but it should work on Catalina and Mojave. I a
     - [x] Stackless BVH backtrace on GPU
     - [x] Bindless resources
     - [x] pcg-random
+- [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
+    - [x] A Fast and Robust Method for Avoiding Self-Intersection
 - [ ] [**Physically Based Rendering,** __*Third Edition*__](http://www.pbr-book.org/)
     - [ ] Halton Sampler
     - [x] Sobol’ Sampler
     - [ ] ***BVH*** 
-        - [x] Surface Area Heuristic
+        - [x] SAH (Parallel recursion)
         - [ ] LBVHs, Morton Encoding
     - [x] Microfacet
         - [x] Beckmann
         - [x] TrowbridgeReitz
+    - [ ] IEEE 754 float rounding error
     - [x] Multiple importance sampling
     - [ ] Ray Differential
     - [ ] Volume Rendering
@@ -46,8 +52,11 @@ The deplyment target is macOS 11, but it should work on Catalina and Mojave. I a
 - [ ] Cancelable tasks 
 - [x] Quaternion camera
 
+
+
  ### References:  
-- [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
+- [x] [PCG Random](https://github.com/imneme/pcg-c-basic)
+- [x] [mini PBRT parser](https://github.com/vilya/minipbrt)
 - [ ] [TU Wien Rendering](https://www.cg.tuwien.ac.at/courses/Rendering/VU.SS2020.html)
 - [ ] [Dartmouth Rendering Algorithms](https://cs87-dartmouth.github.io/syllabus/)
 - [x] [Ray Tracing mini books by Peter Shirley](https://raytracing.github.io/)

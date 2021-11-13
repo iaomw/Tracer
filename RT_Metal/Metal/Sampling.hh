@@ -7,6 +7,7 @@ struct LightSampleRecord {
     float3 p;
     float3 n;
     float areaPDF;
+    uint material;
 };
 
 inline float Lerp(float t, float s1, float s2) {

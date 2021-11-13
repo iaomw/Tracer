@@ -61,7 +61,7 @@ struct Scene {
         
         float2 range_t = float2(FLT_MIN, test_t);
         
-        if ( primitives.bvhList[the_index].boundingBOX.hit(ray, range_t) ) {
+        if ( primitives.bvhList[the_index].bBOX.hit(ray, range_t) ) {
             
             do { // travel in bvh
                 
@@ -75,8 +75,8 @@ struct Scene {
                     
                     float t_left = range_t.y, t_right = range_t.y;
                     
-                    bool left_test = primitives.bvhList[left_index].boundingBOX.hit_t(ray, range_t, t_left);
-                    bool right_test = primitives.bvhList[right_index].boundingBOX.hit_t(ray, range_t, t_right);
+                    bool left_test = primitives.bvhList[left_index].bBOX.hit_t(ray, range_t, t_left);
+                    bool right_test = primitives.bvhList[right_index].bBOX.hit_t(ray, range_t, t_right);
                     
                     if (!left_test && !right_test) {
                         
@@ -95,11 +95,11 @@ struct Scene {
                     if (nullptr != edge) {
                         
                         if (t_left < t_right) {
-                            auto done = primitives.bvhList[left_index].boundingBOX.hit_edge(ray, range_t, t_left, stack_level);
+                            auto done = primitives.bvhList[left_index].bBOX.hit_edge(ray, range_t, t_left, stack_level);
                             if (done) {*edge = true; return false;}
                             
                         } else {
-                            auto done = primitives.bvhList[right_index].boundingBOX.hit_edge(ray, range_t, t_right, stack_level);
+                            auto done = primitives.bvhList[right_index].bBOX.hit_edge(ray, range_t, t_right, stack_level);
                             if (done) { *edge = true; return false;}
                         }
                     }

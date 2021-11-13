@@ -32,6 +32,26 @@ struct Ray {
     }
 };
 
+#include "Math.hh"
+
+inline float3 OffsetRayOrigin(const thread float3 &p, const thread float3 &pError,
+                               const thread float3 &n, const thread float3 &w) {
+    float d = dot(abs(n), pError);
+    float3 offset = d * float3(n);
+    
+    if (dot(w, n) < 0) offset = -offset;
+    
+    float3 po = p + offset;
+    // Round offset point _po_ away from _p_
+    for (int i = 0; i < 3; ++i) {
+        if (offset[i] > 0)
+            po[i] = NextFloatUp(po[i]);
+        else if (offset[i] < 0)
+            po[i] = NextFloatDown(po[i]);
+    }
+    return po;
+}
+
 #endif
 
 //struct RayDifferential {

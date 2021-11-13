@@ -166,7 +166,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
     do { // each ray
         
         if ( !hitted ) {
-            float3 sphereVector = ray.direction; //ray.origin + 1000000 * ray.direction;
+            float3 sphereVector = ray.direction; //ray.origin + 65536 * ray.direction;
             float2 uv = SampleSphericalMap(normalize(sphereVector));
             auto ambient = packageEnv.texHDR.sample(textureSampler, uv);
             color += ratio * ambient.rgb; break;
@@ -174,7 +174,7 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         
         if ( packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse ) {
             auto le = packageEnv.materials[hitRecord.material].textureInfo.albedo;
-            auto w = dot(-ray.direction, -hitRecord.n);
+            auto w = dot(-ray.direction, -hitRecord.gn);
             return ratio * le * abs(w);
         }
         
@@ -208,12 +208,14 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
             
             if (packageEnv.materials[hitRecord.material].type == MaterialType::_NIL_) {
                 
-                if (dot(ray.direction, hitRecord.n) < 0) { // enter
-                    ray = Ray(hitRecord.p - 0.01*hitRecord.n, ray.direction);
+                if (dot(ray.direction, hitRecord.gn) < 0) { // enter
+                    //ray = Ray(hitRecord.p - 0.01*hitRecord.gn, ray.direction);
+                    ray = Ray(offset_ray(hitRecord.p, -hitRecord.gn), ray.direction);
                     ray.medium = packageEnv.materials[hitRecord.material].medium;
                 }
                 else { // depart
-                    ray = Ray(hitRecord.p + 0.01*hitRecord.n, ray.direction);
+                    //ray = Ray(hitRecord.p + 0.01*hitRecord.gn, ray.direction);
+                    ray = Ray(offset_ray(hitRecord.p, hitRecord.gn), ray.direction);
                     ray.medium = MediumType::_NIL_;
                 }
 
@@ -235,7 +237,9 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         LightSampleRecord lsr;
         float2 uu = xsampler.sample2D();
         
-        auto _origin = hitRecord.p + hitRecord.sn * 0.01;
+        const auto $origin = hitRecord.p;
+        auto _origin = offset_ray(hitRecord.p, hitRecord.sn);
+        //auto _origin = hitRecord.p + hitRecord.sn / 4096;
         
         if (xsampler.random() < 0.5) {
             primitives.squareList[5].sample(uu, _origin, lsr);
@@ -251,10 +255,10 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         float3x3 stw = { nx, ny, hitRecord.sn };
         float3x3 wts = transpose(stw);
         
-        auto _tr = 1.0;
-        auto _dis = length(_dir);
-        auto _ray = Ray(_origin, _nor); HitRecord shr;
-        auto blocked = scene.hit(_ray, shr, _dis, true);
+        const auto _tr = 1.0;
+        const auto _dis = length(_dir);
+        const auto _ray = Ray(_origin, _nor); HitRecord shr;
+        const auto blocked = scene.hit(_ray, shr, _dis, true);
 
         if( !blocked ) { // Light Sampling
 
@@ -264,19 +268,18 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
             float3 weight = packageEnv.materials[hitRecord.material].F(wo, wi, hitRecord.uv, bxPDF, uu);
 
             auto cosOnLight = abs( dot(lsr.n, -_nor) );
-
-            auto Li = packageEnv.materials[shr.material].textureInfo.albedo;
+            
+            auto Li = packageEnv.materials[lsr.material].textureInfo.albedo;
             weight *= Li * cosOnLight;
 
-            auto dist2 = distance_squared(lsr.p, _origin);
+            auto dist2 = _dis * _dis; //distance_squared(lsr.p, _origin);
             auto liPDF = dist2 * lsr.areaPDF / cosOnLight;
 
             weight *= PowerHeuristic(1, liPDF, 1, bxPDF);
             color += _tr * ratio * weight / liPDF;
         }
-        
+
         // BXDF Sampling
-        
         float3 wi; float bxPDF;
         float3 wo = wts * (-ray.direction);
         
@@ -290,9 +293,10 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         if (wi.z < 0) { // Transmission
             
             wi = stw * wi;
-            ray.update(_origin - hitRecord.sn * 0.02, wi);
+            ray.update(offset_ray($origin, -hitRecord.sn), wi);
+            //ray.update(_origin - hitRecord.sn * 0.02, wi);
             
-            if (dot(wi, hitRecord.n) < 0) { // enter
+            if (dot(wi, hitRecord.gn) < 0) { // enter
                 //if (packageEnv.materials[hitRecord.material].medium != MediumType::_NIL_) {
                     ray.medium = packageEnv.materials[hitRecord.material].medium;
                 //} else { ray.medium = MediumType::_NIL_; }
@@ -303,6 +307,8 @@ Spectrum traceBVH(float depth, thread Ray& ray, thread XSampler& xsampler,
         } else { // do not change medium
             ray.update(_origin, stw * wi);
         }
+        
+        //break;
         
         ratio *= scatRecord.attenuation / scatRecord.bxPDF;
         
@@ -380,10 +386,7 @@ tracerKernel(texture2d<float, access::read>       inTexture [[texture(0)]],
                         primitives);
     
     auto bad = isinf(color) || isnan(color);
-    
-    if( bad[0] || bad[1] || bad[2]) {
-        color = float3(0);
-    }
+    if( any(bad) ) { color = float3(0); }
     
     float3 cached = float3( inTexture.read( thread_pos ).rgb );
     float3 result = (cached.rgb * frame + color) / (frame + 1);
