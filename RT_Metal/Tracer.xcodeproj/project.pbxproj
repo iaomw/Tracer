@@ -68,6 +68,8 @@
 		57C64C7C24E1549B0054AB8C /* AAPLMesh.m in Sources */ = {isa = PBXBuildFile; fileRef = 57C64C7B24E1549B0054AB8C /* AAPLMesh.m */; };
 		57D7F39B266925F90063AF0A /* Triangle.hh in Sources */ = {isa = PBXBuildFile; fileRef = 57D7F39A266925F90063AF0A /* Triangle.hh */; };
 		57D7F39C266925F90063AF0A /* Triangle.hh in Sources */ = {isa = PBXBuildFile; fileRef = 57D7F39A266925F90063AF0A /* Triangle.hh */; };
+		57D89BF9273FF57200110E10 /* pcg_basic.c in Sources */ = {isa = PBXBuildFile; fileRef = 57D89BF7273FF57100110E10 /* pcg_basic.c */; };
+		57D89BFA273FF57200110E10 /* pcg_basic.c in Sources */ = {isa = PBXBuildFile; fileRef = 57D89BF7273FF57100110E10 /* pcg_basic.c */; };
 		57DD356A241EEC110094632B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD3569241EEC110094632B /* AppDelegate.swift */; };
 		57DD356C241EEC110094632B /* TracerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD356B241EEC110094632B /* TracerViewController.swift */; };
 		57DD356E241EEC140094632B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356D241EEC140094632B /* Assets.xcassets */; };
@@ -135,6 +137,8 @@
 		57C64C7D24E15A920054AB8C /* AAPLShaderTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AAPLShaderTypes.h; sourceTree = "<group>"; };
 		57C9D46226A6C86400C681AA /* Medium.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Medium.hh; sourceTree = "<group>"; };
 		57D7F39A266925F90063AF0A /* Triangle.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Triangle.hh; sourceTree = "<group>"; };
+		57D89BF7273FF57100110E10 /* pcg_basic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pcg_basic.c; sourceTree = "<group>"; };
+		57D89BF8273FF57200110E10 /* pcg_basic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pcg_basic.h; sourceTree = "<group>"; };
 		57DD3566241EEC110094632B /* Tracer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tracer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		57DD3569241EEC110094632B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		57DD356B241EEC110094632B /* TracerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TracerViewController.swift; sourceTree = "<group>"; };
@@ -262,6 +266,8 @@
 			children = (
 				5795B58026E12F9600A09B05 /* minipbrt.h */,
 				5795B58126E12F9600A09B05 /* minipbrt.cpp */,
+				57D89BF7273FF57100110E10 /* pcg_basic.c */,
+				57D89BF8273FF57200110E10 /* pcg_basic.h */,
 				573DD10B2433793800B09B0A /* Tracer-Bridging.h */,
 				571C09612439269400DA0BAC /* Tracer.hh */,
 				571C095F2439267700DA0BAC /* Tracer.mm */,
@@ -422,6 +428,7 @@
 				57874FCF24DDF70800080AB7 /* Tracer.hh in Sources */,
 				578F8A4225056FD800B40A13 /* Sobolmatrices.metal in Sources */,
 				57874FD024DDF70800080AB7 /* Tracer.mm in Sources */,
+				57D89BFA273FF57200110E10 /* pcg_basic.c in Sources */,
 				57874FD124DDF70800080AB7 /* AAPLRenderer.hh in Sources */,
 				57874FD224DDF70800080AB7 /* AAPLRenderer.mm in Sources */,
 				57874FC224DDF37100080AB7 /* ViewController.swift in Sources */,
@@ -435,6 +442,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5759E67E24DB717400C8A2D7 /* Material.metal in Sources */,
+				57D89BF9273FF57200110E10 /* pcg_basic.c in Sources */,
 				578F8A4125056FD800B40A13 /* Sobolmatrices.metal in Sources */,
 				573DD1092432B9D900B09B0A /* Render.metal in Sources */,
 				575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */,
@@ -656,22 +664,30 @@
 		57DD3577241EEC140094632B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Tracer/Tracer.entitlements;
 				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_UNROLL_LOOPS = NO;
 				INFOPLIST_FILE = Tracer/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				ONLY_ACTIVE_ARCH = NO;
+				LLVM_LTO = NO;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_MODULES = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				OTHER_LDFLAGS = "-Wl,-stack_size,10000000";
 				PRODUCT_BUNDLE_IDENTIFIER = IA.Tracer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -685,6 +701,7 @@
 		57DD3578241EEC140094632B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -693,13 +710,21 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_UNROLL_LOOPS = NO;
 				INFOPLIST_FILE = Tracer/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				LLVM_LTO = NO;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_MODULES = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				OTHER_LDFLAGS = "-Wl,-stack_size,10000000";
 				PRODUCT_BUNDLE_IDENTIFIER = IA.Tracer;
 				PRODUCT_NAME = "$(TARGET_NAME)";

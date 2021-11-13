@@ -3,10 +3,11 @@
 
 #include "AAPLRenderer.hh"
 
+#include "pcg_basic.h"
+#include "minipbrt.h"
+
 #include "Medium.hh"
 #include "Tracer.hh"
-
-#include "minipbrt.h"
 
 typedef struct
 {
@@ -120,7 +121,7 @@ typedef struct
         //_view.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedSRGB);
         //_view.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedLinearSRGB);
         
-        NSError* ERROR;
+        NSError* ERROR; NSTimeInterval _time_s, _time_e;
 
         let defaultLibrary = [_device newDefaultLibrary];
         let kernelFunction = [defaultLibrary newFunctionWithName:@"tracerKernel"];
@@ -175,6 +176,9 @@ typedef struct
         
         std::vector<Material> materials;
         
+NSLog(@"Loading Primitive");
+_time_s = [[NSDate date] timeIntervalSince1970];
+        
         std::vector<Cube> cube_list;
         prepareCubeList(cube_list, materials);
         _cube_list_buffer = [_device newBufferWithBytes: cube_list.data()
@@ -192,6 +196,9 @@ typedef struct
         _sphere_list_buffer = [_device newBufferWithBytes: sphere_list.data()
                                                    length: sizeof(Sphere)*sphere_list.size()
                                                   options: CommonStorageMode];
+        
+_time_e = [[NSDate date] timeIntervalSince1970];
+NSLog(@"Done  %fs", _time_e - _time_s);
         
         Material testMaterial;
         testMaterial.type = MaterialType::Glass;
@@ -246,15 +253,39 @@ typedef struct
         _textureARNG = [_device newTextureWithDescriptor:tdr];
         _textureBRNG = [_device newTextureWithDescriptor:tdr];
         
-        UInt32 count = width * height * 4;
-        UInt32* seeds = (UInt32*)malloc(count*sizeof(UInt32));
-
-        for (int i = 0; i < count; i++) { seeds[i] = arc4random(); }
+NSLog(@"Processing RNG");
+_time_s = [[NSDate date] timeIntervalSince1970];
         
-        let _sourceBuffer = [_device newBufferWithBytes: seeds
+        UInt32 pixel_count = width * height * 4;
+        UInt32* pixel_seed = (UInt32*)malloc(pixel_count*sizeof(UInt32));
+        
+        typedef struct pcg_state_setseq_64 pcg32_t;
+        
+        let thread_count = [[NSProcessInfo processInfo] activeProcessorCount];
+        let per_thread = pixel_count / thread_count;
+        let remain = pixel_count % thread_count;
+        
+        dispatch_apply(thread_count, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(size_t idx){
+            
+            pcg32_t seed = { arc4random(), arc4random() };
+            //  seed = { pcg32_random(), pcg32_random() };
+            let offset = idx * per_thread;
+            
+            for (int i=0; i<per_thread; i++) {
+                pixel_seed[offset + i] = pcg32_random_r(&seed); //pcg32_random();
+            }
+        });
+        
+        for (int i=0; i<remain; i++) {
+            pixel_seed[pixel_count-1-i] = pcg32_random();
+        }
+
+        //for (int i = 0; i < count; i++) { seeds[i] = arc4random(); }
+        
+        let _sourceBuffer = [_device newBufferWithBytes: pixel_seed
                                                  length: sizeof(UInt32)*4*width*height
                                                 options: MTLResourceStorageModeShared];
-        free(seeds);
+        free(pixel_seed);
         
         // Create a command buffer for GPU work.
         let commandBuffer = [_commandQueue commandBuffer];
@@ -272,6 +303,12 @@ typedef struct
                          destinationOrigin: {0,0,0}];
         
         [blitCommandEncoder endEncoding];
+        
+_time_e = [[NSDate date] timeIntervalSince1970];
+NSLog(@"Done  %fs", _time_e - _time_s);
+        
+NSLog(@"Loading Texture");
+_time_s = [[NSDate date] timeIntervalSince1970];
         
         MTKTextureLoader *textureLoader = [[MTKTextureLoader alloc] initWithDevice: _device];
         
@@ -338,6 +375,9 @@ typedef struct
         _vectorTexAll = {_textureHDR, _textureUVT};
         _vectorTexAll.insert(_vectorTexAll.end(), std::begin(vectorTexPBR), std::end(vectorTexPBR));
         
+_time_e = [[NSDate date] timeIntervalSince1970];
+NSLog(@"Done  %fs", _time_e - _time_s);
+        
         std::vector<BVH> bvh_list;
         
 //        for (int i=1; i<sphere_list.size(); i++) {
@@ -356,8 +396,11 @@ typedef struct
             BVH::buildNode(square.boundingBOX, square.model_matrix, PrimitiveType::Square, i, bvh_list);
         }
         
+NSLog(@"Loading Mesh");
+_time_s = [[NSDate date] timeIntervalSince1970];
+        
         //let modelPath = [NSBundle.mainBundle pathForResource:@"coatball/coatball" ofType:@"obj"];
-        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/dragon" ofType:@"obj"];
+        let modelPath = [NSBundle.mainBundle pathForResource:@"meshes/bunny" ofType:@"obj"];
         //let modelPath = [NSBundle.mainBundle pathForResource:@"uv_test/uv_test" ofType:@"obj"];
         let modelURL = [[NSURL alloc] initFileURLWithPath:modelPath];
                 
@@ -385,6 +428,12 @@ typedef struct
         let testAsset = [[MDLAsset alloc] initWithURL: modelURL
                                      vertexDescriptor: modelIOVertexDescriptor
                                       bufferAllocator: allocator]; // preserveTopology: NO
+        
+_time_e = [[NSDate date] timeIntervalSince1970];
+NSLog(@"Done  %fs", _time_e - _time_s);
+        
+NSLog(@"Processing Mesh");
+_time_s = [[NSDate date] timeIntervalSince1970];
         
         let testMesh = (MDLMesh *) [testAsset objectAtIndex:0];
         [testMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:1];
@@ -431,7 +480,7 @@ typedef struct
                         
                         ele->nz *= -1;
                         
-                        ele->vx += 300;
+                        ele->vx += 400;
                         
                         ele->vx += meshOffset.x;
                         ele->vy += meshOffset.y;
@@ -453,7 +502,7 @@ typedef struct
                     
                     let triangleIndex = triangleIndexOffset + i/3;
                     
-                    //BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
+                    BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
                 }
                 
                 totalIndexBufferLength += submesh.indexBuffer.length; triangleIndexOffset += index_count/3;
@@ -467,13 +516,15 @@ typedef struct
                 memcpy(totalIndexData + totalIndexOffset, submesh.indexBuffer.map.bytes, length);
                 totalIndexOffset += length;
             }
-        
-                NSLog(@"Begin processing BVH");
-                let time_s = [[NSDate date] timeIntervalSince1970];
-                BVH::buildTree(bvh_list);
-                let time_e = [[NSDate date] timeIntervalSince1970];
-                NSLog(@"Time cost %fs", time_e - time_s);
-                NSLog(@"End processing BVH");
+
+_time_e = [[NSDate date] timeIntervalSince1970];
+NSLog(@"Done  %fs", _time_e - _time_s);
+
+NSLog(@"Processing BVH");
+            _time_s = [[NSDate date] timeIntervalSince1970];
+            BVH::buildTree(bvh_list);
+            _time_e = [[NSDate date] timeIntervalSince1970];
+NSLog(@"Done  %fs", _time_e - _time_s);
                 
                 _idx_buffer = [_device newBufferWithBytes: totalIndexData //[testMesh.submeshes.firstObject indexBuffer].map.bytes
                                                    length: totalIndexOffset //[testMesh.submeshes.firstObject indexBuffer].length
