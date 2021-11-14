@@ -36,7 +36,7 @@ struct BVH {
     }
     
     static uint make(std::vector<BVH>&  bvh_list,
-                     std::vector<uint>& index_list,
+                     std::vector<uint>& idx_list,
                      
                      uint start, uint end, uint depth,
                      
@@ -53,7 +53,7 @@ struct BVH {
         uint span = end - start;
         
         if (1 == span) {
-            return index_list[start];
+            return idx_list[start];
         }
         
         uint dim=0;
@@ -62,8 +62,8 @@ struct BVH {
         
         if (2 == span) {
             
-            let index_a = index_list[start];
-            let index_b = index_list[start+1];
+            let index_a = idx_list[start];
+            let index_b = idx_list[start+1];
             
             let centroid_a = bvh_list[index_a].bBOX.centroid();
             let centroid_b = bvh_list[index_b].bBOX.centroid();
@@ -85,7 +85,7 @@ struct BVH {
             
             for (int i=start; i<end; i++) {
                  
-                auto& bBOX = bvh_list[index_list[i]].bBOX;
+                auto& bBOX = bvh_list[idx_list[i]].bBOX;
                 cbox = AABB::make(cbox, bBOX.centroid());
             }
             
@@ -96,7 +96,7 @@ struct BVH {
             
             auto prepareBucket = [&](const size_t i) -> void {
                 
-                auto& primi = bvh_list[index_list[i]];
+                auto& primi = bvh_list[idx_list[i]];
                 auto centroid = primi.bBOX.centroid();
                 
                 uint b = nBuckets * cbox.relative(centroid)[dim];
@@ -143,7 +143,7 @@ struct BVH {
             
             auto tester = [&](const uint idx) {
                 
-                auto& primi = bvh_list[index_list[idx]];
+                auto& primi = bvh_list[idx_list[idx]];
                 auto centroid = primi.bBOX.centroid();
             
                 uint b = nBuckets * cbox.relative(centroid)[dim];
@@ -164,7 +164,7 @@ struct BVH {
                       if (first==last) return first;
                     } while ( !tester(last) );
                         
-                    std::swap(index_list[first], index_list[last]);
+                    std::swap(idx_list[first], idx_list[last]);
                     ++first;
                 }
                 return first;
@@ -193,14 +193,14 @@ struct BVH {
                     return comparator(a, b, dim);
                 };
                 
-                std::sort(index_list.begin()+start, index_list.begin()+end, comp);
+                std::sort(idx_list.begin()+start, idx_list.begin()+end, comp);
                 mid = start + span / 2;
             }
             
             if (depth > 2) {
                 
-                left = BVH::make(bvh_list, index_list, start, mid, depth+1, cqueue, semaphore);
-                right = BVH::make(bvh_list, index_list, mid, end, depth+1, cqueue, semaphore);
+                left = BVH::make(bvh_list, idx_list, start, mid, depth+1, cqueue, semaphore);
+                right = BVH::make(bvh_list, idx_list, mid, end, depth+1, cqueue, semaphore);
                 
             } else {
                 
@@ -208,13 +208,13 @@ struct BVH {
                 
                 dispatch_group_enter(group);
                 dispatch_async(cqueue, ^{
-                    left = BVH::make(bvh_list, index_list, start, mid, depth+1, cqueue, semaphore);
+                    left = BVH::make(bvh_list, idx_list, start, mid, depth+1, cqueue, semaphore);
                     dispatch_group_leave(group);
                 });
                 
                 dispatch_group_enter(group);
                 dispatch_async(cqueue, ^{
-                    right = BVH::make(bvh_list, index_list, mid, end, depth+1, cqueue, semaphore);
+                    right = BVH::make(bvh_list, idx_list, mid, end, depth+1, cqueue, semaphore);
                     dispatch_group_leave(group);
                 });
                 
@@ -252,16 +252,18 @@ struct BVH {
     
     static void buildTree(std::vector<BVH>& bvh_list)
     {
-        std::vector<uint> index_list;
+        std::vector<uint> idx_list;
         
         for (uint i=0; i<bvh_list.size(); i++) {
-            index_list.push_back(i);
+            idx_list.push_back(i);
         }
+        
+        bvh_list.reserve(2 * bvh_list.size() - 1);
         
         auto semaphore = dispatch_semaphore_create(1);
         auto cqueue = dispatch_queue_create("com.unique", DISPATCH_QUEUE_CONCURRENT);
         
-        BVH::make(bvh_list, index_list, 0, (uint32_t)index_list.size(), 0, cqueue, semaphore);
+        BVH::make(bvh_list, idx_list, 0, (uint32_t)idx_list.size(), 0, cqueue, semaphore);
         //BVH::make(bvh_copy, index_copy, 0, (uint32_t)index_copy.size(), 999, cqueue, semaphore);
         
         auto root = bvh_list.back();
@@ -291,7 +293,6 @@ struct BVH {
                     auto z = ele[k][2];
                     
                     auto pick_point = simd_make_float4(x, y, z, 1);
-                    
                     auto tester = simd_mul(model_matrix, pick_point);
 
                     for (int c = 0; c < 3; c++) {
@@ -317,6 +318,51 @@ struct BVH {
         newBVH.bBOX = newBOX;
         
         bvh_list.emplace_back(newBVH);
+    }
+    
+    static inline void buildNode(const AABB& box, const float4x4& model_matrix,
+                                 PrimitiveType pType, uint pIndex,
+                                 std::vector<BVH>& bvh_list, uint idx)
+    {
+        packed_float3 ele[] { box.mini, box.maxi };
+        
+        float3 newMINI = float3(FLT_MAX);
+        float3 newMAXI = float3(-FLT_MAX);
+        
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 2; j++) {
+                for (int k = 0; k < 2; k++) {
+                    
+                    auto x = ele[i][0];
+                    auto y = ele[j][1];
+                    auto z = ele[k][2];
+                    
+                    auto pick_point = simd_make_float4(x, y, z, 1);
+                    auto tester = simd_mul(model_matrix, pick_point);
+
+                    for (int c = 0; c < 3; c++) {
+                        newMINI[c] = fmin(newMINI[c], tester[c]);
+                        newMAXI[c] = fmax(newMAXI[c], tester[c]);
+                    }
+                } // k
+            } // j
+        } // i
+        
+        BVH& newBVH = bvh_list[idx];
+        newBVH.left = 0;
+        newBVH.right = 0;
+        
+        newBVH.pType = pType;
+        newBVH.pIndex = pIndex;
+        
+        AABB newBOX;
+        
+        newBOX.mini = newMINI;
+        newBOX.maxi = newMAXI;
+        
+        newBVH.bBOX = newBOX;
+        
+        //bvh_list.emplace_back(newBVH);
     }
     
 #endif

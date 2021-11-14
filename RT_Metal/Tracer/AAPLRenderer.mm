@@ -115,13 +115,18 @@ typedef struct
         //_view.preferredFramesPerSecond = 30;
         _commandQueue = [_device newCommandQueue];
         
+        //NSLog(@"\n\n\n\u00a0")
+        NSLog(@"Using device: %@", _device.name);
+        
         _view.colorPixelFormat = MTLPixelFormatRGBA16Float;
         //_view.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
         //_view.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
         //_view.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedSRGB);
         //_view.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedLinearSRGB);
         
-        NSError* ERROR; NSTimeInterval _time_s, _time_e;
+        __block NSError* ERROR;
+        
+        NSTimeInterval _time_s, _time_e;
 
         let defaultLibrary = [_device newDefaultLibrary];
         let kernelFunction = [defaultLibrary newFunctionWithName:@"tracerKernel"];
@@ -176,9 +181,6 @@ typedef struct
         
         std::vector<Material> materials;
         
-NSLog(@"Loading Primitive");
-_time_s = [[NSDate date] timeIntervalSince1970];
-        
         std::vector<Cube> cube_list;
         prepareCubeList(cube_list, materials);
         _cube_list_buffer = [_device newBufferWithBytes: cube_list.data()
@@ -196,9 +198,6 @@ _time_s = [[NSDate date] timeIntervalSince1970];
         _sphere_list_buffer = [_device newBufferWithBytes: sphere_list.data()
                                                    length: sizeof(Sphere)*sphere_list.size()
                                                   options: CommonStorageMode];
-        
-_time_e = [[NSDate date] timeIntervalSince1970];
-NSLog(@"Done  %fs", _time_e - _time_s);
         
         Material testMaterial;
         testMaterial.type = MaterialType::Glass;
@@ -256,30 +255,29 @@ NSLog(@"Done  %fs", _time_e - _time_s);
 NSLog(@"Processing RNG");
 _time_s = [[NSDate date] timeIntervalSince1970];
         
-        UInt32 pixel_count = width * height * 4;
-        UInt32* pixel_seed = (UInt32*)malloc(pixel_count*sizeof(UInt32));
+        uint32_t pixel_count = width * height * 4;
+        uint32_t* pixel_seed = (uint32_t*)malloc(pixel_count*sizeof(uint32_t));
         
         typedef struct pcg_state_setseq_64 pcg32_t;
         
-        let thread_count = [[NSProcessInfo processInfo] activeProcessorCount];
-        let per_thread = pixel_count / thread_count;
-        let remain = pixel_count % thread_count;
+        var thread_count = (uint32_t) [[NSProcessInfo processInfo] activeProcessorCount];
+        var thread_quota = pixel_count / thread_count;
+        var thread_remai = pixel_count % thread_count;
         
         dispatch_apply(thread_count, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(size_t idx){
             
             pcg32_t seed = { arc4random(), arc4random() };
             //  seed = { pcg32_random(), pcg32_random() };
-            let offset = idx * per_thread;
+            let offset = idx * thread_quota;
             
-            for (int i=0; i<per_thread; i++) {
+            for (int i=0; i<thread_quota; i++) {
                 pixel_seed[offset + i] = pcg32_random_r(&seed); //pcg32_random();
             }
         });
         
-        for (int i=0; i<remain; i++) {
+        for (int i=0; i<thread_remai; i++) {
             pixel_seed[pixel_count-1-i] = pcg32_random();
         }
-
         //for (int i = 0; i < count; i++) { seeds[i] = arc4random(); }
         
         let _sourceBuffer = [_device newBufferWithBytes: pixel_seed
@@ -320,51 +318,83 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                     MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
                     MTKTextureLoaderOptionOrigin: MTKTextureLoaderOriginFlippedVertically };
         
-        let pathHDR = [NSBundle.mainBundle pathForResource:@"vulture_hide_4k" ofType:@"hdr"];
+        auto cqueue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
+        auto semaphore = dispatch_semaphore_create(1);
+        auto wait_group = dispatch_group_create();
         
-        #if TARGET_OS_OSX
-            let urlHDR = [[NSURL alloc] initFileURLWithPath:pathHDR];
-            let imageData = [[[NSImage alloc] initWithContentsOfURL:urlHDR] TIFFRepresentation];
-        #else
-            //let imageData = [[NSData alloc] initWithContentsOfFile:pathHDR];
-            let image = [[UIImage alloc] initWithContentsOfFile:pathHDR];
-            let imageData = UIImageJPEGRepresentation(image, 1.0);
-            //UIImagePNGRepresentation(image);
-        #endif
+        __block NSString *pathHDR;
         
-        _textureHDR = [textureLoader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
-        
-        let mdlUVT = [MDLTexture textureNamed:@"uv_test/uv_test.png"];
-        _textureUVT = [textureLoader newTextureWithMDLTexture:mdlUVT options:textureLoaderOptions error:&ERROR];
+        dispatch_group_enter(wait_group);
+        dispatch_async(cqueue, ^{
+            
+            pathHDR = [NSBundle.mainBundle pathForResource:@"vulture_hide_4k" ofType:@"hdr"];
+            
+            #if TARGET_OS_OSX
+                let urlHDR = [[NSURL alloc] initFileURLWithPath:pathHDR];
+                let imageData = [[[NSImage alloc] initWithContentsOfURL:urlHDR] TIFFRepresentation];
+            #else
+                //let imageData = [[NSData alloc] initWithContentsOfFile:pathHDR];
+                let image = [[UIImage alloc] initWithContentsOfFile:pathHDR];
+                let imageData = UIImageJPEGRepresentation(image, 1.0);
+                //UIImagePNGRepresentation(image);
+            #endif
+            
+            self->_textureHDR = [textureLoader newTextureWithData:imageData options:textureLoaderOptions error:&ERROR];
+            
+            let mdlUVT = [MDLTexture textureNamed:@"uv_test/uv_test.png"];
+            self->_textureUVT = [textureLoader newTextureWithMDLTexture:mdlUVT options:textureLoaderOptions error:&ERROR];
+            
+            dispatch_group_leave(wait_group);
+        });
         
         let mdlAO = [MDLTexture textureNamed:@"coatball/tex_ao.png"];
-        var _textureAO = [textureLoader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
+        let _textureAO = [textureLoader newTextureWithMDLTexture:mdlAO options:textureLoaderOptions error:&ERROR];
         
-        var mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
-        var mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
-        var mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
-        var mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
+        dispatch_group_enter(wait_group);
+        dispatch_async(cqueue, ^{
+            
+            var mdlAlbedo = [MDLTexture textureNamed:@"coatball/tex_base.png"];
+            var mdlNormal = [MDLTexture textureNamed:@"coatball/tex_normal.png"];
+            var mdlMetallic = [MDLTexture textureNamed:@"coatball/tex_metallic.png"];
+            var mdlRoughness = [MDLTexture textureNamed:@"coatball/tex_roughness.png"];
+            
+            var _textureAlbedo = [textureLoader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
+            var _textureNormal = [textureLoader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
+            var _textureMetallic = [textureLoader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
+            var _textureRoughness = [textureLoader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
+            
+            auto tmp = std::vector<id<MTLTexture>>{ _textureAO, _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
+            
+            dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+                self->vectorTexPBR.insert(self->vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
+            dispatch_semaphore_signal(semaphore);
+                    
+            dispatch_group_leave(wait_group);
+        });
         
-        var _textureAlbedo = [textureLoader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
-        var _textureNormal = [textureLoader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
-        var _textureMetallic = [textureLoader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
-        var _textureRoughness = [textureLoader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
-        
-        auto tmp = std::vector<id<MTLTexture>>{ _textureAO, _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
-        vectorTexPBR.insert(vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
-                
-            mdlAlbedo = [MDLTexture textureNamed:@"scuffed/gold-scuffed_base.png"];
-            mdlNormal = [MDLTexture textureNamed:@"scuffed/gold-scuffed_normal.png"];
-            mdlMetallic = [MDLTexture textureNamed:@"scuffed/gold-scuffed_metallic.png"];
-            mdlRoughness = [MDLTexture textureNamed:@"scuffed/gold-scuffed_roughness.png"];
+        dispatch_group_enter(wait_group);
+        dispatch_async(cqueue, ^{
+            
+            let mdlAlbedo = [MDLTexture textureNamed:@"scuffed/gold-scuffed_base.png"];
+            let mdlNormal = [MDLTexture textureNamed:@"scuffed/gold-scuffed_normal.png"];
+            let mdlMetallic = [MDLTexture textureNamed:@"scuffed/gold-scuffed_metallic.png"];
+            let mdlRoughness = [MDLTexture textureNamed:@"scuffed/gold-scuffed_roughness.png"];
 
-            _textureAlbedo = [textureLoader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
-            _textureNormal = [textureLoader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
-            _textureMetallic = [textureLoader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
-            _textureRoughness = [textureLoader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
+            let _textureAlbedo = [textureLoader newTextureWithMDLTexture:mdlAlbedo options:textureLoaderOptions error:&ERROR];
+            let _textureNormal = [textureLoader newTextureWithMDLTexture:mdlNormal options:textureLoaderOptions error:&ERROR];
+            let _textureMetallic = [textureLoader newTextureWithMDLTexture:mdlMetallic options:textureLoaderOptions error:&ERROR];
+            let _textureRoughness = [textureLoader newTextureWithMDLTexture:mdlRoughness options:textureLoaderOptions error:&ERROR];
         
-        tmp = std::vector<id<MTLTexture>>{ _textureAO, _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
-        vectorTexPBR.insert(vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
+            auto tmp = std::vector<id<MTLTexture>>{ _textureAO, _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
+            
+            dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+                self->vectorTexPBR.insert(self->vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
+            dispatch_semaphore_signal(semaphore);
+                    
+            dispatch_group_leave(wait_group);
+        });
+        
+        dispatch_group_wait(wait_group, DISPATCH_TIME_FOREVER);
         
             if(!_textureHDR)
             {
@@ -454,58 +484,73 @@ _time_s = [[NSDate date] timeIntervalSince1970];
             meshOffset.y = 20 - minB.y * meshScale;
         
             auto vertex_ptr = (MeshStrut*) testMesh.vertexBuffers.firstObject.map.bytes;
-        
             int totalIndexBufferLength = 0, triangleIndexOffset = 0;
         
             for(MDLSubmesh* submesh in testMesh.submeshes) {
                 
-                auto index_ptr = (uint32_t*) submesh.indexBuffer.map.bytes;
+                auto index_bytes = (uint32_t*) submesh.indexBuffer.map.bytes;
                 auto index_count = submesh.indexCount;
+                auto tr_count = (uint)(index_count/3);
+                //thread_count = 8;
                 
-                for (uint i=0; i<index_count; i+=3) {
-                    
-                    auto index_a = index_ptr[i];
-                    auto index_b = index_ptr[i+1];
-                    auto index_c = index_ptr[i+2];
-                    
-                    auto vertex_a = (vertex_ptr + index_a);
-                    auto vertex_b = (vertex_ptr + index_b);
-                    auto vertex_c = (vertex_ptr + index_c);
-                    
-                    for (auto ele : { vertex_a, vertex_b, vertex_c }) {
-                        
-                        ele->vx *= meshScale;
-                        ele->vy *= meshScale;
-                        ele->vz *= -meshScale;
-                        
-                        ele->nz *= -1;
-                        
-                        ele->vx += 400;
-                        
-                        ele->vx += meshOffset.x;
-                        ele->vy += meshOffset.y;
-                        ele->vz += meshOffset.z;
-                    }
-                    
-                    auto max_x = std::max( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
-                    auto max_y = std::max( {vertex_a->vy, vertex_b->vy, vertex_c->vy} );
-                    auto max_z = std::max( {vertex_a->vz, vertex_b->vz, vertex_c->vz} );
-                    
-                    auto min_x = std::min( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
-                    auto min_y = std::min( {vertex_a->vy, vertex_b->vy, vertex_c->vy} );
-                    auto min_z = std::min( {vertex_a->vz, vertex_b->vz, vertex_c->vz} );
-                    
-                    AABB box;
-                    
-                    box.maxi = { max_x, max_y, max_z };
-                    box.mini = { min_x, min_y, min_z };
-                    
-                    let triangleIndex = triangleIndexOffset + i/3;
-                    
-                    BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
-                }
+                thread_quota = tr_count / thread_count;
+                thread_remai = tr_count % thread_count;
                 
-                totalIndexBufferLength += submesh.indexBuffer.length; triangleIndexOffset += index_count/3;
+                auto old_size = (uint)bvh_list.size();
+                bvh_list.resize(old_size + tr_count);
+                
+                auto thread_slot = std::vector<uint>(thread_count, thread_quota);
+                thread_slot.back() += thread_remai;
+                
+                dispatch_apply(thread_count, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), [&] (size_t thread_idx) {
+                    
+                    for (uint task_idx=0; task_idx<thread_slot[thread_idx]; task_idx++) {
+                        
+                        uint i = (uint)(thread_idx * thread_quota + task_idx) * 3;
+                        
+                        auto index_a = index_bytes[i];
+                        auto index_b = index_bytes[i+1];
+                        auto index_c = index_bytes[i+2];
+                        
+                        auto vertex_a = (vertex_ptr + index_a);
+                        auto vertex_b = (vertex_ptr + index_b);
+                        auto vertex_c = (vertex_ptr + index_c);
+                        
+                        for (auto ele : { vertex_a, vertex_b, vertex_c }) {
+                            
+                            ele->vx *= meshScale;
+                            ele->vy *= meshScale;
+                            ele->vz *= -meshScale;
+                            
+                            ele->nz *= -1;
+                            
+                            ele->vx += 400;
+                            
+                            ele->vx += meshOffset.x;
+                            ele->vy += meshOffset.y;
+                            ele->vz += meshOffset.z;
+                        }
+                        
+                        auto max_x = std::max( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
+                        auto max_y = std::max( {vertex_a->vy, vertex_b->vy, vertex_c->vy} );
+                        auto max_z = std::max( {vertex_a->vz, vertex_b->vz, vertex_c->vz} );
+                        
+                        auto min_x = std::min( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
+                        auto min_y = std::min( {vertex_a->vy, vertex_b->vy, vertex_c->vy} );
+                        auto min_z = std::min( {vertex_a->vz, vertex_b->vz, vertex_c->vz} );
+                        
+                        AABB box;
+                        
+                        box.maxi = { max_x, max_y, max_z };
+                        box.mini = { min_x, min_y, min_z };
+                        
+                        let triangleIndex = triangleIndexOffset + i/3;
+                        //BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
+                        BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list, old_size + i/3);
+                    } // for
+                });
+                
+                totalIndexBufferLength += submesh.indexBuffer.length; triangleIndexOffset += tr_count;
             }
         
             char* totalIndexData = (char*)malloc(totalIndexBufferLength);
@@ -521,9 +566,9 @@ _time_e = [[NSDate date] timeIntervalSince1970];
 NSLog(@"Done  %fs", _time_e - _time_s);
 
 NSLog(@"Processing BVH");
-            _time_s = [[NSDate date] timeIntervalSince1970];
+_time_s = [[NSDate date] timeIntervalSince1970];
             BVH::buildTree(bvh_list);
-            _time_e = [[NSDate date] timeIntervalSince1970];
+_time_e = [[NSDate date] timeIntervalSince1970];
 NSLog(@"Done  %fs", _time_e - _time_s);
                 
                 _idx_buffer = [_device newBufferWithBytes: totalIndexData //[testMesh.submeshes.firstObject indexBuffer].map.bytes
@@ -538,6 +583,8 @@ NSLog(@"Done  %fs", _time_e - _time_s);
                                                    length: sizeof(BVH)*bvh_list.size()
                                                   options: CommonStorageMode];
         
+NSLog(@"Loading volume");
+_time_s = [[NSDate date] timeIntervalSince1970];
         
                 minipbrt::Loader loaderPBRT;
                 auto pathPBRT = [NSBundle.mainBundle pathForResource:@"cloud/cloud" ofType:@"pbrt"];
@@ -563,6 +610,9 @@ NSLog(@"Done  %fs", _time_e - _time_s);
                     return nil;
                 }
         
+_time_e = [[NSDate date] timeIntervalSince1970];
+NSLog(@"Done  %fs", _time_e - _time_s);
+        
         _vectorBufferAll = { _cube_list_buffer, _square_list_buffer, _sphere_list_buffer,
                                 _bvh_buffer, _idx_buffer, _tri_buffer, _material_buffer,
                                 _densityInfoBuffer, _densityDataBuffer };
@@ -570,7 +620,7 @@ NSLog(@"Done  %fs", _time_e - _time_s);
         [self createHeap];
         [self copyToHeap];
         
-        _cube_list_buffer = _vectorBufferAll[0];
+        _cube_list_buffer   = _vectorBufferAll[0];
         _square_list_buffer = _vectorBufferAll[1];
         _sphere_list_buffer = _vectorBufferAll[2];
         
@@ -603,11 +653,11 @@ NSLog(@"Done  %fs", _time_e - _time_s);
         
         _vectorTexAll.clear();
         
-        _textureAO = NULL;
-        _textureAlbedo = NULL;
-        _textureNormal = NULL;
-        _textureMetallic = NULL;
-        _textureRoughness = NULL;
+//        _textureAO = NULL;
+//        _textureAlbedo = NULL;
+//        _textureNormal = NULL;
+//        _textureMetallic = NULL;
+//        _textureRoughness = NULL;
         
         [argumentEncoderEnv setArgumentBuffer:_argumentBufferEnv offset:0];
         
