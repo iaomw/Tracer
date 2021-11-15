@@ -497,7 +497,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                 thread_remai = tr_count % thread_count;
                 
                 auto old_size = (uint)bvh_list.size();
-                bvh_list.resize(old_size + tr_count);
+                bvh_list.reserve(old_size + tr_count);
                 
                 auto thread_slot = std::vector<uint>(thread_count, thread_quota);
                 thread_slot.back() += thread_remai;
@@ -545,8 +545,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                         box.mini = { min_x, min_y, min_z };
                         
                         let triangleIndex = triangleIndexOffset + i/3;
-                        //BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
-                        BVH::buildNode(box, matrix_identity_float4x4, PrimitiveType::Triangle, triangleIndex, bvh_list, old_size + i/3);
+                        BVH::buildNode(box, identity_4x4, PrimitiveType::Triangle, triangleIndex, bvh_list);
                     } // for
                 });
                 

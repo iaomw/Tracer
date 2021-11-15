@@ -227,32 +227,29 @@ struct BVH {
         
         newBVH.left = left + 1;
         newBVH.right = right + 1;
-        
-        dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-        
-        auto parent = (uint32_t)bvh_list.size()+1;
-        
-        bvh_list[left].parent = parent;
-        bvh_list[right].parent = parent;
-        
         newBVH.pType = PrimitiveType::BVH;
         
         auto& leftBOX = bvh_list[left].bBOX;
         auto& rightBOX = bvh_list[right].bBOX;
-        
         newBVH.bBOX = AABB::make(leftBOX, rightBOX);
         
+        mutex.lock(); //dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+        
+        auto parent = (uint32_t)bvh_list.size()+1;
         bvh_list.emplace_back(newBVH);
         
-        dispatch_semaphore_signal(semaphore);
+        mutex.unlock(); //dispatch_semaphore_signal(semaphore);
+        
+        bvh_list[left].parent = parent;
+        bvh_list[right].parent = parent;
         
         return parent - 1;
-        //return (uint32_t)bvh_list.size() - 1;
     }
     
     static void buildTree(std::vector<BVH>& bvh_list)
     {
         std::vector<uint> idx_list;
+        idx_list.reserve(bvh_list.size());
         
         for (uint i=0; i<bvh_list.size(); i++) {
             idx_list.push_back(i);
@@ -274,11 +271,12 @@ struct BVH {
         bvh_list[root.right].parent = 0;
     }
     
+    inline static std::mutex mutex;
+    
     static inline void buildNode(const AABB& box, const float4x4& model_matrix,
                                  PrimitiveType pType, uint pIndex,
                                  std::vector<BVH>& bvh_list)
     {
-        
         packed_float3 ele[] { box.mini, box.maxi };
         
         float3 newMINI = float3(FLT_MAX);
@@ -310,59 +308,12 @@ struct BVH {
         newBVH.pType = pType;
         newBVH.pIndex = pIndex;
         
-        AABB newBOX;
+        newBVH.bBOX.mini = newMINI;
+        newBVH.bBOX.maxi = newMAXI;
         
-        newBOX.mini = newMINI;
-        newBOX.maxi = newMAXI;
-        
-        newBVH.bBOX = newBOX;
-        
+        mutex.lock();
         bvh_list.emplace_back(newBVH);
-    }
-    
-    static inline void buildNode(const AABB& box, const float4x4& model_matrix,
-                                 PrimitiveType pType, uint pIndex,
-                                 std::vector<BVH>& bvh_list, uint idx)
-    {
-        packed_float3 ele[] { box.mini, box.maxi };
-        
-        float3 newMINI = float3(FLT_MAX);
-        float3 newMAXI = float3(-FLT_MAX);
-        
-        for (int i = 0; i < 2; i++) {
-            for (int j = 0; j < 2; j++) {
-                for (int k = 0; k < 2; k++) {
-                    
-                    auto x = ele[i][0];
-                    auto y = ele[j][1];
-                    auto z = ele[k][2];
-                    
-                    auto pick_point = simd_make_float4(x, y, z, 1);
-                    auto tester = simd_mul(model_matrix, pick_point);
-
-                    for (int c = 0; c < 3; c++) {
-                        newMINI[c] = fmin(newMINI[c], tester[c]);
-                        newMAXI[c] = fmax(newMAXI[c], tester[c]);
-                    }
-                } // k
-            } // j
-        } // i
-        
-        BVH& newBVH = bvh_list[idx];
-        newBVH.left = 0;
-        newBVH.right = 0;
-        
-        newBVH.pType = pType;
-        newBVH.pIndex = pIndex;
-        
-        AABB newBOX;
-        
-        newBOX.mini = newMINI;
-        newBOX.maxi = newMAXI;
-        
-        newBVH.bBOX = newBOX;
-        
-        //bvh_list.emplace_back(newBVH);
+        mutex.unlock();
     }
     
 #endif

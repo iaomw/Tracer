@@ -29,6 +29,8 @@
             float2 uv;
         };
 
+        #define identity_4x4 matrix_identity_float4x4
+
         #if defined __cplusplus
 
             struct packed_float3 {
