@@ -9,6 +9,8 @@
 #include "Medium.hh"
 #include "Tracer.hh"
 
+#include "Photon.hh"
+
 typedef struct
 {
     float x, y;
@@ -26,15 +28,6 @@ const VertexWithUV canvas[] =
     {-1,  1, 0, 0},
     { 1,  1, 1, 0}
 };
-
-typedef struct
-{
-    float2 tex_size;
-    float2 view_size;
-    float running_time;
-    uint32_t frame_count;
-    
-} Complex;
 
 // The main class performing the rendering.
 @implementation AAPLRenderer
@@ -77,8 +70,32 @@ typedef struct
     
     float launchTime;
     
-    id<MTLRenderPipelineState> _renderPipelineState;
-    id<MTLComputePipelineState> _computePipelineState;
+    id<MTLComputePipelineState> _pipelineStatePathTracing;
+    id<MTLRenderPipelineState> _pipelineStatePostprocessing;
+    
+        id<MTLBuffer> _cameraRecordBuffer;
+        id<MTLBuffer> _cameraBoundsBuffer;
+        id<MTLBuffer> _aremacBoundsBuffer;
+        
+        id<MTLBuffer> _photonRecordBuffer;
+        id<MTLBuffer> _photonHashedBuffer;
+        id<MTLBuffer> _photonRadiusBuffer;
+        
+        id<MTLTexture>              _texturePhotonMark;
+        id<MTLTexture>              _texturePhotonCount;
+        
+        MTLRenderPassDescriptor*    _renderPhotonCountPassDescriptor;
+        id<MTLRenderPipelineState>  _renderPhotonCountPipelineState;
+        id<MTLRenderPipelineState>  _renderPhotonScatePipelineState;
+        
+        id<MTLComputePipelineState> _pipelineStateCameraRecording;
+        id<MTLComputePipelineState> _pipelineStateCameraReducing;
+    
+        id<MTLComputePipelineState> _pipelineStatePhotonParams;
+        id<MTLComputePipelineState> _pipelineStatePhotonRadius;
+        
+        id<MTLComputePipelineState> _pipelineStatePhotonRecording;
+        id<MTLComputePipelineState> _pipelineStatePhotonHashing;
     
     id<MTLTexture> _textureA;
     id<MTLTexture> _textureB;
@@ -99,10 +116,10 @@ typedef struct
     self = [super init];
     if(self)
     {
-        // Get the display ID of the display in which the view appears
-        //CGDirectDisplayID viewDisplayID = (CGDirectDisplayID) [_view.window.screen.deviceDescription[@"NSScreenNumber"] unsignedIntegerValue];
-        // Get the Metal device that drives the display
-        //id<MTLDevice> preferredDevice = CGDirectDisplayCopyCurrentMetalDevice(viewDisplayID);
+//        Get the display ID of the display in which the view appears
+//          CGDirectDisplayID viewDisplayID = (CGDirectDisplayID) [_view.window.screen.deviceDescription[@"NSScreenNumber"] unsignedIntegerValue];
+//        Get the Metal device that drives the display
+//          id<MTLDevice> preferredDevice = CGDirectDisplayCopyCurrentMetalDevice(viewDisplayID);
         
 //        id <NSObject> deviceObserver  = nil;
 //        NSArray<id<MTLDevice>> *deviceList = nil;
@@ -129,21 +146,21 @@ typedef struct
         NSTimeInterval _time_s, _time_e;
 
         let defaultLibrary = [_device newDefaultLibrary];
-        let kernelFunction = [defaultLibrary newFunctionWithName:@"tracerKernel"];
         
-        _computePipelineState = [_device newComputePipelineStateWithFunction:kernelFunction error:&ERROR];
+        let _kernelPathTracing = [defaultLibrary newFunctionWithName:@"kernelPathTracing"];
+        _pipelineStatePathTracing = [_device newComputePipelineStateWithFunction:_kernelPathTracing error:&ERROR];
         
-        let argumentEncoderPri = [kernelFunction newArgumentEncoderWithBufferIndex:7];
+        let argumentEncoderPri = [_kernelPathTracing newArgumentEncoderWithBufferIndex:7];
         let argumentBufferLengthPri = argumentEncoderPri.encodedLength;
         _argumentBufferPri = [_device newBufferWithLength:argumentBufferLengthPri options:0];
         _argumentBufferPri.label = @"Argument Pri";
         
-        let argumentEncoderEnv = [kernelFunction newArgumentEncoderWithBufferIndex:8];
+        let argumentEncoderEnv = [_kernelPathTracing newArgumentEncoderWithBufferIndex:8];
         let argumentBufferLengthEnv = argumentEncoderEnv.encodedLength;
         _argumentBufferEnv = [_device newBufferWithLength:argumentBufferLengthEnv options:0];
         _argumentBufferEnv.label = @"Argument Env";
         
-        let argumentEncoderPBR = [kernelFunction newArgumentEncoderWithBufferIndex:9];
+        let argumentEncoderPBR = [_kernelPathTracing newArgumentEncoderWithBufferIndex:9];
         let argumentBufferLengthPBR = argumentEncoderPBR.encodedLength * 2;
         _argumentBufferPBR = [_device newBufferWithLength:argumentBufferLengthPBR options:0];
         _argumentBufferPBR.label = @"Argument PBR";
@@ -152,12 +169,12 @@ typedef struct
         let fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
         
         #if TARGET_OS_OSX
-            let CommonStorageMode = MTLResourceStorageModeManaged;
+            let _commonStorageMode = MTLResourceStorageModeManaged;
         #else
-            let CommonStorageMode = MTLResourceStorageModeShared;
+            let _commonStorageMode = MTLResourceStorageModeShared;
         #endif
         
-        _canvas_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: CommonStorageMode];
+        _canvas_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: _commonStorageMode];
         
         uint width = 1920;
         uint height = 1080;
@@ -185,19 +202,19 @@ typedef struct
         prepareCubeList(cube_list, materials);
         _cube_list_buffer = [_device newBufferWithBytes: cube_list.data()
                                                  length: sizeof(Cube)*cube_list.size()
-                                                options: CommonStorageMode];
+                                                options: _commonStorageMode];
         
         std::vector<Square> cornell_box;
         prepareCornellBox(cornell_box, materials);
         _square_list_buffer = [_device newBufferWithBytes: cornell_box.data()
                                                    length: sizeof(Square)*cornell_box.size()
-                                                  options: CommonStorageMode];
+                                                  options: _commonStorageMode];
         
         std::vector<Sphere> sphere_list;
         prepareSphereList(sphere_list, materials);
         _sphere_list_buffer = [_device newBufferWithBytes: sphere_list.data()
                                                    length: sizeof(Sphere)*sphere_list.size()
-                                                  options: CommonStorageMode];
+                                                  options: _commonStorageMode];
         
         Material testMaterial;
         testMaterial.type = MaterialType::Glass;
@@ -210,19 +227,19 @@ typedef struct
         
         _material_buffer = [_device newBufferWithBytes: materials.data()
                                                 length: sizeof(Material)*materials.size()
-                                               options: CommonStorageMode];
+                                               options: _commonStorageMode];
         
         // Create a reusable pipeline state object.
-        let pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
+        auto drawablePipelineDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
         
-        pipelineStateDescriptor.label = @"Canvas Pipeline";
-        pipelineStateDescriptor.sampleCount = _view.sampleCount;
+        drawablePipelineDescriptor.label = @"Canvas Pipeline";
+        drawablePipelineDescriptor.sampleCount = _view.sampleCount;
         
-        pipelineStateDescriptor.vertexFunction = vertexFunction;
-        pipelineStateDescriptor.fragmentFunction = fragmentFunction;
-        pipelineStateDescriptor.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA16Float;
+        drawablePipelineDescriptor.vertexFunction = vertexFunction;
+        drawablePipelineDescriptor.fragmentFunction = fragmentFunction;
+        drawablePipelineDescriptor.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA16Float;
         
-        _renderPipelineState = [_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor error:&ERROR];
+        _pipelineStatePostprocessing = [_device newRenderPipelineStateWithDescriptor:drawablePipelineDescriptor error:&ERROR];
         
         uint widthLevels = ceil(log2(width)), heightLevels = ceil(log2(height));
         uint mipCount = (heightLevels > widthLevels) ? heightLevels : widthLevels;
@@ -285,9 +302,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                                                 options: MTLResourceStorageModeShared];
         free(pixel_seed);
         
-        // Create a command buffer for GPU work.
         let commandBuffer = [_commandQueue commandBuffer];
-        // Encode a blit pass to copy data from the source buffer to the private texture.
         let blitCommandEncoder = [commandBuffer blitCommandEncoder];
         
         [blitCommandEncoder copyFromBuffer: _sourceBuffer
@@ -415,7 +430,7 @@ NSLog(@"Done  %fs", _time_e - _time_s);
 //            BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, PrimitiveType::Sphere, i, bvh_list);
 //        }
 
-            for (int i=0; i<cube_list.size(); i++) {
+            for (int i=0; i<cube_list.size()-1; i++) {
                 auto& cube = cube_list[i];
                 BVH::buildNode(cube.box, cube.model_matrix, PrimitiveType::Cube, i, bvh_list);
             }
@@ -479,7 +494,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
             let maxAxis = meshBox.maximumExtent();
             let maxDime = meshBox.diagonal()[maxAxis];
             
-            auto meshScale = 400.0 / maxDime;
+            auto meshScale = 300.0 / maxDime;
             auto meshOffset = float3(278)-centroid;
             meshOffset.y = 20 - minB.y * meshScale;
         
@@ -524,7 +539,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                             
                             ele->nz *= -1;
                             
-                            ele->vx += 400;
+                            ele->vx += 350;
                             
                             ele->vx += meshOffset.x;
                             ele->vy += meshOffset.y;
@@ -572,15 +587,15 @@ NSLog(@"Done  %fs", _time_e - _time_s);
                 
                 _idx_buffer = [_device newBufferWithBytes: totalIndexData //[testMesh.submeshes.firstObject indexBuffer].map.bytes
                                                    length: totalIndexOffset //[testMesh.submeshes.firstObject indexBuffer].length
-                                                  options: CommonStorageMode]; free(totalIndexData);
+                                                  options: _commonStorageMode]; free(totalIndexData);
                 
                 _tri_buffer = [_device newBufferWithBytes: testMesh.vertexBuffers.firstObject.map.bytes
                                                    length: testMesh.vertexBuffers.firstObject.length
-                                                  options: CommonStorageMode];
+                                                  options: _commonStorageMode];
                 
                 _bvh_buffer = [_device newBufferWithBytes: bvh_list.data()
                                                    length: sizeof(BVH)*bvh_list.size()
-                                                  options: CommonStorageMode];
+                                                  options: _commonStorageMode];
         
 NSLog(@"Loading volume");
 _time_s = [[NSDate date] timeIntervalSince1970];
@@ -595,8 +610,8 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                     auto size_grid = sizeof(float) * medium->nx * medium->ny * medium->nz;
                     auto info_grid = GridDensityInfo(10, 90, 0.5, medium->nx, medium->ny, medium->nz, medium->density);
                     
-                    _densityInfoBuffer = [_device newBufferWithBytes: &info_grid length: sizeof(info_grid) options: CommonStorageMode];
-                    _densityDataBuffer = [_device newBufferWithBytes: medium->density length: size_grid options: CommonStorageMode];
+                    _densityInfoBuffer = [_device newBufferWithBytes: &info_grid length: sizeof(info_grid) options: _commonStorageMode];
+                    _densityDataBuffer = [_device newBufferWithBytes: medium->density length: size_grid options: _commonStorageMode];
                     
                     delete scene;
                 }
@@ -677,18 +692,96 @@ NSLog(@"Done  %fs", _time_e - _time_s);
         [argumentEncoderPri setBuffer:_tri_buffer offset:0 atIndex:3];
         [argumentEncoderPri setBuffer:_idx_buffer offset:0 atIndex:4];
         [argumentEncoderPri setBuffer:_bvh_buffer offset:0 atIndex:5];
-                
-        launchTime = [[NSDate date] timeIntervalSince1970];
         
+        launchTime = [[NSDate date] timeIntervalSince1970];
         // Add a completion handler and commit the command buffer.
         [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> cb) {
-            
             self->_view.paused = YES;
             self->_view.delegate = self;
             self->_view.enableSetNeedsDisplay = YES;
         }];
-        
         [commandBuffer commit];
+        
+            let _kernelCameraRecording = [defaultLibrary newFunctionWithName:@"kernelCameraRecording"];
+            _pipelineStateCameraRecording = [_device newComputePipelineStateWithFunction:_kernelCameraRecording error:&ERROR];
+            let _kernalCameraReducing = [defaultLibrary newFunctionWithName:@"kernelCameraReducing"];
+            _pipelineStateCameraReducing = [_device newComputePipelineStateWithFunction:_kernalCameraReducing error:&ERROR];
+        
+            let _kernalPhotonParams = [defaultLibrary newFunctionWithName:@"kernelPhotonParams"];
+            _pipelineStatePhotonParams = [_device newComputePipelineStateWithFunction:_kernalPhotonParams error:&ERROR];
+            let _kernelPhotonRadius = [defaultLibrary newFunctionWithName:@"kernelPhotonRadius"];
+            _pipelineStatePhotonRadius = [_device newComputePipelineStateWithFunction:_kernelPhotonRadius error:&ERROR];
+            
+            let _kernalPhotonRecording = [defaultLibrary newFunctionWithName:@"kernelPhotonRecording"];
+            _pipelineStatePhotonRecording = [_device newComputePipelineStateWithFunction:_kernalPhotonRecording error:&ERROR];
+            
+            let _kernalPhotonHashing = [defaultLibrary newFunctionWithName:@"kernelPhotonHashing"];
+            _pipelineStatePhotonHashing = [_device newComputePipelineStateWithFunction:_kernalPhotonHashing error:&ERROR];
+        
+            _cameraRecordBuffer = [_device newBufferWithLength:sizeof(CameraRecord) * 1920 * 1080
+                                                       options:_commonStorageMode];
+            _cameraBoundsBuffer = [_device newBufferWithLength:sizeof(AABB) * 1920 * 1080
+                                                       options:_commonStorageMode];
+            _aremacBoundsBuffer = [_device newBufferWithLength:sizeof(AABB) * 4096
+                                                       options:_commonStorageMode];
+        
+            _photonRecordBuffer = [_device newBufferWithLength:sizeof(PhotonRecord) * 512 * 512
+                                                       options:_commonStorageMode];
+            [_photonRecordBuffer setLabel:@"_photonRecordBuffer"];
+        
+            _photonHashedBuffer = [_device newBufferWithLength:sizeof(float4) * 512 * 512
+                                                       options:_commonStorageMode];
+            [_photonHashedBuffer setLabel:@"_photonHashedBuffer"];
+        
+            _photonRadiusBuffer = [_device newBufferWithLength:sizeof(float) * 512 * 512
+                                                       options:_commonStorageMode];
+            [_photonRadiusBuffer setLabel:@"_photonRadiusBuffer"];
+            
+            // Set up a texture for rendering to and sampling from
+            auto photonMarkDescription = [[MTLTextureDescriptor alloc] init];
+            photonMarkDescription.textureType = MTLTextureType2D;
+            photonMarkDescription.width = 512;
+            photonMarkDescription.height = 512;
+            photonMarkDescription.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+            
+            photonMarkDescription.pixelFormat = MTLPixelFormatRGBA32Float;
+            _texturePhotonMark = [_device newTextureWithDescriptor:photonMarkDescription];
+        
+            photonMarkDescription.pixelFormat = MTLPixelFormatR16Float;
+            _texturePhotonCount = [_device newTextureWithDescriptor:photonMarkDescription];
+        
+            _renderPhotonCountPassDescriptor = [[MTLRenderPassDescriptor alloc] init];
+            _renderPhotonCountPassDescriptor.colorAttachments[0].texture = _texturePhotonMark;
+            _renderPhotonCountPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
+            _renderPhotonCountPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+            _renderPhotonCountPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+            _renderPhotonCountPassDescriptor.colorAttachments[1].texture = _texturePhotonCount;
+            _renderPhotonCountPassDescriptor.colorAttachments[1].loadAction = MTLLoadActionClear;
+            _renderPhotonCountPassDescriptor.colorAttachments[1].clearColor = MTLClearColorMake(0, 0, 0, 0);
+            _renderPhotonCountPassDescriptor.colorAttachments[1].storeAction = MTLStoreActionStore;
+
+            auto photonMarkPipelineDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
+            
+            // Set up pipeline for rendering to the offscreen texture. Reuse the
+            // descriptor and change properties that differ.
+            photonMarkPipelineDescriptor.label = @"Photon Count Pipeline";
+            photonMarkPipelineDescriptor.sampleCount = 1;
+            photonMarkPipelineDescriptor.vertexFunction = [defaultLibrary newFunctionWithName:@"simpleVertexShader"];
+            photonMarkPipelineDescriptor.fragmentFunction = [defaultLibrary newFunctionWithName:@"simpleFragmentShader"];
+            photonMarkPipelineDescriptor.colorAttachments[0].pixelFormat = _texturePhotonMark.pixelFormat;
+            photonMarkPipelineDescriptor.colorAttachments[1].pixelFormat = _texturePhotonCount.pixelFormat;
+            
+            photonMarkPipelineDescriptor.colorAttachments[0].blendingEnabled = false;
+            
+            photonMarkPipelineDescriptor.colorAttachments[1].blendingEnabled = true;
+            photonMarkPipelineDescriptor.colorAttachments[1].rgbBlendOperation = MTLBlendOperationAdd;
+            photonMarkPipelineDescriptor.colorAttachments[1].alphaBlendOperation = MTLBlendOperationAdd;
+            photonMarkPipelineDescriptor.colorAttachments[1].sourceRGBBlendFactor = MTLBlendFactorOne;
+            photonMarkPipelineDescriptor.colorAttachments[1].sourceAlphaBlendFactor = MTLBlendFactorOne;
+            photonMarkPipelineDescriptor.colorAttachments[1].destinationRGBBlendFactor = MTLBlendFactorOne;
+            photonMarkPipelineDescriptor.colorAttachments[1].destinationAlphaBlendFactor = MTLBlendFactorOne;
+        
+            _renderPhotonCountPipelineState = [_device newRenderPipelineStateWithDescriptor:photonMarkPipelineDescriptor error:&ERROR];
     }
     
     return self;
@@ -703,7 +796,238 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     _complex.view_size = simd_make_float2(size.width, size.height);
 }
 
--(void)render:(MTKView *)view
+- (void)photonPrepare:(MTKView *)view
+{
+    auto commandBuffer = [_commandQueue commandBuffer];
+    
+    auto computeEncoder = [commandBuffer computeCommandEncoder];
+    [computeEncoder setComputePipelineState:_pipelineStateCameraRecording];
+ 
+    let tex_index = predefined_index[_complex.frame_count % 2];
+    
+    [computeEncoder setTexture:_textureA atIndex: tex_index[0]];
+    [computeEncoder setTexture:_textureB atIndex: tex_index[1]];
+    
+    [computeEncoder setTexture:_textureARNG atIndex: tex_index[2]];
+    [computeEncoder setTexture:_textureBRNG atIndex: tex_index[3]];
+    
+    memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
+    
+    if (self->_complex.frame_count > 3 || self->_complex.frame_count < 1) {
+        memcpy(_complex_buffer.contents, &_complex, sizeof(Complex));
+    }
+    
+    [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:0];
+    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:2];
+    [computeEncoder setBuffer:_cameraBoundsBuffer offset:0 atIndex:3];
+    
+    [computeEncoder useHeap:_heap];
+    [computeEncoder setBuffer:_argumentBufferPri offset:0 atIndex:7];
+    [computeEncoder setBuffer:_argumentBufferEnv offset:0 atIndex:8];
+    [computeEncoder setBuffer:_argumentBufferPBR offset:0 atIndex:9];
+    
+    let _threadGroupSize = MTLSizeMake(8, 8, 1);
+    let _threadGridSize = MTLSize {_textureA.width, _textureA.height, 1};
+    
+    [computeEncoder dispatchThreads:_threadGridSize threadsPerThreadgroup:_threadGroupSize];
+    
+    [computeEncoder setComputePipelineState:_pipelineStateCameraReducing];
+    [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:0];
+    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
+    
+    uint data_bound = uint(_textureA.width * _textureA.height);
+    [computeEncoder setBytes:&data_bound length:sizeof(uint) atIndex:2];
+    
+    [computeEncoder setBuffer:_cameraBoundsBuffer offset:0 atIndex:3];
+    [computeEncoder setBuffer:_aremacBoundsBuffer offset:0 atIndex:4];
+    
+    auto thread_count = (uint)1 << (uint)floor(log2(data_bound));
+    
+    auto _input = _cameraBoundsBuffer;
+    auto _output = _aremacBoundsBuffer;
+    
+    uint threadgroup_size = 256; uint step = (uint)floor(log2(threadgroup_size));
+    
+    do {
+        [computeEncoder dispatchThreads:{ thread_count, 1, 1 }
+                  threadsPerThreadgroup:{ threadgroup_size, 1, 1 }];
+
+        if (thread_count <= threadgroup_size) { break; }
+
+        data_bound = thread_count >> step; thread_count = data_bound >> 1;
+        [computeEncoder setBytes:&data_bound length:sizeof(uint) atIndex:2];
+
+        std::swap(_input, _output);
+
+        [computeEncoder setBuffer:_input offset:0 atIndex:3];
+        [computeEncoder setBuffer:_output offset:0 atIndex:4];
+
+    } while (thread_count > 0);
+    
+    [computeEncoder setComputePipelineState:_pipelineStatePhotonRecording];
+    [computeEncoder setTexture:_textureARNG atIndex: tex_index[2]];
+    [computeEncoder setTexture:_textureBRNG atIndex: tex_index[3]];
+    
+    [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:0];
+    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
+    
+    [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
+    
+    [computeEncoder useHeap:_heap];
+    [computeEncoder setBuffer:_argumentBufferPri offset:0 atIndex:7];
+    [computeEncoder setBuffer:_argumentBufferEnv offset:0 atIndex:8];
+    [computeEncoder setBuffer:_argumentBufferPBR offset:0 atIndex:9];
+    
+    [computeEncoder dispatchThreads:{512, 512, 1} threadsPerThreadgroup:_threadGroupSize];
+    
+    [computeEncoder setComputePipelineState:_pipelineStatePhotonParams];
+    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:0];
+    [computeEncoder setBuffer:_output         offset:0 atIndex:1];
+    [computeEncoder dispatchThreads:{1, 1, 1} threadsPerThreadgroup:{1, 1, 1}];
+    
+    [computeEncoder setComputePipelineState:_pipelineStatePhotonRadius];
+    [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:0];
+    [computeEncoder setBuffer:_photonRadiusBuffer offset:0 atIndex:1];
+    [computeEncoder dispatchThreads:{512, 512, 1} threadsPerThreadgroup:_threadGroupSize];
+    
+    [computeEncoder endEncoding];
+    [commandBuffer commit];
+}
+
+- (void)photonWork:(MTKView *)view
+{
+    auto commandBuffer = [_commandQueue commandBuffer];
+    auto computeEncoder = [commandBuffer computeCommandEncoder];
+    //commandBuffer.label = @"name";
+    
+    [computeEncoder setComputePipelineState:_pipelineStatePhotonHashing];
+    
+    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
+    [computeEncoder setBuffer:_photonHashedBuffer offset:0 atIndex:3];
+    [computeEncoder setBuffer:_photonRadiusBuffer offset:0 atIndex:4];
+    
+    [computeEncoder dispatchThreads:{512, 512, 1} threadsPerThreadgroup:{8, 8, 1}];
+    [computeEncoder endEncoding];
+    
+    //[commandBuffer commit];
+    //[commandBuffer waitUntilCompleted];
+    //commandBuffer = [_commandQueue commandBuffer];
+    
+    auto _photonCountRenderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:_renderPhotonCountPassDescriptor];
+    _photonCountRenderEncoder.label = @"Offscreen Render Pass";
+    [_photonCountRenderEncoder setRenderPipelineState:_renderPhotonCountPipelineState];
+    [_photonCountRenderEncoder setVertexBuffer:_photonHashedBuffer offset:0 atIndex:0];
+    
+    [_photonCountRenderEncoder drawPrimitives:MTLPrimitiveTypePoint
+                                  vertexStart:0 vertexCount:512*512];
+    [_photonCountRenderEncoder endEncoding];
+    
+    //commandBuffer = [_commandQueue commandBuffer];
+    
+    {
+        let blit = [commandBuffer blitCommandEncoder];
+        if (_complex.frame_count % 2) {
+            [blit generateMipmapsForTexture:self->_textureA];
+        } else {
+            [blit generateMipmapsForTexture:self->_textureB];
+        }
+        [blit endEncoding];
+    }
+    
+    [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
+        // not on main thread
+        if (self->_dragging) {
+            self->_complex.frame_count = 0;
+        } else {
+            let fcount = self->_complex.frame_count;
+            self->_complex.frame_count = fcount + 1;
+        }
+        //[self drag:simd_make_float2(1, 0) state:NO];
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+            #if TARGET_OS_OSX
+                self->_view.needsDisplay = YES;
+            #else
+                [self->_view setNeedsDisplay];
+            #endif
+        }];
+    }];
+    
+    let tex_index = predefined_index[_complex.frame_count % 2];
+    
+    let renderPassDescriptor = _view.currentRenderPassDescriptor;
+    let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
+    
+    let viewsize = _complex.view_size;
+    
+    MTLViewport viewport {0, 0, viewsize.x, viewsize.y, 0, 1.0};
+    
+    [renderEncoder setViewport:viewport];
+    [renderEncoder setRenderPipelineState:_pipelineStatePostprocessing];
+    
+    [renderEncoder setVertexBuffer:_canvas_buffer offset:0 atIndex:0];
+    
+    [renderEncoder setFragmentBuffer:_complex_buffer offset:0 atIndex:0];
+    [renderEncoder setFragmentTexture:_textureB atIndex: tex_index[0]];
+    [renderEncoder setFragmentTexture:_textureA atIndex: tex_index[1]];
+    
+    [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
+    [renderEncoder endEncoding];
+    
+    let drawable = _view.currentDrawable;
+    [commandBuffer presentDrawable:drawable];
+    [commandBuffer commit];
+}
+
+- (void)photon:(MTKView *)view
+{
+    let time = [[NSDate date] timeIntervalSince1970];
+    _complex.running_time = time - launchTime;
+    
+    [self photonPrepare:view];
+    [self photonWork:view];
+    
+//    // test kernel result between CPU and GPU
+//    id <MTLBlitCommandEncoder> blitCommandEncoder = [commandBuffer blitCommandEncoder];
+//    [blitCommandEncoder synchronizeResource:_cameraBoundsBuffer];
+//    [blitCommandEncoder endEncoding];
+    
+//    {
+//        let w = _computePipelineState.threadExecutionWidth
+//        let h = _computePipelineState.maxTotalThreadsPerThreadgroup / w
+//        let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
+//
+//        let threadgroupsPerGrid = MTLSize(width: (_textureA.width + w - 1) / w,
+//                                          height: (_textureA.height + h - 1) / h, depth: 1)
+//
+//        computeEncoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+//    }
+}
+
+- (void)drawInMTKView:(nonnull MTKView *)view
+{
+    @autoreleasepool {
+        //[self render:view];
+        [self photon:view];
+    }
+}
+
+- (void)drag:(float2)delta state:(BOOL)ended;
+{
+    _dragging = !ended;
+    
+    let ratio = delta / _complex.view_size;
+    
+    _camera_rotation += ratio;
+    
+    self->_complex.frame_count = 0;
+    self->_complex.running_time = 0;
+    
+    prepareCamera(&_camera, _complex.tex_size, _camera_rotation);
+}
+
+- (void)render:(MTKView *)view
 {
     let commandBuffer = [_commandQueue commandBuffer];
     let time = [[NSDate date] timeIntervalSince1970];
@@ -737,7 +1061,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     }];
     
     let computeEncoder = [commandBuffer computeCommandEncoder];
-    [computeEncoder setComputePipelineState:_computePipelineState];
+    [computeEncoder setComputePipelineState:_pipelineStatePathTracing];
  
     let tex_index = predefined_index[_complex.frame_count % 2];
     
@@ -786,7 +1110,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     MTLViewport viewport {0, 0, viewsize.x, viewsize.y, 0, 1.0};
     
     [renderEncoder setViewport:viewport];
-    [renderEncoder setRenderPipelineState:_renderPipelineState];
+    [renderEncoder setRenderPipelineState:_pipelineStatePostprocessing];
     
     [renderEncoder setVertexBuffer:_canvas_buffer offset:0 atIndex:0];
     
@@ -800,27 +1124,6 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     let drawable = _view.currentDrawable;
     [commandBuffer presentDrawable:drawable];
     [commandBuffer commit];
-}
-
-- (void)drawInMTKView:(nonnull MTKView *)view
-{
-    @autoreleasepool {
-        [self render:view];
-    }
-}
-
-- (void)drag:(float2)delta state:(BOOL)ended;
-{
-    _dragging = !ended;
-    
-    let ratio = delta / _complex.view_size;
-    
-    _camera_rotation += ratio;
-    
-    self->_complex.frame_count = 0;
-    self->_complex.running_time = 0;
-    
-    prepareCamera(&_camera, _complex.tex_size, _camera_rotation);
 }
 
 - (void) createHeap

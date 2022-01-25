@@ -49,15 +49,10 @@ struct Square {
         
         auto w = normalize(pos - lsr.p);
         
-        if ( dot(w, lsr.n) < 0 ) {
-            lsr.n[axis_k] = -1;
-            //lsr.p[axis_k] -= SquarePadding;
-            lsr.p = offset_ray(lsr.p, lsr.n);
-        } else {
-            lsr.n[axis_k] = +1;
-            //lsr.p[axis_k] += SquarePadding;
-            lsr.p = offset_ray(lsr.p, lsr.n);
-        }
+        float v = 1.0;
+        //v = copysign(v, dot(w, lsr.n));
+        lsr.n[axis_k] = copysign(v, dot(w, lsr.n));
+        lsr.p = offset_ray(lsr.p, lsr.n);
         
         lsr.areaPDF = aeraPDF();
         lsr.material = material;

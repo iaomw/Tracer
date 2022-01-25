@@ -24,11 +24,13 @@ public:
     enum MaterialType type;
     enum MediumType medium;
     
+    bool specular = false;
+    
     float eta;
     
 //    float specularProb;
 //    float specularRoughness;
-//    float3  specularColor;1
+//    float3  specularColor;
 //    
 //    float refractionProb;
 //    float refractionRoughness;

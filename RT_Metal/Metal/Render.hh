@@ -17,6 +17,8 @@
 #include "Light.hh"
 #include "Spectrum.hh"
 
+#include "Photon.hh"
+
 #include "Medium.hh"
 #include "Material.hh"
 
@@ -37,6 +39,64 @@ struct PackagePBR {
     texture2d<float>  texMetallic [[id(3)]];
     texture2d<float> texRoughness [[id(4)]];
 };
+
+inline float2 SampleSphericalMap(float3 v)
+{
+    float2 uv = float2(atan2(v.z, v.x), asin(v.y));
+    float2 invAtan = float2(0.1591, 0.3183);
+    uv *= invAtan; uv += 0.5;
+    return uv;
+}
+
+inline float3 LessThan(float3 f, float value)
+{
+    return float3(
+        (f.x < value) ? 1.0f : 0.0f,
+        (f.y < value) ? 1.0f : 0.0f,
+        (f.z < value) ? 1.0f : 0.0f);
+}
+ 
+inline float3 LinearToSRGB(float3 rgb)
+{
+    rgb = clamp(rgb, 0.0f, 1.0f);
+    return mix(
+        pow(rgb, float3(1.0f / 2.4f)) * 1.055f - 0.055f,
+        rgb * 12.92f,
+        LessThan(rgb, 0.0031308f)
+    );
+}
+ 
+inline float3 SRGBToLinear(float3 rgb)
+{
+    rgb = clamp(rgb, 0.0f, 1.0f);
+    return mix(
+        pow(((rgb + 0.055f) / 1.055f), float3(2.4f)),
+        rgb / 12.92f,
+        LessThan(rgb, 0.04045f)
+    );
+}
+
+inline float3 ACESTone(float3 color, float adapted_lum)
+{
+    const float A = 2.51f;
+    const float B = 0.03f;
+    const float C = 2.43f;
+    const float D = 0.59f;
+    const float E = 0.14f;
+
+    color *= adapted_lum;
+    return (color * (A * color + B)) / (color * (C * color + D) + E);
+}
+
+inline float3 CETone(float3 color, float adapted_lum)
+{
+    return 1 - exp(-adapted_lum * color);
+}
+
+inline float CETone(float color, float adapted_lum)
+{
+    return 1 - exp(-adapted_lum * color);
+}
 
 struct Primitive {
     constant Sphere*   sphereList [[id(0)]];
@@ -92,18 +152,17 @@ struct Scene {
                     
                     selected_index = (t_left < t_right)? left_index : right_index;
                     
-                    if (nullptr != edge) {
-                        
-                        if (t_left < t_right) {
-                            auto done = primitives.bvhList[left_index].bBOX.hit_edge(ray, range_t, t_left, stack_level);
-                            if (done) {*edge = true; return false;}
-                            
-                        } else {
-                            auto done = primitives.bvhList[right_index].bBOX.hit_edge(ray, range_t, t_right, stack_level);
-                            if (done) { *edge = true; return false;}
-                        }
-                    }
-                    
+//                    if (nullptr != edge) {
+//
+//                        if (t_left < t_right) {
+//                            auto done = primitives.bvhList[left_index].bBOX.hit_edge(ray, range_t, t_left, stack_level);
+//                            if (done) {*edge = true; return false;}
+//
+//                        } else {
+//                            auto done = primitives.bvhList[right_index].bBOX.hit_edge(ray, range_t, t_right, stack_level);
+//                            if (done) { *edge = true; return false;}
+//                        }
+//                    }
                 } // came from parent
                 
                 else { // came from child

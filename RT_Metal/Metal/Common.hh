@@ -51,7 +51,6 @@
                 }
             };
         #endif // __cplusplus
-
     #endif // __METAL_VERSION__
 
 #endif /* Common_h */

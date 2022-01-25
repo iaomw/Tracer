@@ -5,13 +5,15 @@
 #include "HitRecord.hh"
 
 struct AABB {
-    float3 mini;
-    float3 maxi;
+    float3 mini = FLT_MAX;
+    float3 maxi = -FLT_MAX; 
     
-    AABB() {
-        mini = { FLT_MAX, FLT_MAX, FLT_MAX };
-        maxi = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
-    }
+#ifndef __METAL_VERSION__
+//    AABB() {
+//        mini = FLT_MAX; //{ FLT_MAX, FLT_MAX, FLT_MAX };
+//        maxi = -FLT_MAX; //{ -FLT_MAX, -FLT_MAX, -FLT_MAX };
+//    }
+#endif
     
     inline float3 diagonal() const {
         return maxi - mini;
@@ -218,38 +220,35 @@ struct AABB {
                             fmaxf(a.y, b.y),
                             fmaxf(a.z, b.z) };
         
-        AABB r; r.mini = mini; r.maxi = maxi;
-        
+        AABB r { mini, maxi };
         return r;
     }
 
     static AABB make(AABB& box_s, AABB& box_e) {
         
-        auto small = simd_make_float3(fminf(box_s.mini.x, box_e.mini.x),
-                                      fminf(box_s.mini.y, box_e.mini.y),
-                                      fminf(box_s.mini.z, box_e.mini.z));
+        auto mini = float3 { fminf(box_s.mini.x, box_e.mini.x),
+                             fminf(box_s.mini.y, box_e.mini.y),
+                             fminf(box_s.mini.z, box_e.mini.z) };
         
-        auto big = simd_make_float3(fmaxf(box_s.maxi.x, box_e.maxi.x),
-                                    fmaxf(box_s.maxi.y, box_e.maxi.y),
-                                    fmaxf(box_s.maxi.z, box_e.maxi.z));
+        auto maxi = float3{ fmaxf(box_s.maxi.x, box_e.maxi.x),
+                            fmaxf(box_s.maxi.y, box_e.maxi.y),
+                            fmaxf(box_s.maxi.z, box_e.maxi.z) };
         
-        AABB r; r.mini = small; r.maxi = big;
-
-        return r; // AABB::make(small, big);
+        AABB r { mini, maxi };
+        return r;
     }
     
     static AABB make(AABB& box_s, float3 fff) {
         
-        auto small = simd_make_float3(fminf(box_s.mini.x, fff.x),
+        auto mini = simd_make_float3(fminf(box_s.mini.x, fff.x),
                                       fminf(box_s.mini.y, fff.y),
                                       fminf(box_s.mini.z, fff.z));
         
-        auto big = simd_make_float3(fmaxf(box_s.maxi.x, fff.x),
+        auto maxi = simd_make_float3(fmaxf(box_s.maxi.x, fff.x),
                                     fmaxf(box_s.maxi.y, fff.y),
                                     fmaxf(box_s.maxi.z, fff.z));
         
-        AABB r; r.mini = small; r.maxi = big;
-
+        AABB r { mini, maxi };
         return r; //AABB::make(small, big);
     }
     

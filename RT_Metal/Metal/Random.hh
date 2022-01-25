@@ -11,10 +11,6 @@ struct pcg_state_setseq_64 {    // Internals are *Private*.
 
 typedef struct pcg_state_setseq_64 pcg32_t;
 
-// If you *must* statically initialize it, here's one.
-
-#define PCG32_INITIALIZER   { 0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL }
-
 // pcg32_srandom(initstate, initseq)
 // pcg32_srandom_r(rng, initstate, initseq):
 //     Seed the rng.  Specified in two parts, state initializer and a
