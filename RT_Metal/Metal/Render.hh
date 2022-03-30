@@ -3,8 +3,9 @@
 
 #include "Common.hh"
 #include "Random.hh"
+#include "Camera.hh"
 
-#include "SobolSampler.hh"
+//#include "SobolSampler.hh"
 #include "RandomSampler.hh"
 
 #include "BVH.hh"
@@ -16,8 +17,6 @@
 
 #include "Light.hh"
 #include "Spectrum.hh"
-
-#include "Photon.hh"
 
 #include "Medium.hh"
 #include "Material.hh"
@@ -96,6 +95,32 @@ inline float3 CETone(float3 color, float adapted_lum)
 inline float CETone(float color, float adapted_lum)
 {
     return 1 - exp(-adapted_lum * color);
+}
+
+inline pcg32_t toRNG(thread vec<uint32_t, 4> &rng_cache) {
+    //return as_type<pcg32_t>(rng_cache);
+    
+    uint32_t rr = rng_cache.r;
+    uint32_t gg = rng_cache.g;
+    uint32_t bb = rng_cache.b;
+    uint32_t aa = rng_cache.a;
+    
+    uint64_t rng_state = (uint64_t(rr) << 32) | gg;
+    uint64_t rng_inc = (uint64_t(bb) << 32) | aa;
+    return pcg32_t { rng_inc, rng_state };
+}
+
+inline vec<uint32_t, 4> exRNG(thread pcg32_t &rng) {
+    //return as_type<vec<uint32_t, 4>>(rng);
+    
+    vec<uint32_t, 4> rng_cache;
+    
+    rng_cache.r = rng.state >> 32;
+    rng_cache.g = rng.state;
+    rng_cache.b = rng.inc >> 32;
+    rng_cache.a = rng.inc;
+    
+    return rng_cache;
 }
 
 struct Primitive {

@@ -79,7 +79,7 @@ const VertexWithUV canvas[] =
         
         id<MTLBuffer> _photonRecordBuffer;
         id<MTLBuffer> _photonHashedBuffer;
-        id<MTLBuffer> _photonRadiusBuffer;
+        //id<MTLBuffer> _photonRadiusBuffer;
         
         id<MTLTexture>              _texturePhotonMark;
         id<MTLTexture>              _texturePhotonCount;
@@ -97,6 +97,8 @@ const VertexWithUV canvas[] =
         id<MTLComputePipelineState> _pipelineStatePhotonRecording;
         id<MTLComputePipelineState> _pipelineStatePhotonHashing;
     
+        id<MTLComputePipelineState> _pipelineStatePhotonRefine;
+    
     id<MTLTexture> _textureA;
     id<MTLTexture> _textureB;
     id<MTLTexture> _textureARNG;
@@ -105,7 +107,7 @@ const VertexWithUV canvas[] =
     id<MTLTexture> _textureUVT;
     id<MTLTexture> _textureHDR;
     
-    std::vector<id<MTLTexture>> vectorTexPBR;
+    std::vector<id<MTLTexture>> _vectorTexPBR;
     std::vector<id<MTLTexture>> _vectorTexAll;
     
     std::vector<id<MTLBuffer>> _vectorBufferAll;
@@ -381,7 +383,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
             auto tmp = std::vector<id<MTLTexture>>{ _textureAO, _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
             
             dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-                self->vectorTexPBR.insert(self->vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
+                self->_vectorTexPBR.insert(self->_vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
             dispatch_semaphore_signal(semaphore);
                     
             dispatch_group_leave(wait_group);
@@ -403,7 +405,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
             auto tmp = std::vector<id<MTLTexture>>{ _textureAO, _textureAlbedo, _textureNormal, _textureMetallic, _textureRoughness};
             
             dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-                self->vectorTexPBR.insert(self->vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
+                self->_vectorTexPBR.insert(self->_vectorTexPBR.end(), std::begin(tmp), std::end(tmp));
             dispatch_semaphore_signal(semaphore);
                     
             dispatch_group_leave(wait_group);
@@ -418,7 +420,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
             }
         
         _vectorTexAll = {_textureHDR, _textureUVT};
-        _vectorTexAll.insert(_vectorTexAll.end(), std::begin(vectorTexPBR), std::end(vectorTexPBR));
+        _vectorTexAll.insert(_vectorTexAll.end(), std::begin(_vectorTexPBR), std::end(_vectorTexPBR));
         
 _time_e = [[NSDate date] timeIntervalSince1970];
 NSLog(@"Done  %fs", _time_e - _time_s);
@@ -498,7 +500,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
             auto meshOffset = float3(278)-centroid;
             meshOffset.y = 20 - minB.y * meshScale;
         
-            auto vertex_ptr = (MeshStrut*) testMesh.vertexBuffers.firstObject.map.bytes;
+            auto vertex_ptr = (MeshElement*) testMesh.vertexBuffers.firstObject.map.bytes;
             int totalIndexBufferLength = 0, triangleIndexOffset = 0;
         
             for(MDLSubmesh* submesh in testMesh.submeshes) {
@@ -539,11 +541,11 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                             
                             ele->nz *= -1;
                             
-                            ele->vx += 350;
-                            
                             ele->vx += meshOffset.x;
                             ele->vy += meshOffset.y;
                             ele->vz += meshOffset.z;
+                            
+                            ele->vx += 350;
                         }
                         
                         auto max_x = std::max( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
@@ -649,17 +651,17 @@ NSLog(@"Done  %fs", _time_e - _time_s);
         
         _vectorBufferAll.clear();
         
-        std::copy(vectorTexPBR.begin(), vectorTexPBR.end(), _vectorTexAll.begin()+2);
+        std::copy(_vectorTexPBR.begin(), _vectorTexPBR.end(), _vectorTexAll.begin()+2);
         
-        for (int i=0; i<vectorTexPBR.size(); i+=5) {
+        for (int i=0; i<_vectorTexPBR.size(); i+=5) {
             
             [argumentEncoderPBR setArgumentBuffer:_argumentBufferPBR startOffset:0 arrayElement:i/5];
 
-            [argumentEncoderPBR setTexture:vectorTexPBR[i+0] atIndex:0];
-            [argumentEncoderPBR setTexture:vectorTexPBR[i+1] atIndex:1];
-            [argumentEncoderPBR setTexture:vectorTexPBR[i+2] atIndex:2];
-            [argumentEncoderPBR setTexture:vectorTexPBR[i+3] atIndex:3];
-            [argumentEncoderPBR setTexture:vectorTexPBR[i+4] atIndex:4];
+            [argumentEncoderPBR setTexture:_vectorTexPBR[i+0] atIndex:0];
+            [argumentEncoderPBR setTexture:_vectorTexPBR[i+1] atIndex:1];
+            [argumentEncoderPBR setTexture:_vectorTexPBR[i+2] atIndex:2];
+            [argumentEncoderPBR setTexture:_vectorTexPBR[i+3] atIndex:3];
+            [argumentEncoderPBR setTexture:_vectorTexPBR[i+4] atIndex:4];
         }
         
         _textureHDR = _vectorTexAll[0];
@@ -718,8 +720,13 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             let _kernalPhotonHashing = [defaultLibrary newFunctionWithName:@"kernelPhotonHashing"];
             _pipelineStatePhotonHashing = [_device newComputePipelineStateWithFunction:_kernalPhotonHashing error:&ERROR];
         
+            let _kernelPhotonRefine = [defaultLibrary newFunctionWithName:@"kernelPhotonRefine"];
+            _pipelineStatePhotonRefine = [_device newComputePipelineStateWithFunction:_kernelPhotonRefine error:&ERROR];
+        
             _cameraRecordBuffer = [_device newBufferWithLength:sizeof(CameraRecord) * 1920 * 1080
                                                        options:_commonStorageMode];
+            [_cameraRecordBuffer setLabel:@"_cameraRecordBuffer"];
+        
             _cameraBoundsBuffer = [_device newBufferWithLength:sizeof(AABB) * 1920 * 1080
                                                        options:_commonStorageMode];
             _aremacBoundsBuffer = [_device newBufferWithLength:sizeof(AABB) * 4096
@@ -733,10 +740,6 @@ NSLog(@"Done  %fs", _time_e - _time_s);
                                                        options:_commonStorageMode];
             [_photonHashedBuffer setLabel:@"_photonHashedBuffer"];
         
-            _photonRadiusBuffer = [_device newBufferWithLength:sizeof(float) * 512 * 512
-                                                       options:_commonStorageMode];
-            [_photonRadiusBuffer setLabel:@"_photonRadiusBuffer"];
-            
             // Set up a texture for rendering to and sampling from
             auto photonMarkDescription = [[MTLTextureDescriptor alloc] init];
             photonMarkDescription.textureType = MTLTextureType2D;
@@ -747,7 +750,7 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             photonMarkDescription.pixelFormat = MTLPixelFormatRGBA32Float;
             _texturePhotonMark = [_device newTextureWithDescriptor:photonMarkDescription];
         
-            photonMarkDescription.pixelFormat = MTLPixelFormatR16Float;
+            photonMarkDescription.pixelFormat = MTLPixelFormatR32Float;
             _texturePhotonCount = [_device newTextureWithDescriptor:photonMarkDescription];
         
             _renderPhotonCountPassDescriptor = [[MTLRenderPassDescriptor alloc] init];
@@ -766,8 +769,8 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             // descriptor and change properties that differ.
             photonMarkPipelineDescriptor.label = @"Photon Count Pipeline";
             photonMarkPipelineDescriptor.sampleCount = 1;
-            photonMarkPipelineDescriptor.vertexFunction = [defaultLibrary newFunctionWithName:@"simpleVertexShader"];
-            photonMarkPipelineDescriptor.fragmentFunction = [defaultLibrary newFunctionWithName:@"simpleFragmentShader"];
+            photonMarkPipelineDescriptor.vertexFunction = [defaultLibrary newFunctionWithName:@"PhotonMarkVS"];
+            photonMarkPipelineDescriptor.fragmentFunction = [defaultLibrary newFunctionWithName:@"PhotonMarkFS"];
             photonMarkPipelineDescriptor.colorAttachments[0].pixelFormat = _texturePhotonMark.pixelFormat;
             photonMarkPipelineDescriptor.colorAttachments[1].pixelFormat = _texturePhotonCount.pixelFormat;
             
@@ -888,8 +891,8 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRadius];
     [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:0];
-    [computeEncoder setBuffer:_photonRadiusBuffer offset:0 atIndex:1];
-    [computeEncoder dispatchThreads:{512, 512, 1} threadsPerThreadgroup:_threadGroupSize];
+    [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:1];
+    [computeEncoder dispatchThreads:{1920, 1080, 1} threadsPerThreadgroup:_threadGroupSize];
     
     [computeEncoder endEncoding];
     [commandBuffer commit];
@@ -906,7 +909,6 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
     [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
     [computeEncoder setBuffer:_photonHashedBuffer offset:0 atIndex:3];
-    [computeEncoder setBuffer:_photonRadiusBuffer offset:0 atIndex:4];
     
     [computeEncoder dispatchThreads:{512, 512, 1} threadsPerThreadgroup:{8, 8, 1}];
     [computeEncoder endEncoding];
@@ -916,13 +918,34 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     //commandBuffer = [_commandQueue commandBuffer];
     
     auto _photonCountRenderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:_renderPhotonCountPassDescriptor];
-    _photonCountRenderEncoder.label = @"Offscreen Render Pass";
+    _photonCountRenderEncoder.label = @"PhotonCount Render Pass";
     [_photonCountRenderEncoder setRenderPipelineState:_renderPhotonCountPipelineState];
+    
     [_photonCountRenderEncoder setVertexBuffer:_photonHashedBuffer offset:0 atIndex:0];
+    [_photonCountRenderEncoder setVertexBuffer:_photonRecordBuffer offset:0 atIndex:1];
+    
     
     [_photonCountRenderEncoder drawPrimitives:MTLPrimitiveTypePoint
                                   vertexStart:0 vertexCount:512*512];
     [_photonCountRenderEncoder endEncoding];
+    
+    computeEncoder = [commandBuffer computeCommandEncoder];
+    [computeEncoder setComputePipelineState:_pipelineStatePhotonRefine];
+    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:0];
+    [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
+    
+    [computeEncoder setTexture:_texturePhotonMark atIndex:0];
+    [computeEncoder setTexture:_texturePhotonCount atIndex:1];
+    
+    if (_complex.frame_count % 2) {
+        [computeEncoder setTexture:self->_textureA atIndex:2];
+    } else {
+        [computeEncoder setTexture:self->_textureB atIndex:2];
+    }
+    
+    [computeEncoder dispatchThreads:{1920, 1080, 1} threadsPerThreadgroup:{8, 8, 1}];
+    [computeEncoder endEncoding];
     
     //commandBuffer = [_commandQueue commandBuffer];
     

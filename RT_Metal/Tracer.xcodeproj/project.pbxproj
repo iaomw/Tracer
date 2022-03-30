@@ -74,6 +74,8 @@
 		57DD356C241EEC110094632B /* TracerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD356B241EEC110094632B /* TracerViewController.swift */; };
 		57DD356E241EEC140094632B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356D241EEC140094632B /* Assets.xcassets */; };
 		57DD3571241EEC140094632B /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356F241EEC140094632B /* Main.storyboard */; };
+		57DF236127A126DD0074A139 /* Photon.metal in Sources */ = {isa = PBXBuildFile; fileRef = 57DF236027A126160074A139 /* Photon.metal */; };
+		57DF236227A126DD0074A139 /* Photon.metal in Sources */ = {isa = PBXBuildFile; fileRef = 57DF236027A126160074A139 /* Photon.metal */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -150,6 +152,7 @@
 		57DE334626974D4700B1D4CF /* SpecularBXDF.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = SpecularBXDF.hh; sourceTree = "<group>"; };
 		57DE33492697504100B1D4CF /* MicrofacetBXDF.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MicrofacetBXDF.h; sourceTree = "<group>"; };
 		57DE334C26975B1800B1D4CF /* MatteBXDF.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MatteBXDF.hh; sourceTree = "<group>"; };
+		57DF236027A126160074A139 /* Photon.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Photon.metal; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -218,6 +221,7 @@
 				573DD10A24335D6D00B09B0A /* Render.hh */,
 				573DD1082432B9D900B09B0A /* Render.metal */,
 				57562F3927656C850078F4E8 /* Photon.hh */,
+				57DF236027A126160074A139 /* Photon.metal */,
 				57C9D46226A6C86400C681AA /* Medium.hh */,
 			);
 			path = Metal;
@@ -432,6 +436,7 @@
 				57874FD024DDF70800080AB7 /* Tracer.mm in Sources */,
 				57D89BFA273FF57200110E10 /* pcg_basic.c in Sources */,
 				57874FD124DDF70800080AB7 /* AAPLRenderer.hh in Sources */,
+				57DF236227A126DD0074A139 /* Photon.metal in Sources */,
 				57874FD224DDF70800080AB7 /* AAPLRenderer.mm in Sources */,
 				57874FC224DDF37100080AB7 /* ViewController.swift in Sources */,
 				57874FBE24DDF37100080AB7 /* AppDelegate.swift in Sources */,
@@ -450,6 +455,7 @@
 				575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */,
 				573DD1122433AA9900B09B0A /* Random.metal in Sources */,
 				57D7F39B266925F90063AF0A /* Triangle.hh in Sources */,
+				57DF236127A126DD0074A139 /* Photon.metal in Sources */,
 				5759E68024DB723D00C8A2D7 /* HitRecord.metal in Sources */,
 				571C09602439267700DA0BAC /* Tracer.mm in Sources */,
 				5749BCA32435005B002B60E4 /* Scatter.metal in Sources */,

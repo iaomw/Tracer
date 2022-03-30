@@ -23,7 +23,7 @@
         typedef simd_float3 float3;
         typedef simd_float2 float2;
         
-        struct MeshStrut {
+        struct MeshElement {
             float vx, vy, vz;
             float nx, ny, nz;
             float2 uv;

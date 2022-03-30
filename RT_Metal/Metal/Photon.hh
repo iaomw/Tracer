@@ -5,8 +5,14 @@
 
 #include "Common.hh"
 
+#ifdef __METAL_VERSION__
+#include "Render.hh"
+#endif
+
 struct PhotonRecord {
-    float3 power;
+    
+    float3 flux;
+    
     float3 normal;
     float3 position;
     float3 direction;
@@ -24,30 +30,36 @@ struct CameraRecord {
     float3 ratio;
     float3 position;
     float3 direction;
+
+    bool valid = false;
+    
+    float radius;
+    float photonCount;
+    
+    float3 flux;
 };
 
 #ifdef __METAL_VERSION__
 
-float mod(float x, float y) {
+inline float mod(float x, float y) {
     return x - y * floor(x/y);
 }
 
 //BufferSize * BufferSize = element count of the buffer
 //BufInfo = float4(BufferSize, BufferSize, 1.0/BufferSize, 1.0/BufferSize)
-    
-inline float2 convert1Dto2D(const float t, const thread float4& BufInfo)
+inline float2 convert1Dto2D(const float t, const float BufInfo)
 {
     float2 tmp;
     
-    tmp.x = mod(t, BufInfo.x) + 0.5;
-    tmp.y = floor(t * BufInfo.z) + 0.5;
+    tmp.x = mod(t, BufInfo) + 0.5;
+    tmp.y = floor(t / BufInfo) + 0.5;
 
     return tmp;
 }
 
 // HashNum = BufferSize * BufferSize;
 // HashNum - the number of elements in the buffer.
-float hash(const float3 idx, const float HashScale, const float HashNum)
+inline float hash(const float3 idx, const float HashScale, const float HashNum)
 {
     // use the same procedure as GPURnd
     float4 n = float4(idx, idx.x + idx.y - idx.z) * 4194304.0 / HashScale;
@@ -64,7 +76,6 @@ float hash(const float3 idx, const float HashScale, const float HashNum)
 
     return floor( fract(dot(n / m, float4(1.0, -1.0, 1.0, -1.0))) * HashNum );
 }
-
 
 #endif
 
