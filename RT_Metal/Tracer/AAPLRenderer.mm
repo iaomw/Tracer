@@ -868,6 +868,26 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 
     } while (thread_count > 0);
     
+    [computeEncoder setComputePipelineState:_pipelineStatePhotonParams];
+    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:0];
+    [computeEncoder setBuffer:_output         offset:0 atIndex:1];
+    [computeEncoder dispatchThreads:{1, 1, 1} threadsPerThreadgroup:{1, 1, 1}];
+    
+    [computeEncoder setComputePipelineState:_pipelineStatePhotonRadius];
+    [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:0];
+    [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:1];
+    [computeEncoder dispatchThreads:{1920, 1080, 1} threadsPerThreadgroup:{8, 8 ,1}];
+    
+    [computeEncoder endEncoding];
+    [commandBuffer commit];
+}
+
+- (void)photonWork:(MTKView *)view
+{
+    auto commandBuffer = [_commandQueue commandBuffer]; //commandBuffer.label = @"name";
+    auto computeEncoder = [commandBuffer computeCommandEncoder];
+    
+    let tex_index = predefined_index[_complex.frame_count % 2];
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRecording];
     [computeEncoder setTexture:_textureARNG atIndex: tex_index[2]];
     [computeEncoder setTexture:_textureBRNG atIndex: tex_index[3]];
@@ -882,30 +902,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setBuffer:_argumentBufferEnv offset:0 atIndex:8];
     [computeEncoder setBuffer:_argumentBufferPBR offset:0 atIndex:9];
     
-    [computeEncoder dispatchThreads:{512, 512, 1} threadsPerThreadgroup:_threadGroupSize];
-    
-    [computeEncoder setComputePipelineState:_pipelineStatePhotonParams];
-    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:0];
-    [computeEncoder setBuffer:_output         offset:0 atIndex:1];
-    [computeEncoder dispatchThreads:{1, 1, 1} threadsPerThreadgroup:{1, 1, 1}];
-    
-    [computeEncoder setComputePipelineState:_pipelineStatePhotonRadius];
-    [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:0];
-    [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:1];
-    [computeEncoder dispatchThreads:{1920, 1080, 1} threadsPerThreadgroup:_threadGroupSize];
-    
-    [computeEncoder endEncoding];
-    [commandBuffer commit];
-}
-
-- (void)photonWork:(MTKView *)view
-{
-    auto commandBuffer = [_commandQueue commandBuffer];
-    auto computeEncoder = [commandBuffer computeCommandEncoder];
-    //commandBuffer.label = @"name";
+    [computeEncoder dispatchThreads:{512, 512, 1} threadsPerThreadgroup:{8, 8, 1}];
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonHashing];
-    
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
     [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
     [computeEncoder setBuffer:_photonHashedBuffer offset:0 atIndex:3];
@@ -923,7 +922,6 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     [_photonCountRenderEncoder setVertexBuffer:_photonHashedBuffer offset:0 atIndex:0];
     [_photonCountRenderEncoder setVertexBuffer:_photonRecordBuffer offset:0 atIndex:1];
-    
     
     [_photonCountRenderEncoder drawPrimitives:MTLPrimitiveTypePoint
                                   vertexStart:0 vertexCount:512*512];
@@ -977,8 +975,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         }];
     }];
     
-    let tex_index = predefined_index[_complex.frame_count % 2];
-    
+    //let tex_index = predefined_index[_complex.frame_count % 2];
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
     
@@ -1008,7 +1005,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     let time = [[NSDate date] timeIntervalSince1970];
     _complex.running_time = time - launchTime;
     
-    [self photonPrepare:view];
+    if (_complex.frame_count == 0) {
+        [self photonPrepare:view];
+    }
     [self photonWork:view];
     
 //    // test kernel result between CPU and GPU

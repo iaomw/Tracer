@@ -11,18 +11,19 @@
 
 struct PhotonRecord {
     
-    float3 flux;
+    float3 flux = 1;
     
     float3 normal;
     float3 position;
     float3 direction;
     
     uint8_t step = 0;
-    bool valid = false;
+    bool active = false;
     
     void reset() {
+        flux = 1;
         step = 0;
-        valid = false;
+        active = false;
     }
 };
 
@@ -51,8 +52,8 @@ inline float2 convert1Dto2D(const float t, const float BufInfo)
 {
     float2 tmp;
     
-    tmp.x = mod(t, BufInfo) + 0.5;
-    tmp.y = floor(t / BufInfo) + 0.5;
+    tmp.x = mod(t, BufInfo);
+    tmp.y = floor(t / BufInfo);
 
     return tmp;
 }

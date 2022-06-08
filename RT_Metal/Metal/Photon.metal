@@ -13,9 +13,9 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
     HitRecord hitRecord;
     BxRecord scatRecord;
     
-    Spectrum ratio = Spectrum(1.0);
-    
     Scene scene { primitives };
+    
+    Spectrum ratio = Spectrum(1.0);
     
     bool hitted = scene.hit(ray, hitRecord, FLT_MAX);
     
@@ -38,6 +38,7 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
         
         if (!packageEnv.materials[hitRecord.material].specular) {
             
+            cr.valid = true;
             cr.ratio = ratio;
             cr.position = hitRecord.p;
             cr.direction = ray.direction;
@@ -283,11 +284,10 @@ void tracePhotonRecord(thread Ray& ray, thread XSampler& xsampler,
         pr.position = offset_ray(hitRecord.p, copysign(hitRecord.sn, wi.z));
         pr.normal = hitRecord.sn;
         pr.direction = wi;
-        pr.flux = ratio;
-
+        pr.flux *= ratio;
         pr.step += 1;
         
-        pr.valid = !material.specular;
+        pr.active = !material.specular;
 }
   
 kernel void
@@ -324,11 +324,11 @@ kernelPhotonRecording(texture2d<uint32_t, access::read>       inRNG [[texture(2)
     
     Ray ray;
     
-    bool check = frame == 0 || !photon_cache.valid || photon_cache.step > 8;
+    bool check = (frame == 0) || (!photon_cache.active) || (photon_cache.step > 8);
     
     if (check) { // ray from light source
         
-        photon_cache.step = 0;
+        photon_cache.reset();
         
         LightSampleRecord lsr;
         float2 uu = rs.sample2D();
@@ -339,6 +339,8 @@ kernelPhotonRecording(texture2d<uint32_t, access::read>       inRNG [[texture(2)
         } else {
             primitives.squareList[6].sample(uu, _origin, lsr);
         }
+        
+        photon_cache.flux = packageEnv.materials[lsr.material].textureInfo.albedo;
         
         float3 nx, ny;
         CoordinateSystem(lsr.n, nx, ny);
@@ -361,6 +363,37 @@ kernelPhotonRecording(texture2d<uint32_t, access::read>       inRNG [[texture(2)
 };
 
 kernel void
+kernelPhotonParams(device Complex*              complex [[buffer(0)]],
+                   device AABB*                 _bounds [[buffer(1)]])
+{
+    device auto* x = complex;
+    
+    x->photonBox = _bounds[0];
+    x->photonBoxSize = x->photonBox.maxi - x->photonBox.mini;
+    
+    x->photonInitialRadius = dot(x->photonBoxSize, float3(1.0/3.0));
+    x->photonInitialRadius *= 3.0 / 512;
+    
+    x->photonBox.mini -= float3(x->photonInitialRadius);
+    x->photonBox.maxi += float3(x->photonInitialRadius);
+    
+    x->photonHashScale = 1.0f / (x->photonInitialRadius * 1.5);
+}
+
+kernel void
+kernelPhotonRadius(constant Complex*              complex [[buffer(0)]],
+                   device CameraRecord*       cameraRecord[[buffer(1)]],
+                   
+                   //uint thread_pos          [[thread_position_in_grid]])
+                   uint2 thread_pos         [[thread_position_in_grid]],
+                   uint2 group_size         [[threads_per_threadgroup]],
+                   uint2 grid_size                 [[threads_per_grid]])
+{
+    size_t thread_idx = thread_pos.y * grid_size.x + thread_pos.x;
+    cameraRecord[thread_idx].radius = complex->photonInitialRadius;
+}
+
+kernel void
 kernelPhotonHashing(constant Complex*              complex [[buffer(1)]],
                     constant PhotonRecord*    photonRecord [[buffer(2)]],
                     
@@ -373,45 +406,16 @@ kernelPhotonHashing(constant Complex*              complex [[buffer(1)]],
     size_t thread_idx = thread_pos.y * grid_size.x + thread_pos.x;
     float3 position = photonRecord[thread_idx].position;
     
-    float3 HashIndex = floor((position - complex->photonBox.mini) * complex->photonHashScale);
+    float HashScale = complex->photonHashScale;
     
-    auto hashed = hash( HashIndex, complex->photonHashScale, grid_size[0]*grid_size[1] );
+    float3 HashIndex = floor((position - complex->photonBox.mini) * HashScale);
     
-    float2 photonPosition2DHashedGrid = convert1Dto2D(hashed, 512.0);
+    auto hashed = hash( HashIndex, HashScale, 512 * 512);
+    float2 pos2DHashedGrid = convert1Dto2D(hashed, 512);
+    //float2 pos2D = as_type<float2>(thread_pos);
+    float2 pos2D = (float2)(thread_pos);
     
-    float2 pos = as_type<float2>(thread_pos);
-    
-    photonHashed[thread_idx] = float4(pos, photonPosition2DHashedGrid);
-}
-
-kernel void
-kernelPhotonParams(device Complex*              complex [[buffer(0)]],
-                   device AABB*                 _bounds [[buffer(1)]])
-{
-    device auto* x = complex;
-    
-    x->photonBox = _bounds[0];
-    x->photonBoxSize = x->photonBox.maxi - x->photonBox.mini;
-    
-    x->photonInitialRadius = dot(x->photonBoxSize, float3(1.0/3.0));
-    x->photonInitialRadius *= 3.0 / 1024;
-    
-    x->photonBox.mini -= float3(x->photonInitialRadius);
-    x->photonBox.maxi += float3(x->photonInitialRadius);
-    
-    x->photonHashScale = 1.0f / (x->photonInitialRadius * 1.5);
-}
-
-kernel void
-kernelPhotonRadius(constant Complex*              complex [[buffer(0)]],
-                   device CameraRecord*       cameraRecord[[buffer(1)]],
-                   //uint thread_pos          [[thread_position_in_grid]])
-                   uint2 thread_pos         [[thread_position_in_grid]],
-                   uint2 group_size         [[threads_per_threadgroup]],
-                   uint2 grid_size                 [[threads_per_grid]])
-{
-    size_t thread_idx = thread_pos.y * grid_size.x + thread_pos.x;
-    cameraRecord[thread_idx].radius = complex->photonInitialRadius;
+    photonHashed[thread_idx] = float4(pos2D, pos2DHashedGrid);
 }
 
 // Vertex shader outputs and fragment shader inputs for simple pipeline
@@ -432,12 +436,13 @@ PhotonMarkVS(const uint vertexID [[ vertex_id ]],
     auto element = vertices[vertexID]; //
     auto photonPosition2DHashedGrid = element.zw;
     
-    auto z = photonRecord[vertexID].valid ? 0.5 : -1.0; // visible or not
+    auto z = photonRecord[vertexID].active ? 0.5 : -1.0; // visible or not
     
+    photonPosition2DHashedGrid.y = 512 - photonPosition2DHashedGrid.y;
     photonPosition2DHashedGrid = photonPosition2DHashedGrid * 2.0/512.0 - 1.0;
     
     out.position = float4(photonPosition2DHashedGrid, z, 1.0);
-    out.PhotonMark = element; //float4(1.0, 1.0, 1.0, 1.0);
+    out.PhotonMark = element - float4(0, 0, 1, 1);
 
     return out;
 }
@@ -459,51 +464,6 @@ PhotonMarkFS(PhotonMarkVSData in [[stage_in]])
     return result;
 }
 
-void AccumulatePhotons(const thread float3& QueryPosition, const thread float3& QueryDirection, const float QueryRadius,
-                       const thread float3& HashIndex, const float HashScale, const thread float3& BBoxMin,
-                       
-                       thread float3 &Flux, thread float &PhotonCount,
-                       
-                       device   CameraRecord* _cameraRecords,
-                       constant PhotonRecord* _photonRecords,
-                       
-                       thread texture2d<float, access::read>  &_marksHashGrid,
-                       thread texture2d<float, access::read>  &_countHashGrid)
-{
-    // get the first photon
-    auto hashed = hash(HashIndex, HashScale, 512.0 * 512.0);
-    float2 HashedPhotonIndex2D = convert1Dto2D(hashed, 512);
-    float2 HashedPhotonIndexNorm2D = HashedPhotonIndex2D / 512.0;
-    
-    //float2 PhotonIndex = texture2D(HashedPhotonTexture, HashedPhotonIndex).xy;
-    float2 PhotonIndex2D = //_marksHashGrid.sample(textureSampler, HashedPhotonIndexNorm2D).xy;
-                            _marksHashGrid.read( (uint2)HashedPhotonIndex2D ).xy;
-    uint PhotonIndex1D = as_type<uint>(PhotonIndex2D.y) * 512 + as_type<uint>(PhotonIndex2D.x);
-
-    // accumulate photon
-    float3 PhotonFlux = _photonRecords[PhotonIndex1D].flux;
-    float3 PhotonPosition = _photonRecords[PhotonIndex1D].position;
-    float3 PhotonDirection = _photonRecords[PhotonIndex1D].direction;
-    
-    // make sure that the photon is actually in the given grid cell
-    float3 RangeMin = HashIndex / HashScale + BBoxMin;
-    float3 RangeMax = (HashIndex + float3(1.0)) / HashScale + BBoxMin;
-    
-    if ((RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < RangeMax.x) &&
-    (RangeMin.y < PhotonPosition.y) && (PhotonPosition.y < RangeMax.y) &&
-    (RangeMin.z < PhotonPosition.z) && (PhotonPosition.z < RangeMax.z))
-    {
-        float d = distance(PhotonPosition, QueryPosition);
-        if ((d < QueryRadius) && (-dot(QueryDirection, PhotonDirection) > 0.001))
-        {
-            float Correction = _countHashGrid.read((uint2)HashedPhotonIndex2D).x;
-            
-            Flux += PhotonFlux * Correction;
-            PhotonCount += Correction;
-        }
-    }
-}
-
 kernel void
 kernelPhotonRefine(constant Complex*                _complex       [[buffer(0)]],
                    device   CameraRecord*           _cameraRecords [[buffer(1)]],
@@ -518,7 +478,6 @@ kernelPhotonRefine(constant Complex*                _complex       [[buffer(0)]]
                    uint2 group_size                  [[threads_per_threadgroup]],
                    uint2 grid_size                   [[threads_per_grid]])
 {
-    //vec2 PixelIndex = gl_FragCoord.xy * BufInfo.zw;
     size_t thread_idx = thread_pos.y * grid_size.x + thread_pos.x;
     if (!_cameraRecords[thread_idx].valid) { return; }
 
@@ -539,27 +498,60 @@ kernelPhotonRefine(constant Complex*                _complex       [[buffer(0)]]
 
     float3 RangeMin = abs(QueryPosition - float3(QueryRadius) - BBoxMin) * HashScale;
     float3 RangeMax = abs(QueryPosition + float3(QueryRadius) - BBoxMin) * HashScale;
+     
+    float3 _Flux = 0; float _PhotonCount = 0;
     
-    float3 _Flux; float _PhotonCount;
-
-    for (int iz = int(RangeMin.z); iz <= int(RangeMax.z); iz ++)
+for (int iz = int(RangeMin.z); iz <= int(RangeMax.z); iz++)
+{
+    for (int iy = int(RangeMin.y); iy <= int(RangeMax.y); iy++)
     {
-        for (int iy = int(RangeMin.y); iy <= int(RangeMax.y); iy++)
+        for (int ix = int(RangeMin.x); ix <= int(RangeMax.x); ix++)
         {
-            for (int ix = int(RangeMin.x); ix <= int(RangeMax.x); ix++)
-            {
-                AccumulatePhotons(QueryPosition, QueryDirection, QueryRadius, float3(ix, iy, iz),
-                                  HashScale, BBoxMin,
-                                  _Flux, _PhotonCount,
-                                  _cameraRecords, _photonRecords,
-                                  _marksHashGrid, _countHashGrid);
-            }
+            
+float3 hashIndex = float3(ix, iy, iz);
+
+float hashed = hash(hashIndex, HashScale, 512 * 512);
+float2 HashedPhotonIndex2D = convert1Dto2D(hashed, 512);
+        //HashedPhotonIndex2D.y = 512 - HashedPhotonIndex2D.y;
+        HashedPhotonIndex2D -= 1.0;
+            
+float2 PhotonIndex2D = _marksHashGrid.read((uint2)(HashedPhotonIndex2D)).xy;
+uint PhotonIndex1D = (uint)PhotonIndex2D.y * 512 + (uint)(PhotonIndex2D.x);
+            
+// accumulate photon
+float3 PhotonFlux = _photonRecords[PhotonIndex1D].flux;
+float3 PhotonPosition = _photonRecords[PhotonIndex1D].position;
+float3 PhotonDirection = _photonRecords[PhotonIndex1D].direction;
+
+// make sure that the photon is actually in the given grid cell
+float3 _RangeMin = hashIndex / HashScale + BBoxMin;
+float3 _RangeMax = (hashIndex + float3(1.0)) / HashScale + BBoxMin;
+            
+if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
+    && (_RangeMin.y < PhotonPosition.y) && (PhotonPosition.y < _RangeMax.y)
+    && (_RangeMin.z < PhotonPosition.z) && (PhotonPosition.z < _RangeMax.z))
+{
+    float d = distance(PhotonPosition, QueryPosition);
+
+    if ((d < QueryRadius) && (-dot(QueryDirection, PhotonDirection) > 0.001))
+    {
+        float Correction = _countHashGrid.read((uint2)HashedPhotonIndex2D).x;
+        
+        _Flux += PhotonFlux * Correction;
+        _PhotonCount += Correction;
+    }
+}
+//outTexture.write(float4(_Flux , 1.0), thread_pos);
+//return;
         }
     }
-
+}
     // BRDF (Lambertian)
     _Flux = _Flux * (QueryReflectance / 3.141592);
     //if (FullSpectrum) Flux = Spectrum2RGB(Wavelength) * Flux.r;
+    
+//    outTexture.write(float4(_Flux , 1.0), thread_pos);
+//    return;
 
     // progressive refinement
     const float alpha = 0.8;
@@ -568,6 +560,9 @@ kernelPhotonRefine(constant Complex*                _complex       [[buffer(0)]]
     
     QueryPhotonCount = QueryPhotonCount + _PhotonCount * alpha;
     QueryFlux = (QueryFlux + _Flux) * g;
+    
+    outTexture.write(float4(QueryFlux , 1.0), thread_pos);
+    return;
     
     _cameraRecords[thread_idx].flux = QueryFlux;
     _cameraRecords[thread_idx].radius = QueryRadius;

@@ -33,7 +33,6 @@ struct Complex {
     AABB   photonBox;
     float3 photonBoxSize;
     
-    float photonBufferSize;
     float photonInitialRadius;
     
     float photonHashScale;
