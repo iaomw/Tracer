@@ -103,6 +103,7 @@ const VertexWithUV canvas[] =
     id<MTLTexture> _textureB;
     id<MTLTexture> _textureARNG;
     id<MTLTexture> _textureBRNG;
+    id<MTLTexture> _texturePhotonRNG;
     
     id<MTLTexture> _textureUVT;
     id<MTLTexture> _textureHDR;
@@ -271,6 +272,9 @@ const VertexWithUV canvas[] =
         _textureARNG = [_device newTextureWithDescriptor:tdr];
         _textureBRNG = [_device newTextureWithDescriptor:tdr];
         
+        tdr.width = 512; tdr.height = 512;
+        _texturePhotonRNG = [_device newTextureWithDescriptor:tdr];
+        
 NSLog(@"Processing RNG");
 _time_s = [[NSDate date] timeIntervalSince1970];
         
@@ -285,8 +289,11 @@ _time_s = [[NSDate date] timeIntervalSince1970];
         
         dispatch_apply(thread_count, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(size_t idx){
             
-            pcg32_t seed = { arc4random(), arc4random() };
-            //  seed = { pcg32_random(), pcg32_random() };
+            pcg32_t seed;
+            seed.state = uint64_t(arc4random()) << 32 | arc4random();
+            seed.inc = uint64_t(arc4random()) << 32 | arc4random();
+            // seed = { arc4random(), arc4random() };
+            // seed = { pcg32_random(), pcg32_random() };
             let offset = idx * thread_quota;
             
             for (int i=0; i<thread_quota; i++) {
@@ -313,6 +320,16 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                        sourceBytesPerImage: sizeof(UInt32)*4 * width * height
                                 sourceSize: { width, height, 1 }
                                  toTexture: _textureARNG
+                          destinationSlice: 0
+                          destinationLevel: 0
+                         destinationOrigin: {0,0,0}];
+        
+        [blitCommandEncoder copyFromBuffer: _sourceBuffer
+                              sourceOffset: 0
+                         sourceBytesPerRow: sizeof(UInt32)*4 * 512
+                       sourceBytesPerImage: sizeof(UInt32)*4 * 512 * 512
+                                sourceSize: { 512, 512, 1 }
+                                 toTexture: _texturePhotonRNG
                           destinationSlice: 0
                           destinationLevel: 0
                          destinationOrigin: {0,0,0}];
@@ -790,6 +807,9 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             _renderPhotonCountPipelineState = [_device newRenderPipelineStateWithDescriptor:photonMarkPipelineDescriptor error:&ERROR];
     }
     
+    //CAMetalLayer *c = (CAMetalLayer*)view.layer;
+    //c.displaySyncEnabled = NO;
+    
     return self;
 }
 
@@ -808,14 +828,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     auto computeEncoder = [commandBuffer computeCommandEncoder];
     
     [computeEncoder setComputePipelineState:_pipelineStateCameraRecording];
- 
-    let tex_index = predefined_index[_complex.frame_count % 2];
-    
-    [computeEncoder setTexture:_textureA atIndex: tex_index[0]];
-    [computeEncoder setTexture:_textureB atIndex: tex_index[1]];
-    
-    [computeEncoder setTexture:_textureARNG atIndex: tex_index[2]];
-    [computeEncoder setTexture:_textureBRNG atIndex: tex_index[3]];
+    [computeEncoder setTexture:_textureARNG atIndex:0];
+    [computeEncoder setTexture:_textureBRNG atIndex:1];
+    std::swap(_textureARNG, _textureBRNG);
     
     if (view != nil) {
         memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
@@ -835,9 +850,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setBuffer:_argumentBufferPBR  offset:0 atIndex:9];
     
     let _threadGroupSize = MTLSize {8, 8, 1};
-    let _threadGridSize = MTLSize {1920, 1080, 1};
+    let _threadBatchSize = MTLSize {1920, 1080, 1};
     
-    [computeEncoder dispatchThreads:_threadGridSize threadsPerThreadgroup:_threadGroupSize];
+    [computeEncoder dispatchThreads:_threadBatchSize threadsPerThreadgroup:_threadGroupSize];
     
     if (view == nil) {
         [computeEncoder endEncoding];
@@ -857,8 +872,8 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     auto thread_count = (uint)1 << (uint)floor(log2(data_bound));
     
-    auto _ping = _cameraBoundsBuffer;
-    auto _pong = _aremacBoundsBuffer;
+    auto _ping_buffer = _cameraBoundsBuffer;
+    auto _pong_buffer = _aremacBoundsBuffer;
     
     uint threadgroup_size = 256; uint step = (uint)floor(log2(threadgroup_size));
     
@@ -871,16 +886,16 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         data_bound = thread_count >> step; thread_count = data_bound >> 1;
         [computeEncoder setBytes:&data_bound length:sizeof(uint) atIndex:2];
 
-        std::swap(_ping, _pong);
+        std::swap(_ping_buffer, _pong_buffer);
 
-        [computeEncoder setBuffer:_ping offset:0 atIndex:3];
-        [computeEncoder setBuffer:_pong offset:0 atIndex:4];
+        [computeEncoder setBuffer:_ping_buffer offset:0 atIndex:3];
+        [computeEncoder setBuffer:_pong_buffer offset:0 atIndex:4];
 
     } while (thread_count > 0);
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonParams];
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:0];
-    [computeEncoder setBuffer:_pong           offset:0 atIndex:1];
+    [computeEncoder setBuffer:_pong_buffer    offset:0 atIndex:1];
     [computeEncoder dispatchThreads:{1, 1, 1} threadsPerThreadgroup:{1, 1, 1}];
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRadius];
@@ -897,10 +912,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     auto commandBuffer = [_commandQueue commandBuffer]; //commandBuffer.label = @"name";
     auto computeEncoder = [commandBuffer computeCommandEncoder];
     
-    let tex_index = predefined_index[_complex.frame_count % 2];
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRecording];
-    [computeEncoder setTexture:_textureARNG atIndex: tex_index[0]];
-    [computeEncoder setTexture:_textureBRNG atIndex: tex_index[1]];
+    [computeEncoder setTexture:_texturePhotonRNG atIndex: 0];
+    [computeEncoder setTexture:_texturePhotonRNG atIndex: 1];
     
     [computeEncoder setBuffer:_camera_buffer  offset:0 atIndex:0];
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
@@ -942,7 +956,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setComputePipelineState:_pipelineStatePhotonSumming];
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:0];
     [computeEncoder setTexture:_texturePhotonCount atIndex:0];
-    [computeEncoder dispatchThreads:{256, 1, 1} threadsPerThreadgroup:{256, 1, 1}];
+    [computeEncoder dispatchThreads:{512, 1, 1} threadsPerThreadgroup:{512, 1, 1}];
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRefine];
     [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:0];
@@ -952,28 +966,16 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setTexture:_texturePhotonMark  atIndex:0];
     [computeEncoder setTexture:_texturePhotonCount atIndex:1];
     
-    if (_complex.frame_count % 2) {
-        [computeEncoder setTexture:self->_textureB atIndex:2];
-        [computeEncoder setTexture:self->_textureA atIndex:3];
-    } else {
-        [computeEncoder setTexture:self->_textureA atIndex:2];
-        [computeEncoder setTexture:self->_textureB atIndex:3];
-    }
+    std::swap(_textureA, _textureB);
+    [computeEncoder setTexture:_textureA atIndex:2];
+    [computeEncoder setTexture:_textureB atIndex:3];
     
     [computeEncoder dispatchThreads:{1920, 1080, 1} threadsPerThreadgroup:{8, 8, 1}];
     [computeEncoder endEncoding];
     
-    //commandBuffer = [_commandQueue commandBuffer];
-    
-    {
-        let blit = [commandBuffer blitCommandEncoder];
-        if (_complex.frame_count % 2) {
-            [blit generateMipmapsForTexture:self->_textureA];
-        } else {
-            [blit generateMipmapsForTexture:self->_textureB];
-        }
-        [blit endEncoding];
-    }
+    let blit = [commandBuffer blitCommandEncoder];
+    [blit generateMipmapsForTexture:_textureB];
+    [blit endEncoding];
     
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
         // not on main thread
@@ -996,10 +998,12 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         }];
     }];
     
-    //if (self->_complex.frame_count % 60 == 0) {
+    if (self->_complex.frame_count % 600 == 0) {
         [self photonPrepare:nil];
-    //}
-    
+    } else {
+        [self photonPrepare:nil];
+    }
+
     //let tex_index = predefined_index[_complex.frame_count % 2];
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
@@ -1014,8 +1018,8 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [renderEncoder setVertexBuffer:_canvas_buffer offset:0 atIndex:0];
     
     [renderEncoder setFragmentBuffer:_complex_buffer offset:0 atIndex:0];
-    [renderEncoder setFragmentTexture:_textureB atIndex: tex_index[0]];
-    [renderEncoder setFragmentTexture:_textureA atIndex: tex_index[1]];
+    [renderEncoder setFragmentTexture:_textureA atIndex: 0];
+    [renderEncoder setFragmentTexture:_textureB atIndex: 1];
     
     [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
     [renderEncoder endEncoding];

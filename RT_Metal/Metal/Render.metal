@@ -27,13 +27,13 @@ vertexShader(uint     vertexID                  [[vertex_id]],
 }
 
 fragment float4
-fragmentShader( RasterizerData input [[stage_in]],
-                float2 point_coord [[point_coord]],
+fragmentShader(RasterizerData input [[stage_in]],
+               float2 point_coord [[point_coord]],
                
-                texture2d<float> thisTexture [[texture(0)]],
-                texture2d<float> prevTexture [[texture(1)]],
-
-                constant Complex*  sceneMeta [[buffer(0)]])
+               texture2d<float> prevTexture [[texture(0)]],
+               texture2d<float> thisTexture [[texture(1)]],
+               
+               constant Complex*  sceneMeta [[buffer(0)]])
 
 {
     auto tex_w = sceneMeta->tex_size.x;

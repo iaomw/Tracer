@@ -94,11 +94,8 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
 //constant bool deviceSupportsNonuniformThreadgroups [[ function_constant(0) ]];
 
 kernel void
-kernelCameraRecording(texture2d<float, access::read>       inTexture [[texture(0)]],
-                      texture2d<float, access::write>     outTexture [[texture(1)]],
-             
-                      texture2d<uint32_t, access::read>        inRNG [[texture(2)]],
-                      texture2d<uint32_t, access::write>      outRNG [[texture(3)]],
+kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0)]],
+                      texture2d<uint32_t, access::write>      outRNG [[texture(1)]],
              
                       uint2 thread_pos                  [[thread_position_in_grid]],
                       uint2 group_size                  [[threads_per_threadgroup]],
@@ -129,12 +126,12 @@ kernelCameraRecording(texture2d<float, access::read>       inTexture [[texture(0
     auto rng_cache = inRNG.read(thread_pos);
     pcg32_t rng = toRNG(rng_cache);
     
-    auto frame = complex->frame_count;
+    //auto frame = complex->frame_count;
         
-    auto u = float(thread_pos.x)/outTexture.get_width();
-    auto v = float(thread_pos.y)/outTexture.get_height();
+    auto u = float(thread_pos.x)/inRNG.get_width();
+    auto v = float(thread_pos.y)/inRNG.get_height();
     
-    auto idx = thread_pos.x + thread_pos.y * outTexture.get_width();
+    auto idx = thread_pos.x + thread_pos.y * inRNG.get_width();
     
     RandomSampler rs { &rng };
     auto ray = castRay(camera, u, v, &rs);
@@ -369,7 +366,7 @@ kernelPhotonParams(device Complex*              complex [[buffer(0)]],
     x->photonBoxSize = x->photonBox.maxi - x->photonBox.mini;
     
     x->photonInitialRadius = dot(x->photonBoxSize, float3(1.0/3.0));
-    x->photonInitialRadius *= 3.0 / 4096;
+    x->photonInitialRadius *= 3.0 / 1920;
     
     x->photonBox.mini -= float3(x->photonInitialRadius);
     x->photonBox.maxi += float3(x->photonInitialRadius);
@@ -469,29 +466,26 @@ kernelPhotonSumming(device Complex*                 _complex         [[buffer(0)
                     uint group_idx              [[ threadgroup_position_in_grid ]],
                     uint local_idx            [[ thread_position_in_threadgroup ]],
                       
-                    uint grid_size                          [[ threads_per_grid ]],
-                    uint group_size                  [[ threads_per_threadgroup ]] )
+                    uint batch_size                          [[ threads_per_grid ]],
+                    uint group_size                  [[ threads_per_threadgroup ]])
 {
-    threadgroup float shared_memory[256] = { 0.0 };
-    shared_memory[local_idx] = 0;
+    threadgroup float shared_memory[512];
+    shared_memory[local_idx] = 0.0;
     
-    for (uint i = 0; i < 512; i+=2) {
-        //float count = _countHashGrid.read(uint2(local_idx, i)).x;
-        float count = _countHashGrid.read(uint2(i, local_idx)).x;
+    for (uint i = 0; i < 512; i+=1) {
+        float count = _countHashGrid.read(uint2(local_idx, i)).x;
+        //float count = _countHashGrid.read(uint2(i, local_idx)).x;
         shared_memory[local_idx] += count;
-        //sum += count;
-        count = _countHashGrid.read(uint2(i+1, local_idx)).x;
-        shared_memory[local_idx] += count;
-        //sum += count;
     }
-    
-    //shared_memory[local_idx] = sum;
     
     threadgroup_barrier(mem_flags::mem_threadgroup);
     
     if (0 == local_idx) {
-        for (uint i = 1; i < 256; i++) {
+        for (uint i = 1; i < 508; i+=4) {
             shared_memory[0] += shared_memory[i];
+            shared_memory[0] += shared_memory[i+1];
+            shared_memory[0] += shared_memory[i+3];
+            shared_memory[0] += shared_memory[i+4];
         }
         _complex->photonSum += shared_memory[0];
         _complex->frame_count += 1;
@@ -506,7 +500,7 @@ kernelPhotonRefine(constant Complex*                _complex       [[buffer(0)]]
                    texture2d<float, access::read>  _marksHashGrid [[texture(0)]],
                    texture2d<float, access::read>  _countHashGrid [[texture(1)]],
                    
-                   texture2d<float, access::read>      inTexture [[texture(2)]],
+                   texture2d<float, access::read>       inTexture [[texture(2)]],
                    texture2d<float, access::write>     outTexture [[texture(3)]],
                    
                    uint2 thread_pos                  [[thread_position_in_grid]],
@@ -608,16 +602,10 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
     _cameraRecords[thread_idx].radius = QueryRadius;
     _cameraRecords[thread_idx].photonCount = QueryPhotonCount;
     
-    auto TotalPhotonNum = _complex->photonSum; //512 * 512 * (_complex->frame_count + 1);
-    auto maxPhotonNum = 512 * 512 * (_complex->frame_count + 1);
-    
-    //if (TotalPhotonNum > maxPhotonNum) {
-        //outTexture.write(float4(99999, TotalPhotonNum, maxPhotonNum, 1.0), thread_pos); return;
-    //}
+    auto TotalPhotonNum = _complex->photonSum;
     
     float3 color = float3(QueryFlux / (QueryRadius * QueryRadius * 3.141592 * TotalPhotonNum));
     //color = CETone(color, 1.0);
-    
     auto cache = inTexture.read(thread_pos).xyz;
     auto frame = _complex->frame_count - 1u;
     
