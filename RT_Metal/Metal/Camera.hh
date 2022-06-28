@@ -37,6 +37,8 @@ struct Complex {
     
     float photonHashScale;
     float photonHashNumber;
+    
+    uint32_t photonSum = 0;
 };
 
 #ifdef __METAL_VERSION__

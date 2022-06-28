@@ -49,8 +49,7 @@ struct Square {
         
         auto w = normalize(pos - lsr.p);
         
-        float v = 1.0;
-        //v = copysign(v, dot(w, lsr.n));
+        float v = 1.0;//v = copysign(v, dot(w, lsr.n));
         lsr.n[axis_k] = copysign(v, dot(w, lsr.n));
         lsr.p = offset_ray(lsr.p, lsr.n);
         

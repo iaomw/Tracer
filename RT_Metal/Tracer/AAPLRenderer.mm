@@ -79,8 +79,7 @@ const VertexWithUV canvas[] =
         
         id<MTLBuffer> _photonRecordBuffer;
         id<MTLBuffer> _photonHashedBuffer;
-        //id<MTLBuffer> _photonRadiusBuffer;
-        
+    
         id<MTLTexture>              _texturePhotonMark;
         id<MTLTexture>              _texturePhotonCount;
         
@@ -96,6 +95,7 @@ const VertexWithUV canvas[] =
         
         id<MTLComputePipelineState> _pipelineStatePhotonRecording;
         id<MTLComputePipelineState> _pipelineStatePhotonHashing;
+        id<MTLComputePipelineState> _pipelineStatePhotonSumming;
     
         id<MTLComputePipelineState> _pipelineStatePhotonRefine;
     
@@ -437,8 +437,8 @@ NSLog(@"Done  %fs", _time_e - _time_s);
                 BVH::buildNode(cube.box, cube.model_matrix, PrimitiveType::Cube, i, bvh_list);
             }
 
-        for (int i=4; i<7; i++) {
-        //for (int i=0; i<cornell_box.size(); i++) {
+        //for (int i=4; i<7; i++) {
+        for (int i=0; i<cornell_box.size(); i++) {
             auto& square = cornell_box[i];
             BVH::buildNode(square.boundingBOX, square.model_matrix, PrimitiveType::Square, i, bvh_list);
         }
@@ -706,19 +706,22 @@ NSLog(@"Done  %fs", _time_e - _time_s);
         
             let _kernelCameraRecording = [defaultLibrary newFunctionWithName:@"kernelCameraRecording"];
             _pipelineStateCameraRecording = [_device newComputePipelineStateWithFunction:_kernelCameraRecording error:&ERROR];
-            let _kernalCameraReducing = [defaultLibrary newFunctionWithName:@"kernelCameraReducing"];
-            _pipelineStateCameraReducing = [_device newComputePipelineStateWithFunction:_kernalCameraReducing error:&ERROR];
+            let _kernelCameraReducing = [defaultLibrary newFunctionWithName:@"kernelCameraReducing"];
+            _pipelineStateCameraReducing = [_device newComputePipelineStateWithFunction:_kernelCameraReducing error:&ERROR];
         
-            let _kernalPhotonParams = [defaultLibrary newFunctionWithName:@"kernelPhotonParams"];
-            _pipelineStatePhotonParams = [_device newComputePipelineStateWithFunction:_kernalPhotonParams error:&ERROR];
+            let _kernelPhotonParams = [defaultLibrary newFunctionWithName:@"kernelPhotonParams"];
+            _pipelineStatePhotonParams = [_device newComputePipelineStateWithFunction:_kernelPhotonParams error:&ERROR];
             let _kernelPhotonRadius = [defaultLibrary newFunctionWithName:@"kernelPhotonRadius"];
             _pipelineStatePhotonRadius = [_device newComputePipelineStateWithFunction:_kernelPhotonRadius error:&ERROR];
             
-            let _kernalPhotonRecording = [defaultLibrary newFunctionWithName:@"kernelPhotonRecording"];
-            _pipelineStatePhotonRecording = [_device newComputePipelineStateWithFunction:_kernalPhotonRecording error:&ERROR];
+            let _kernelPhotonRecording = [defaultLibrary newFunctionWithName:@"kernelPhotonRecording"];
+            _pipelineStatePhotonRecording = [_device newComputePipelineStateWithFunction:_kernelPhotonRecording error:&ERROR];
             
-            let _kernalPhotonHashing = [defaultLibrary newFunctionWithName:@"kernelPhotonHashing"];
-            _pipelineStatePhotonHashing = [_device newComputePipelineStateWithFunction:_kernalPhotonHashing error:&ERROR];
+            let _kernelPhotonHashing = [defaultLibrary newFunctionWithName:@"kernelPhotonHashing"];
+            _pipelineStatePhotonHashing = [_device newComputePipelineStateWithFunction:_kernelPhotonHashing error:&ERROR];
+        
+            let _kernelPhotonSumming = [defaultLibrary newFunctionWithName:@"kernelPhotonSumming"];
+            _pipelineStatePhotonSumming = [_device newComputePipelineStateWithFunction:_kernelPhotonSumming error:&ERROR];
         
             let _kernelPhotonRefine = [defaultLibrary newFunctionWithName:@"kernelPhotonRefine"];
             _pipelineStatePhotonRefine = [_device newComputePipelineStateWithFunction:_kernelPhotonRefine error:&ERROR];
@@ -802,8 +805,8 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 - (void)photonPrepare:(MTKView *)view
 {
     auto commandBuffer = [_commandQueue commandBuffer];
-    
     auto computeEncoder = [commandBuffer computeCommandEncoder];
+    
     [computeEncoder setComputePipelineState:_pipelineStateCameraRecording];
  
     let tex_index = predefined_index[_complex.frame_count % 2];
@@ -814,29 +817,36 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setTexture:_textureARNG atIndex: tex_index[2]];
     [computeEncoder setTexture:_textureBRNG atIndex: tex_index[3]];
     
-    memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
-    
-    if (self->_complex.frame_count > 3 || self->_complex.frame_count < 1) {
-        memcpy(_complex_buffer.contents, &_complex, sizeof(Complex));
+    if (view != nil) {
+        memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
+        if (self->_complex.frame_count > 3 || self->_complex.frame_count < 1) {
+            memcpy(_complex_buffer.contents, &_complex, sizeof(Complex));
+        }
     }
     
-    [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:0];
-    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
-    [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:2];
-    [computeEncoder setBuffer:_cameraBoundsBuffer offset:0 atIndex:3];
+    [computeEncoder setBuffer:_camera_buffer      offset:0 atIndex:0];
+    [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:1];
+    [computeEncoder setBuffer:_cameraBoundsBuffer offset:0 atIndex:2];
+    [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:3];
     
     [computeEncoder useHeap:_heap];
-    [computeEncoder setBuffer:_argumentBufferPri offset:0 atIndex:7];
-    [computeEncoder setBuffer:_argumentBufferEnv offset:0 atIndex:8];
-    [computeEncoder setBuffer:_argumentBufferPBR offset:0 atIndex:9];
+    [computeEncoder setBuffer:_argumentBufferPri  offset:0 atIndex:7];
+    [computeEncoder setBuffer:_argumentBufferEnv  offset:0 atIndex:8];
+    [computeEncoder setBuffer:_argumentBufferPBR  offset:0 atIndex:9];
     
-    let _threadGroupSize = MTLSizeMake(8, 8, 1);
-    let _threadGridSize = MTLSize {_textureA.width, _textureA.height, 1};
+    let _threadGroupSize = MTLSize {8, 8, 1};
+    let _threadGridSize = MTLSize {1920, 1080, 1};
     
     [computeEncoder dispatchThreads:_threadGridSize threadsPerThreadgroup:_threadGroupSize];
     
+    if (view == nil) {
+        [computeEncoder endEncoding];
+        [commandBuffer commit];
+        return;
+    }
+    
     [computeEncoder setComputePipelineState:_pipelineStateCameraReducing];
-    [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:0];
+    [computeEncoder setBuffer:_camera_buffer  offset:0 atIndex:0];
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
     
     uint data_bound = uint(_textureA.width * _textureA.height);
@@ -847,8 +857,8 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     auto thread_count = (uint)1 << (uint)floor(log2(data_bound));
     
-    auto _input = _cameraBoundsBuffer;
-    auto _output = _aremacBoundsBuffer;
+    auto _ping = _cameraBoundsBuffer;
+    auto _pong = _aremacBoundsBuffer;
     
     uint threadgroup_size = 256; uint step = (uint)floor(log2(threadgroup_size));
     
@@ -861,16 +871,16 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         data_bound = thread_count >> step; thread_count = data_bound >> 1;
         [computeEncoder setBytes:&data_bound length:sizeof(uint) atIndex:2];
 
-        std::swap(_input, _output);
+        std::swap(_ping, _pong);
 
-        [computeEncoder setBuffer:_input offset:0 atIndex:3];
-        [computeEncoder setBuffer:_output offset:0 atIndex:4];
+        [computeEncoder setBuffer:_ping offset:0 atIndex:3];
+        [computeEncoder setBuffer:_pong offset:0 atIndex:4];
 
     } while (thread_count > 0);
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonParams];
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:0];
-    [computeEncoder setBuffer:_output         offset:0 atIndex:1];
+    [computeEncoder setBuffer:_pong           offset:0 atIndex:1];
     [computeEncoder dispatchThreads:{1, 1, 1} threadsPerThreadgroup:{1, 1, 1}];
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRadius];
@@ -889,10 +899,10 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     let tex_index = predefined_index[_complex.frame_count % 2];
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRecording];
-    [computeEncoder setTexture:_textureARNG atIndex: tex_index[2]];
-    [computeEncoder setTexture:_textureBRNG atIndex: tex_index[3]];
+    [computeEncoder setTexture:_textureARNG atIndex: tex_index[0]];
+    [computeEncoder setTexture:_textureBRNG atIndex: tex_index[1]];
     
-    [computeEncoder setBuffer:_camera_buffer offset:0 atIndex:0];
+    [computeEncoder setBuffer:_camera_buffer  offset:0 atIndex:0];
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
     
     [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
@@ -905,7 +915,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder dispatchThreads:{512, 512, 1} threadsPerThreadgroup:{8, 8, 1}];
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonHashing];
-    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:1];
     [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
     [computeEncoder setBuffer:_photonHashedBuffer offset:0 atIndex:3];
     
@@ -928,18 +938,26 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [_photonCountRenderEncoder endEncoding];
     
     computeEncoder = [commandBuffer computeCommandEncoder];
-    [computeEncoder setComputePipelineState:_pipelineStatePhotonRefine];
+    
+    [computeEncoder setComputePipelineState:_pipelineStatePhotonSumming];
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:0];
+    [computeEncoder setTexture:_texturePhotonCount atIndex:0];
+    [computeEncoder dispatchThreads:{256, 1, 1} threadsPerThreadgroup:{256, 1, 1}];
+    
+    [computeEncoder setComputePipelineState:_pipelineStatePhotonRefine];
+    [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:0];
     [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:1];
     [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
     
-    [computeEncoder setTexture:_texturePhotonMark atIndex:0];
+    [computeEncoder setTexture:_texturePhotonMark  atIndex:0];
     [computeEncoder setTexture:_texturePhotonCount atIndex:1];
     
     if (_complex.frame_count % 2) {
-        [computeEncoder setTexture:self->_textureA atIndex:2];
-    } else {
         [computeEncoder setTexture:self->_textureB atIndex:2];
+        [computeEncoder setTexture:self->_textureA atIndex:3];
+    } else {
+        [computeEncoder setTexture:self->_textureA atIndex:2];
+        [computeEncoder setTexture:self->_textureB atIndex:3];
     }
     
     [computeEncoder dispatchThreads:{1920, 1080, 1} threadsPerThreadgroup:{8, 8, 1}];
@@ -964,6 +982,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         } else {
             let fcount = self->_complex.frame_count;
             self->_complex.frame_count = fcount + 1;
+//            if (fcount == 600) {
+//                self->_complex.frame_count = 0;
+//            }
         }
         //[self drag:simd_make_float2(1, 0) state:NO];
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
@@ -974,6 +995,10 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
             #endif
         }];
     }];
+    
+    //if (self->_complex.frame_count % 60 == 0) {
+        [self photonPrepare:nil];
+    //}
     
     //let tex_index = predefined_index[_complex.frame_count % 2];
     let renderPassDescriptor = _view.currentRenderPassDescriptor;

@@ -87,12 +87,8 @@ inline float3 ACESTone(float3 color, float adapted_lum)
     return (color * (A * color + B)) / (color * (C * color + D) + E);
 }
 
-inline float3 CETone(float3 color, float adapted_lum)
-{
-    return 1 - exp(-adapted_lum * color);
-}
-
-inline float CETone(float color, float adapted_lum)
+template <typename F>
+inline F CETone(F color, float adapted_lum)
 {
     return 1 - exp(-adapted_lum * color);
 }
