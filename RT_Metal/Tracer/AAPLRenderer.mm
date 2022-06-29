@@ -225,6 +225,7 @@ const VertexWithUV canvas[] =
         
         testMaterial.textureInfo.type = TextureType::Constant;
         testMaterial.textureInfo.albedo = float3 {1, 1, 1};
+        //testMaterial.specular = true;
         
         materials.emplace_back(testMaterial);
         
@@ -290,10 +291,10 @@ _time_s = [[NSDate date] timeIntervalSince1970];
         dispatch_apply(thread_count, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(size_t idx){
             
             pcg32_t seed;
-            seed.state = uint64_t(arc4random()) << 32 | arc4random();
-            seed.inc = uint64_t(arc4random()) << 32 | arc4random();
+            //seed.state = uint64_t(arc4random()) << 32 | arc4random();
+            //seed.inc = uint64_t(arc4random()) << 32 | arc4random();
             // seed = { arc4random(), arc4random() };
-            // seed = { pcg32_random(), pcg32_random() };
+            seed = { pcg32_random(), pcg32_random() };
             let offset = idx * thread_quota;
             
             for (int i=0; i<thread_quota; i++) {
@@ -449,10 +450,10 @@ NSLog(@"Done  %fs", _time_e - _time_s);
 //            BVH::buildNode(sphere.boundingBOX, sphere.model_matrix, PrimitiveType::Sphere, i, bvh_list);
 //        }
 
-            for (int i=0; i<cube_list.size()-1; i++) {
-                auto& cube = cube_list[i];
-                BVH::buildNode(cube.box, cube.model_matrix, PrimitiveType::Cube, i, bvh_list);
-            }
+        for (int i=0; i<cube_list.size()-1; i++) {
+            auto& cube = cube_list[i];
+            BVH::buildNode(cube.box, cube.model_matrix, PrimitiveType::Cube, i, bvh_list);
+        }
 
         //for (int i=4; i<7; i++) {
         for (int i=0; i<cornell_box.size(); i++) {
@@ -515,7 +516,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
             
             auto meshScale = 300.0 / maxDime;
             auto meshOffset = float3(278)-centroid;
-            meshOffset.y = 20 - minB.y * meshScale;
+            meshOffset.y = 100 - minB.y * meshScale;
         
             auto vertex_ptr = (MeshElement*) testMesh.vertexBuffers.firstObject.map.bytes;
             int totalIndexBufferLength = 0, triangleIndexOffset = 0;
@@ -562,7 +563,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                             ele->vy += meshOffset.y;
                             ele->vz += meshOffset.z;
                             
-                            ele->vx += 350;
+                            ele->vx += -200;
                         }
                         
                         auto max_x = std::max( {vertex_a->vx, vertex_b->vx, vertex_c->vx} );
@@ -856,8 +857,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     if (view == nil) {
         [computeEncoder endEncoding];
-        [commandBuffer commit];
-        return;
+        [commandBuffer commit]; return;
     }
     
     [computeEncoder setComputePipelineState:_pipelineStateCameraReducing];
@@ -998,13 +998,12 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         }];
     }];
     
-    if (self->_complex.frame_count % 600 == 0) {
+//    if (self->_complex.frame_count % 600 == 0) {
+//        [self photonPrepare:nil];
+//    } else {
         [self photonPrepare:nil];
-    } else {
-        [self photonPrepare:nil];
-    }
+//    }
 
-    //let tex_index = predefined_index[_complex.frame_count % 2];
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
     

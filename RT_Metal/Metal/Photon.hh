@@ -28,16 +28,27 @@ struct PhotonRecord {
 };
 
 struct CameraRecord {
-    float3 ratio;
-    float3 position;
-    float3 direction;
+    float3 ratio = 1;
+    float3 position = 0;
+    float3 direction = 0;
     
     bool valid = false;
 
     float3 flux = 0;
-    
     float radius = 0;
     uint photonCount = 0;
+    
+    void reset() {
+        ratio = 1;
+        position = 0;
+        direction = 0;
+        
+        valid = false;
+
+        flux = 0;
+        radius = 0;
+        photonCount = 0;
+    }
 };
 
 #ifdef __METAL_VERSION__

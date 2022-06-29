@@ -177,6 +177,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     
     metal.textureInfo.type = TextureType::Constant;
     metal.textureInfo.albedo = float3{0.8, 0.85, 0.88};
+    metal.specular = true;
     
     auto metal_index = (uint32_t)materials.size();
     materials.emplace_back(metal);
