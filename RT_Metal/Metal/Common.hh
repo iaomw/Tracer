@@ -13,8 +13,9 @@
         #define let __auto_type const
         #define var __auto_type
 
-        #include <MetalKit/MetalKit.h>
-        #include <simd/simd.h>
+        #import <simd/simd.h>
+        #import <Metal/Metal.h>
+        #import <MetalKit/MetalKit.h>
 
         typedef simd_float4x4 float4x4;
         typedef simd_float3x3 float3x3;

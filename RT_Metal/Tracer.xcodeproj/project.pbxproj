@@ -63,6 +63,8 @@
 		5795B58226E12F9600A09B05 /* minipbrt.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5795B58126E12F9600A09B05 /* minipbrt.cpp */; };
 		5795B58426E130E100A09B05 /* cloud in Resources */ = {isa = PBXBuildFile; fileRef = 5795B58326E130E100A09B05 /* cloud */; };
 		5795B58526E1345500A09B05 /* cloud in Resources */ = {isa = PBXBuildFile; fileRef = 5795B58326E130E100A09B05 /* cloud */; };
+		57B72C7D286E18E000958364 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57B72C7C286E18E000958364 /* MetalKit.framework */; };
+		57B72C7F286E18E600958364 /* MetalPerformanceShaders.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57B72C7E286E18E600958364 /* MetalPerformanceShaders.framework */; };
 		57C64C7824E149BD0054AB8C /* coatball in Resources */ = {isa = PBXBuildFile; fileRef = 57C64C7724E149BD0054AB8C /* coatball */; };
 		57C64C7924E14B920054AB8C /* coatball in Resources */ = {isa = PBXBuildFile; fileRef = 57C64C7724E149BD0054AB8C /* coatball */; };
 		57C64C7C24E1549B0054AB8C /* AAPLMesh.m in Sources */ = {isa = PBXBuildFile; fileRef = 57C64C7B24E1549B0054AB8C /* AAPLMesh.m */; };
@@ -134,6 +136,8 @@
 		57981F5A267A10770009FB22 /* Light.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Light.hh; sourceTree = "<group>"; };
 		57981F5D267B52080009FB22 /* Sampling.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Sampling.hh; sourceTree = "<group>"; };
 		5798730D2677B2FD007FB08D /* Spectrum.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Spectrum.hh; sourceTree = "<group>"; };
+		57B72C7C286E18E000958364 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		57B72C7E286E18E600958364 /* MetalPerformanceShaders.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalPerformanceShaders.framework; path = System/Library/Frameworks/MetalPerformanceShaders.framework; sourceTree = SDKROOT; };
 		57C64C7724E149BD0054AB8C /* coatball */ = {isa = PBXFileReference; lastKnownFileType = folder; path = coatball; sourceTree = "<group>"; };
 		57C64C7A24E1549A0054AB8C /* AAPLMesh.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = AAPLMesh.h; sourceTree = "<group>"; };
 		57C64C7B24E1549B0054AB8C /* AAPLMesh.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AAPLMesh.m; sourceTree = "<group>"; };
@@ -167,6 +171,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				57B72C7F286E18E600958364 /* MetalPerformanceShaders.framework in Frameworks */,
+				57B72C7D286E18E000958364 /* MetalKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -176,6 +182,8 @@
 		5701CE7524E591CE008F68BB /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				57B72C7E286E18E600958364 /* MetalPerformanceShaders.framework */,
+				57B72C7C286E18E000958364 /* MetalKit.framework */,
 				5701CE7624E591CE008F68BB /* SceneKit.framework */,
 			);
 			name = Frameworks;

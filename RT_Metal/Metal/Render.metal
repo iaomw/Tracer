@@ -32,6 +32,7 @@ fragmentShader(RasterizerData input [[stage_in]],
                
                texture2d<float> prevTexture [[texture(0)]],
                texture2d<float> thisTexture [[texture(1)]],
+               texture2d<float> denoised    [[texture(2)]],
                
                constant Complex*  sceneMeta [[buffer(0)]])
 
@@ -61,12 +62,16 @@ fragmentShader(RasterizerData input [[stage_in]],
     auto this_luma = dot(this_mip.rgb, float3(0.2126, 0.7152, 0.0722));
     
     auto tex_color = thisTexture.sample(textureSampler, scaled);
+    
+    if (scaled.x > 0.5) {
+        tex_color = denoised.sample(textureSampler, scaled);
+    }
+    
     float mapped = clamp(CETone(this_luma, 1.0f), 0.0, 0.99999);
     float expose = 1.0 - mapped;
     
     tex_color.rgb = ACESTone(tex_color.rgb, expose);
     //tex_color.rgb = LinearToSRGB(tex_color.rgb);
-    
     return tex_color;
 }
 

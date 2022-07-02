@@ -2,9 +2,9 @@
 This is simply a repository for my **Ray Tracing** code.
 
 # Requirement
-RT_Metal requires `Metal 2 Tier 2` device, typically any AMD GPU woking on macOS. **`Not tested on M1.`**
+RT_Metal requires `MTLArgumentBuffersTier2` device, typically any AMD GPU woking on macOS. **`Not tested on M1.`**
 
-It may work on Catalina and Mojave. I am avoiding using new APIs added since macOS 11, many of them don't work on my device.
+It may work on Catalina and Mojave. For compatibility, I am avoiding using new APIs added since macOS 11.
 
 ![](Captures/capture_s.jpg)
 
@@ -19,8 +19,10 @@ It may work on Catalina and Mojave. I am avoiding using new APIs added since mac
 
 ### Features:
 - [ ] [Metal Kernel](https://developer.apple.com/documentation/metal)
-    - [ ] MPS Acceleration & SVGF Denoise
-    - [x] Stackless BVH backtrace on GPU
+    - [ ] MPSRayIntersector & MPSSVGF
+    - [ ] AMD FidelityFX Super Resolution 2
+    - [x] GPUSPPM by Toshiya Hachisuka
+    - [x] Stackless BVH traversal on GPU
     - [x] Bindless resources
     - [x] pcg-random
 - [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
@@ -29,7 +31,7 @@ It may work on Catalina and Mojave. I am avoiding using new APIs added since mac
     - [ ] Halton Sampler
     - [x] Sobol’ Sampler
     - [ ] ***BVH*** 
-        - [x] SAH (Parallel recursion)
+        - [x] SAH, Parallel recursion
         - [ ] LBVHs, Morton Encoding
     - [x] Microfacet
         - [x] Beckmann
@@ -41,7 +43,7 @@ It may work on Catalina and Mojave. I am avoiding using new APIs added since mac
         - [x] Homogeneous Medium
         - [x] Heterogeneous Medium
         - [ ] BSSRDF
-    - [ ] Stochastic Progressive Photon Mapping
+    - [x] Stochastic Progressive Photon Mapping
     - [ ] Bidirectional Path Tracing
     - [ ] Metropolis Light Transport
     - [ ] Support pbrt-v3 file format 

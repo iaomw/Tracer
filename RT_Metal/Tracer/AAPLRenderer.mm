@@ -1,7 +1,9 @@
+#include "AAPLRenderer.hh"
+
 #import <SceneKit/SceneKit.h>
 #import <ModelIO/ModelIO.h>
 
-#include "AAPLRenderer.hh"
+#import <MetalPerformanceShaders/MetalPerformanceShaders.h>
 
 #include "pcg_basic.h"
 #include "minipbrt.h"
@@ -99,10 +101,17 @@ const VertexWithUV canvas[] =
     
         id<MTLComputePipelineState> _pipelineStatePhotonRefine;
     
+    MPSSVGF* objectSVGF;
+    MPSSVGFDenoiser* denoiserSVGF;
+    MPSSVGFDefaultTextureAllocator* textureAllocatorSVGF;
+    
+        id<MTLTexture> _colorTexture, _depthNormalTexture, _motionVectorTexture;
+        id<MTLTexture> colorTexture_, depthNormalTexture_, motionVectorTexture_;
+        id<MTLTexture> denoisedTexture;
+    
     id<MTLTexture> _textureA;
     id<MTLTexture> _textureB;
-    id<MTLTexture> _textureARNG;
-    id<MTLTexture> _textureBRNG;
+    id<MTLTexture> _textureCanvasRNG;
     id<MTLTexture> _texturePhotonRNG;
     
     id<MTLTexture> _textureUVT;
@@ -270,8 +279,7 @@ const VertexWithUV canvas[] =
         
         tdr.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
         
-        _textureARNG = [_device newTextureWithDescriptor:tdr];
-        _textureBRNG = [_device newTextureWithDescriptor:tdr];
+        _textureCanvasRNG = [_device newTextureWithDescriptor:tdr];
         
         tdr.width = 512; tdr.height = 512;
         _texturePhotonRNG = [_device newTextureWithDescriptor:tdr];
@@ -291,10 +299,10 @@ _time_s = [[NSDate date] timeIntervalSince1970];
         dispatch_apply(thread_count, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(size_t idx){
             
             pcg32_t seed;
-            //seed.state = uint64_t(arc4random()) << 32 | arc4random();
-            //seed.inc = uint64_t(arc4random()) << 32 | arc4random();
-            // seed = { arc4random(), arc4random() };
-            seed = { pcg32_random(), pcg32_random() };
+            seed.state = uint64_t(arc4random()) << 32 | arc4random();
+            seed.inc = uint64_t(arc4random()) << 32 | arc4random();
+            //seed = { arc4random(), arc4random() };
+            //seed = { pcg32_random(), pcg32_random() };
             let offset = idx * thread_quota;
             
             for (int i=0; i<thread_quota; i++) {
@@ -320,7 +328,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                          sourceBytesPerRow: sizeof(UInt32)*4 * width
                        sourceBytesPerImage: sizeof(UInt32)*4 * width * height
                                 sourceSize: { width, height, 1 }
-                                 toTexture: _textureARNG
+                                 toTexture: _textureCanvasRNG
                           destinationSlice: 0
                           destinationLevel: 0
                          destinationOrigin: {0,0,0}];
@@ -811,7 +819,44 @@ NSLog(@"Done  %fs", _time_e - _time_s);
     //CAMetalLayer *c = (CAMetalLayer*)view.layer;
     //c.displaySyncEnabled = NO;
     
+    [self setupAppleSVGF:_device];
+    
     return self;
+}
+
+- (void)setupAppleSVGF:(nonnull id<MTLDevice>)device {
+    
+    let _size = CGSizeMake(1920, 1080);
+    // Allocate the denoising kernels
+    objectSVGF = [[MPSSVGF alloc] initWithDevice:device];
+    // Configure SVGF properties
+    objectSVGF.channelCount = 3;
+    //objectSVGF.temporalWeighting = MPSTemporalWeightingAverage;
+    //objectSVGF.temporalReprojectionBlendFactor = 0.1f;
+    
+    // Create a custom texture allocator or use the default allocator
+    textureAllocatorSVGF = [[MPSSVGFDefaultTextureAllocator alloc] initWithDevice:device];
+    // Create the denoiser object
+    denoiserSVGF = [[MPSSVGFDenoiser alloc] initWithSVGF:objectSVGF textureAllocator:textureAllocatorSVGF];
+    
+    _colorTexture = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
+    _depthNormalTexture = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
+    _motionVectorTexture = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRG16Float width:_size.width height:_size.height];
+    
+    //colorTexture_ = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
+    //depthNormalTexture_ = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
+    //motionVectorTexture_ = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRG16Float width:_size.width height:_size.height];
+    //id <MTLTexture> depthTexture = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatDepth32Float width:_size.width height:_size.height];
+}
+
+- (void)processAppleSVGF:(id<MTLCommandBuffer>)_commandBuffer
+{
+    denoisedTexture = [denoiserSVGF encodeToCommandBuffer:_commandBuffer
+                                            sourceTexture:_colorTexture
+                                      motionVectorTexture:_motionVectorTexture
+                                       depthNormalTexture:_depthNormalTexture
+                               previousDepthNormalTexture:_depthNormalTexture];
+    //std::swap(depthNormalTexture_, _depthNormalTexture);
 }
 
 static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3, 2} };
@@ -829,9 +874,11 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     auto computeEncoder = [commandBuffer computeCommandEncoder];
     
     [computeEncoder setComputePipelineState:_pipelineStateCameraRecording];
-    [computeEncoder setTexture:_textureARNG atIndex:0];
-    [computeEncoder setTexture:_textureBRNG atIndex:1];
-    std::swap(_textureARNG, _textureBRNG);
+    [computeEncoder setTexture:_textureCanvasRNG atIndex:0];
+    [computeEncoder setTexture:_textureCanvasRNG atIndex:1];
+    
+    [computeEncoder setTexture:_depthNormalTexture atIndex:2];
+    [computeEncoder setTexture:_motionVectorTexture atIndex:3];
     
     if (view != nil) {
         memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
@@ -969,6 +1016,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     std::swap(_textureA, _textureB);
     [computeEncoder setTexture:_textureA atIndex:2];
     [computeEncoder setTexture:_textureB atIndex:3];
+    [computeEncoder setTexture:_colorTexture atIndex:4];
     
     [computeEncoder dispatchThreads:{1920, 1080, 1} threadsPerThreadgroup:{8, 8, 1}];
     [computeEncoder endEncoding];
@@ -998,12 +1046,12 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         }];
     }];
     
-//    if (self->_complex.frame_count % 600 == 0) {
-//        [self photonPrepare:nil];
-//    } else {
+    if(self->_complex.frame_count > 0) {
+        
         [self photonPrepare:nil];
-//    }
-
+        [self processAppleSVGF:commandBuffer];
+    }
+    
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
     
@@ -1017,8 +1065,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [renderEncoder setVertexBuffer:_canvas_buffer offset:0 atIndex:0];
     
     [renderEncoder setFragmentBuffer:_complex_buffer offset:0 atIndex:0];
-    [renderEncoder setFragmentTexture:_textureA atIndex: 0];
-    [renderEncoder setFragmentTexture:_textureB atIndex: 1];
+    [renderEncoder setFragmentTexture:_textureA atIndex:0];
+    [renderEncoder setFragmentTexture:_textureB atIndex:1];
+    [renderEncoder setFragmentTexture:denoisedTexture atIndex: 2];
     
     [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
     [renderEncoder endEncoding];
@@ -1118,8 +1167,8 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setTexture:_textureA atIndex: tex_index[0]];
     [computeEncoder setTexture:_textureB atIndex: tex_index[1]];
     
-    [computeEncoder setTexture:_textureARNG atIndex: tex_index[2]];
-    [computeEncoder setTexture:_textureBRNG atIndex: tex_index[3]];
+    [computeEncoder setTexture:_textureCanvasRNG atIndex: tex_index[2]];
+    [computeEncoder setTexture:_textureCanvasRNG atIndex: tex_index[3]];
     
     if (self->_complex.frame_count > 3 || self->_complex.frame_count < 1) {
         memcpy(_complex_buffer.contents, &_complex, sizeof(Complex));

@@ -1,7 +1,7 @@
 #include "Photon.hh"
 
 template <typename XSampler>
-bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
+bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler, thread float4& DN,
              
                        device CameraRecord& cr, thread float3& directLightToCamera,
                 
@@ -25,6 +25,9 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
         directLightToCamera = ratio * ambient.rgb;
         return false;
     } // miss hit
+    
+    DN.r = hitRecord.t;
+    DN.gba = hitRecord.sn;
     
     if ( packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse ) {
         auto le = packageEnv.materials[hitRecord.material].textureInfo.albedo;
@@ -95,6 +98,9 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
 kernel void
 kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0)]],
                       texture2d<uint32_t, access::write>      outRNG [[texture(1)]],
+                      
+                      texture2d<float, access::write>    depthNormal [[texture(2)]],
+                      texture2d<float, access::write>   motionVector [[texture(3)]],
              
                       uint2 thread_pos                  [[thread_position_in_grid]],
                       uint2 group_size                  [[threads_per_threadgroup]],
@@ -137,13 +143,16 @@ kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0
     
     device auto& cr = cameraRecord[idx];
     
-    float3 directLightToCamera = 0.0;
+    float3 directLightToCamera = 0.0; float4 DN = 0;
     
-    bool hasCameraRecord = traceCameraRecord(8, ray, rs,
+    bool hasCameraRecord = traceCameraRecord(8, ray, rs, DN,
                                              cr, directLightToCamera,
                                              packageEnv,
                                              packagePBR[1],
                                              primitives);
+    depthNormal.write(DN, thread_pos);
+    motionVector.write(float4(1, 1, 0, 1), thread_pos);
+    
     if (hasCameraRecord) {
         //cameraRecord[idx] = cr;
         cameraAABB[idx] = {cr.position, cr.position};
@@ -178,15 +187,15 @@ kernelCameraReducing(constant Camera*           camera [[buffer(0)]],
                      uint group_idx   [[ threadgroup_position_in_grid ]],
                      uint local_idx [[ thread_position_in_threadgroup ]],
                      
-                     uint grid_size               [[ threads_per_grid ]],
+                     uint batch_size              [[ threads_per_grid ]],
                      uint group_size       [[ threads_per_threadgroup ]] )
 {
     threadgroup AABB shared_memory[256];
     
-    if ( (thread_idx + grid_size) < bound[0] ) {
+    if ( (thread_idx + batch_size) < bound[0] ) {
         
         thread auto& a = inAABB[thread_idx];
-        thread auto& b = inAABB[thread_idx + grid_size];
+        thread auto& b = inAABB[thread_idx + batch_size];
 
         shared_memory[local_idx].mini = min(a.mini, b.mini);
         shared_memory[local_idx].maxi = max(a.maxi, b.maxi);
@@ -355,16 +364,14 @@ kernelPhotonRecording(texture2d<uint32_t, access::read>       inRNG [[texture(0)
 };
 
 kernel void
-kernelPhotonParams(device Complex*              complex [[buffer(0)]],
-                   device AABB*                 _bounds [[buffer(1)]])
+kernelPhotonParams(device Complex* x [[buffer(0)]],
+                   device AABB*    b [[buffer(1)]])
 {
-    device auto* x = complex;
-    
-    x->photonBox = _bounds[0];
+    x->photonBox = b[0];
     x->photonBoxSize = x->photonBox.maxi - x->photonBox.mini;
     
     x->photonInitialRadius = dot(x->photonBoxSize, float3(1.0/3.0));
-    x->photonInitialRadius *= 3.0 / 1920;
+    x->photonInitialRadius *= 3.0 / 2048;
     
     x->photonBox.mini -= float3(x->photonInitialRadius);
     x->photonBox.maxi += float3(x->photonInitialRadius);
@@ -479,11 +486,8 @@ kernelPhotonSumming(device Complex*                 _complex         [[buffer(0)
     threadgroup_barrier(mem_flags::mem_threadgroup);
     
     if (0 == local_idx) {
-        for (uint i = 1; i < 508; i+=4) {
+        for (uint i = 1; i < 512; i+=1) {
             shared_memory[0] += shared_memory[i];
-            shared_memory[0] += shared_memory[i+1];
-            shared_memory[0] += shared_memory[i+3];
-            shared_memory[0] += shared_memory[i+4];
         }
         _complex->photonSum += shared_memory[0];
         _complex->frame_count += 1;
@@ -501,6 +505,8 @@ kernelPhotonRefine(constant Complex*                _complex       [[buffer(0)]]
                    texture2d<float, access::read>       inTexture [[texture(2)]],
                    texture2d<float, access::write>     outTexture [[texture(3)]],
                    
+                   texture2d<float, access::write>  _colorTexture [[texture(4)]],
+                   
                    uint2 thread_pos                  [[thread_position_in_grid]],
                    uint2 group_size                  [[threads_per_threadgroup]],
                    uint2 grid_size                   [[threads_per_grid]])
@@ -515,6 +521,9 @@ kernelPhotonRefine(constant Complex*                _complex       [[buffer(0)]]
         
         auto result = (cache*frame + color) / (frame + 1);
         outTexture.write(float4(result, 1.0), thread_pos);
+        
+        _colorTexture.write(float4(result, 1.0), thread_pos);
+        
         return;
     }
 
@@ -597,24 +606,19 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
     QueryPhotonCount = QueryPhotonCount + _PhotonCount * alpha;
     QueryFlux = (QueryFlux + _Flux) * g;
     
-//outTexture.write(float4(QueryFlux , 1.0), thread_pos); return;
-
     _cameraRecords[thread_idx].flux = QueryFlux;
     _cameraRecords[thread_idx].radius = QueryRadius;
     _cameraRecords[thread_idx].photonCount = QueryPhotonCount;
     
     auto TotalPhotonNum = _complex->photonSum;
-    
-//outTexture.write(float4(QueryFlux , TotalPhotonNum), thread_pos); return;
-    
+        
     float3 color = float3(QueryFlux / (QueryRadius * QueryRadius * 3.141592 * TotalPhotonNum));
     //color = CETone(color, 1.0);
     auto cache = inTexture.read(thread_pos).xyz;
     auto frame = _complex->frame_count - 1u;
     
-//        outTexture.write(float4(color , 1.0), thread_pos);
-//        return;
-    
     float3 result = (cache*frame + color) / (frame+1);
     outTexture.write(float4(result, 1.0), thread_pos);
+    
+    _colorTexture.write(float4(result, 1.0), thread_pos);
 }

@@ -298,7 +298,7 @@ void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materia
     
     list.emplace_back(lightSource);
     
-    auto little = MakeSquare(1, float2{200, 300}, 2, float2{200, 300}, 0, -200);
+    auto little = MakeSquare(1, float2{200, 300}, 2, float2{200, 300}, 0, -300);
     little.material = light_index;
     list.emplace_back(little);
 }
