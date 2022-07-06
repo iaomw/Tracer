@@ -7,6 +7,7 @@
         using namespace metal;
 
         constexpr sampler textureSampler (mag_filter::linear, min_filter::linear, mip_filter::linear);
+        constexpr sampler photonSampler (mag_filter::nearest, min_filter::nearest, mip_filter::nearest);
         
     #else
 

@@ -67,7 +67,7 @@ fragmentShader(RasterizerData input [[stage_in]],
         tex_color = denoised.sample(textureSampler, scaled);
     }
     
-    float mapped = clamp(CETone(this_luma, 1.0f), 0.0, 0.99999);
+    float mapped = clamp(CETone(this_luma, 1.), 0., 0.9999);
     float expose = 1.0 - mapped;
     
     tex_color.rgb = ACESTone(tex_color.rgb, expose);

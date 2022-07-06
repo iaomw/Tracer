@@ -33,6 +33,7 @@ struct CameraRecord {
     float3 direction = 0;
     
     bool valid = false;
+    float3 alternative = 0;
 
     float3 flux = 0;
     float radius = 0;
@@ -57,8 +58,6 @@ inline float mod(float x, float y) {
     return x - y * floor(x/y);
 }
 
-//BufferSize * BufferSize = element count of the buffer
-//BufInfo = float4(BufferSize, BufferSize, 1.0/BufferSize, 1.0/BufferSize)
 inline float2 convert1Dto2D(const float t, const float BufInfo)
 {
     float2 tmp;
@@ -69,10 +68,9 @@ inline float2 convert1Dto2D(const float t, const float BufInfo)
     return tmp;
 }
 
-// HashNum = BufferSize * BufferSize;
-// HashNum - the number of elements in the buffer.
-inline float hash(const float3 idx, const float HashScale, const float HashNum)
+inline float hash(const float3 idx, const float HashScale, const float BufInfo)
 {
+    const float HashNum = BufInfo * BufInfo;
     // use the same procedure as GPURnd
     float4 n = float4(idx, idx.x + idx.y + idx.z) * 4194304.0 / HashScale;
 

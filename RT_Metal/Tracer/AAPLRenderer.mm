@@ -105,9 +105,8 @@ const VertexWithUV canvas[] =
     MPSSVGFDenoiser* denoiserSVGF;
     MPSSVGFDefaultTextureAllocator* textureAllocatorSVGF;
     
-        id<MTLTexture> _colorTexture, _depthNormalTexture, _motionVectorTexture;
-        id<MTLTexture> colorTexture_, depthNormalTexture_, motionVectorTexture_;
-        id<MTLTexture> denoisedTexture;
+        id<MTLTexture> _sourceSVGF, _depthNormalSVGF, _motionSVGF;
+        id<MTLTexture> _resultSVGF;
     
     id<MTLTexture> _textureA;
     id<MTLTexture> _textureB;
@@ -180,11 +179,12 @@ const VertexWithUV canvas[] =
         let vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
         let fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
         
-        #if TARGET_OS_OSX
-            let _commonStorageMode = MTLResourceStorageModeManaged;
-        #else
-            let _commonStorageMode = MTLResourceStorageModeShared;
-        #endif
+//        #if TARGET_OS_OSX
+//            let _commonStorageMode = MTLResourceStorageModeManaged;
+//        #else
+//            let _commonStorageMode = MTLResourceStorageModeShared;
+//        #endif
+        let _commonStorageMode = _device.hasUnifiedMemory? MTLResourceStorageModeShared:MTLResourceStorageModeManaged;
         
         _canvas_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: _commonStorageMode];
         
@@ -234,7 +234,8 @@ const VertexWithUV canvas[] =
         
         testMaterial.textureInfo.type = TextureType::Constant;
         testMaterial.textureInfo.albedo = float3 {1, 1, 1};
-        //testMaterial.specular = true;
+        testMaterial.specular = true;
+        testMaterial.eta = 1.5;
         
         materials.emplace_back(testMaterial);
         
@@ -281,7 +282,9 @@ const VertexWithUV canvas[] =
         
         _textureCanvasRNG = [_device newTextureWithDescriptor:tdr];
         
-        tdr.width = 512; tdr.height = 512;
+        auto hashN = _complex.photonHashN;
+        
+        tdr.width = hashN; tdr.height = hashN;
         _texturePhotonRNG = [_device newTextureWithDescriptor:tdr];
         
 NSLog(@"Processing RNG");
@@ -335,9 +338,9 @@ _time_s = [[NSDate date] timeIntervalSince1970];
         
         [blitCommandEncoder copyFromBuffer: _sourceBuffer
                               sourceOffset: 0
-                         sourceBytesPerRow: sizeof(UInt32)*4 * 512
-                       sourceBytesPerImage: sizeof(UInt32)*4 * 512 * 512
-                                sourceSize: { 512, 512, 1 }
+                         sourceBytesPerRow: sizeof(UInt32)*4 * hashN
+                       sourceBytesPerImage: sizeof(UInt32)*4 * hashN * hashN
+                                sourceSize: { hashN, hashN, 1 }
                                  toTexture: _texturePhotonRNG
                           destinationSlice: 0
                           destinationLevel: 0
@@ -524,7 +527,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
             
             auto meshScale = 300.0 / maxDime;
             auto meshOffset = float3(278)-centroid;
-            meshOffset.y = 100 - minB.y * meshScale;
+            meshOffset.y = 180 - minB.y * meshScale;
         
             auto vertex_ptr = (MeshElement*) testMesh.vertexBuffers.firstObject.map.bytes;
             int totalIndexBufferLength = 0, triangleIndexOffset = 0;
@@ -761,19 +764,19 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             _aremacBoundsBuffer = [_device newBufferWithLength:sizeof(AABB) * 4096
                                                        options:_commonStorageMode];
         
-            _photonRecordBuffer = [_device newBufferWithLength:sizeof(PhotonRecord) * 512 * 512
+            _photonRecordBuffer = [_device newBufferWithLength:sizeof(PhotonRecord) * hashN * hashN
                                                        options:_commonStorageMode];
             [_photonRecordBuffer setLabel:@"_photonRecordBuffer"];
         
-            _photonHashedBuffer = [_device newBufferWithLength:sizeof(float4) * 512 * 512
+            _photonHashedBuffer = [_device newBufferWithLength:sizeof(float4) * hashN * hashN
                                                        options:_commonStorageMode];
             [_photonHashedBuffer setLabel:@"_photonHashedBuffer"];
         
             // Set up a texture for rendering to and sampling from
             auto photonMarkDescription = [[MTLTextureDescriptor alloc] init];
             photonMarkDescription.textureType = MTLTextureType2D;
-            photonMarkDescription.width = 512;
-            photonMarkDescription.height = 512;
+            photonMarkDescription.width = hashN;
+            photonMarkDescription.height = hashN;
             photonMarkDescription.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
             
             photonMarkDescription.pixelFormat = MTLPixelFormatRGBA32Float;
@@ -839,9 +842,9 @@ NSLog(@"Done  %fs", _time_e - _time_s);
     // Create the denoiser object
     denoiserSVGF = [[MPSSVGFDenoiser alloc] initWithSVGF:objectSVGF textureAllocator:textureAllocatorSVGF];
     
-    _colorTexture = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
-    _depthNormalTexture = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
-    _motionVectorTexture = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRG16Float width:_size.width height:_size.height];
+    _sourceSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
+    _depthNormalSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
+    _motionSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRG16Float width:_size.width height:_size.height];
     
     //colorTexture_ = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
     //depthNormalTexture_ = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
@@ -851,11 +854,11 @@ NSLog(@"Done  %fs", _time_e - _time_s);
 
 - (void)processAppleSVGF:(id<MTLCommandBuffer>)_commandBuffer
 {
-    denoisedTexture = [denoiserSVGF encodeToCommandBuffer:_commandBuffer
-                                            sourceTexture:_colorTexture
-                                      motionVectorTexture:_motionVectorTexture
-                                       depthNormalTexture:_depthNormalTexture
-                               previousDepthNormalTexture:_depthNormalTexture];
+    _resultSVGF = [denoiserSVGF encodeToCommandBuffer:_commandBuffer
+                                            sourceTexture:_sourceSVGF
+                                      motionVectorTexture:_motionSVGF
+                                       depthNormalTexture:_depthNormalSVGF
+                               previousDepthNormalTexture:_depthNormalSVGF];
     //std::swap(depthNormalTexture_, _depthNormalTexture);
 }
 
@@ -868,17 +871,19 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     _complex.view_size = simd_make_float2(size.width, size.height);
 }
 
-- (void)photonPrepare:(MTKView *)view
+- (void)photonPrepare:(MTKView *)view commandBuffer:(id<MTLCommandBuffer>)commandBuffer
 {
-    auto commandBuffer = [_commandQueue commandBuffer];
+    if (commandBuffer == nil) {
+        commandBuffer = [_commandQueue commandBuffer];
+    }
     auto computeEncoder = [commandBuffer computeCommandEncoder];
     
     [computeEncoder setComputePipelineState:_pipelineStateCameraRecording];
     [computeEncoder setTexture:_textureCanvasRNG atIndex:0];
     [computeEncoder setTexture:_textureCanvasRNG atIndex:1];
     
-    [computeEncoder setTexture:_depthNormalTexture atIndex:2];
-    [computeEncoder setTexture:_motionVectorTexture atIndex:3];
+    [computeEncoder setTexture:_depthNormalSVGF atIndex:2];
+    [computeEncoder setTexture:_motionSVGF atIndex:3];
     
     if (view != nil) {
         memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
@@ -904,7 +909,8 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     if (view == nil) {
         [computeEncoder endEncoding];
-        [commandBuffer commit]; return;
+        //[commandBuffer commit];
+        return;
     }
     
     [computeEncoder setComputePipelineState:_pipelineStateCameraReducing];
@@ -973,14 +979,16 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setBuffer:_argumentBufferEnv offset:0 atIndex:8];
     [computeEncoder setBuffer:_argumentBufferPBR offset:0 atIndex:9];
     
-    [computeEncoder dispatchThreads:{512, 512, 1} threadsPerThreadgroup:{8, 8, 1}];
+    auto hashN = _complex.photonHashN;
+    
+    [computeEncoder dispatchThreads:{hashN, hashN, 1} threadsPerThreadgroup:{8, 8, 1}];
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonHashing];
     [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:1];
     [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
     [computeEncoder setBuffer:_photonHashedBuffer offset:0 atIndex:3];
     
-    [computeEncoder dispatchThreads:{512, 512, 1} threadsPerThreadgroup:{8, 8, 1}];
+    [computeEncoder dispatchThreads:{hashN, hashN, 1} threadsPerThreadgroup:{8, 8, 1}];
     [computeEncoder endEncoding];
     
     //[commandBuffer commit];
@@ -993,9 +1001,10 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     [_photonCountRenderEncoder setVertexBuffer:_photonHashedBuffer offset:0 atIndex:0];
     [_photonCountRenderEncoder setVertexBuffer:_photonRecordBuffer offset:0 atIndex:1];
+    [_photonCountRenderEncoder setVertexBuffer:_complex_buffer offset:0 atIndex:2];
     
     [_photonCountRenderEncoder drawPrimitives:MTLPrimitiveTypePoint
-                                  vertexStart:0 vertexCount:512*512];
+                                  vertexStart:0 vertexCount:hashN*hashN];
     [_photonCountRenderEncoder endEncoding];
     
     computeEncoder = [commandBuffer computeCommandEncoder];
@@ -1007,8 +1016,8 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRefine];
     [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:0];
-    [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:1];
-    [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
+    [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:1];
+    [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:2];
     
     [computeEncoder setTexture:_texturePhotonMark  atIndex:0];
     [computeEncoder setTexture:_texturePhotonCount atIndex:1];
@@ -1016,7 +1025,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     std::swap(_textureA, _textureB);
     [computeEncoder setTexture:_textureA atIndex:2];
     [computeEncoder setTexture:_textureB atIndex:3];
-    [computeEncoder setTexture:_colorTexture atIndex:4];
+    [computeEncoder setTexture:_sourceSVGF atIndex:4];
     
     [computeEncoder dispatchThreads:{1920, 1080, 1} threadsPerThreadgroup:{8, 8, 1}];
     [computeEncoder endEncoding];
@@ -1025,6 +1034,12 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [blit generateMipmapsForTexture:_textureB];
     [blit endEncoding];
     
+    if(self->_complex.frame_count > 0) {
+        
+        [self photonPrepare:nil commandBuffer:commandBuffer];
+        [self processAppleSVGF:commandBuffer];
+    }
+    
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
         // not on main thread
         if (self->_dragging) {
@@ -1032,9 +1047,6 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         } else {
             let fcount = self->_complex.frame_count;
             self->_complex.frame_count = fcount + 1;
-//            if (fcount == 600) {
-//                self->_complex.frame_count = 0;
-//            }
         }
         //[self drag:simd_make_float2(1, 0) state:NO];
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
@@ -1045,12 +1057,6 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
             #endif
         }];
     }];
-    
-    if(self->_complex.frame_count > 0) {
-        
-        [self photonPrepare:nil];
-        [self processAppleSVGF:commandBuffer];
-    }
     
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
@@ -1067,7 +1073,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [renderEncoder setFragmentBuffer:_complex_buffer offset:0 atIndex:0];
     [renderEncoder setFragmentTexture:_textureA atIndex:0];
     [renderEncoder setFragmentTexture:_textureB atIndex:1];
-    [renderEncoder setFragmentTexture:denoisedTexture atIndex: 2];
+    [renderEncoder setFragmentTexture:_resultSVGF atIndex: 2];
     
     [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
     [renderEncoder endEncoding];
@@ -1083,7 +1089,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     _complex.running_time = time - launchTime;
     
     if (_complex.frame_count == 0) {
-        [self photonPrepare:view];
+        [self photonPrepare:view commandBuffer:nil];
     }
     [self photonWork:view];
     

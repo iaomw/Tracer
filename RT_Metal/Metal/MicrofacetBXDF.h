@@ -536,7 +536,7 @@ struct GlassMaterial {
     MicrofacetReflection<Beckmann, FresnelDielectric> _mr;
     MicrofacetTransmission<Beckmann, FresnelDielectric> _mt;
     
-    float ratio = 0.5;
+    float ratio = 0.25;
     
     GlassMaterial(thread FresnelDielectric &fr, thread Beckmann &dist):
         _mr( kr, fr, dist ),
@@ -545,29 +545,31 @@ struct GlassMaterial {
     float3 F(const thread float3 &wo, const thread float3 &wi, const thread float2 &uu)  {
         
         if (uu[0] < ratio) {
-            float2 _uu = uu; _uu[0] = uu[0] * 2;
+            float2 _uu = uu; _uu[0] = uu[0] / ratio;
             return _mr.F(wo, wi, _uu);
         } else {
-            float2 _uu = uu; _uu[0] = uu[0] * 2 - 1;
+            float2 _uu = uu; _uu[0] = (uu[0] - ratio) / (1.0 - ratio);
             return _mt.F(wo, wi, _uu);
         }
     }
     
     float PDF(const thread float3 &wo, const thread float3 &wi, const thread float2 &uu)  {
         if (uu[0] < ratio) {
-            return _mr.PDF(wo, wi, uu);
+            float2 _uu = uu; _uu[0] = uu[0] / ratio;
+            return ratio * _mr.PDF(wo, wi, _uu);
         } else {
-            return _mt.PDF(wo, wi, uu);
+            float2 _uu = uu; _uu[0] = (uu[0] - ratio) / (1.0 - ratio);
+            return (1-ratio) * _mt.PDF(wo, wi, _uu);
         }
     }
     
     float3 S_F(const thread float3 &wo, thread float3 &wi, const thread float2 &uu, thread float &pdf)  {
         
         if (uu[0] < ratio) {
-            float2 _uu = uu; _uu[0] = uu[0] * 2;
+            float2 _uu = uu; _uu[0] = uu[0] / ratio;
             return _mr.S_F(wo, wi, _uu, pdf);
         } else {
-            float2 _uu = uu; _uu[0] = uu[0] * 2 - 1;
+            float2 _uu = uu; _uu[0] = (uu[0] - ratio) / (1.0 - ratio);
             return _mt.S_F(wo, wi, _uu, pdf);
         }
     }

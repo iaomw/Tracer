@@ -1,9 +1,9 @@
 #include "Photon.hh"
 
 template <typename XSampler>
-bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler, thread float4& DN,
-             
-                       device CameraRecord& cr, thread float3& directLightToCamera,
+bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
+                       
+                       thread float4& DN, thread CameraRecord& cr,
                 
                        constant PackageEnv& packageEnv,
                        constant PackagePBR& packagePBR,
@@ -13,34 +13,35 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler, 
     BxRecord scatRecord;
     
     Scene scene { primitives };
-    
     Spectrum ratio = Spectrum(1.0);
     
     bool hitted = scene.hit(ray, hitRecord, FLT_MAX);
     
-    if ( !hitted ) {
-        float3 sphereVector = ray.direction;
-        float2 uv = SampleSphericalMap(normalize(sphereVector));
-        auto ambient = packageEnv.texHDR.sample(textureSampler, uv);
-        directLightToCamera = ratio * ambient.rgb;
-        return false;
-    } // miss hit
-    
-    DN.r = hitRecord.t;
-    DN.gba = hitRecord.sn;
-    
-    if ( packageEnv.materials[hitRecord.material].type == MaterialType::Diffuse ) {
-        auto le = packageEnv.materials[hitRecord.material].textureInfo.albedo;
-        auto w = dot(-ray.direction, -hitRecord.gn);
-        directLightToCamera = ratio * le * abs(w);
-        return false;
-    } // light source
+    if (hitted) {
+        DN.r = hitRecord.t;
+        DN.gba = hitRecord.sn;
+    }
     
     do { // each ray
         
-        thread auto& material = packageEnv.materials[hitRecord.material];
+        if ( !hitted ) {
+            float3 sphereVector = ray.direction;
+            float2 uv = SampleSphericalMap(normalize(sphereVector));
+            auto ambient = packageEnv.texHDR.sample(textureSampler, uv);
+            cr.alternative = ratio * ambient.rgb;
+            return false;
+        } // miss hit
         
-        if ( material.specular == false ) {
+        constant auto& material = packageEnv.materials[hitRecord.material];
+        
+        if ( material.type == MaterialType::Diffuse ) {
+            auto le = material.textureInfo.albedo;
+            auto w = dot(-ray.direction, -hitRecord.gn);
+            cr.alternative = ratio * le * abs(w);
+            return false;
+        } // light source
+        
+        if ( !material.specular ) {
             
             cr.valid = true;
             cr.ratio = ratio;
@@ -50,45 +51,39 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler, 
             return true;
         }
         
-        float2 uu = xsampler.sample2D();
-        
-        const auto $origin = hitRecord.p;
-        auto _origin = offset_ray(hitRecord.p, hitRecord.sn);
-        
         float3 nx, ny;
         CoordinateSystem(hitRecord.sn, nx, ny);
         float3x3 stw = { nx, ny, hitRecord.sn };
         float3x3 wts = transpose(stw);
 
         // BXDF Sampling
-        float3 wi; float bxPDF;
+        float3 wi; float bxPDF = 0;
         float3 wo = wts * (-ray.direction);
         
-        //uu = xsampler.sample2D();
+        float2 uu = xsampler.sample2D();
         scatRecord.attenuation = material.S_F(wo, wi, hitRecord.uv, uu, bxPDF);
         scatRecord.bxPDF = bxPDF;
         if (bxPDF <= 0) {break;}
         
-        if (wi.z < 0) { // Transmission
-            wi = stw * wi;
-            ray.update(offset_ray($origin, -hitRecord.sn), wi);
-        } else { // do not change medium
-            ray.update(_origin, stw * wi);
-        }
+        auto pn = hitRecord.sn * copysign(1, wi.z);
+        auto _origin = offset_ray(hitRecord.p, pn);
+        ray.update(_origin, stw * wi);
         
         ratio *= scatRecord.attenuation / max(FLT_EPSILON, scatRecord.bxPDF);
+        
+        if ( any(isinf(ratio)) || any(isnan(ratio)) ) { ratio = 1.0; }
 
 //        { // Russian Roulette
 //            float3 xyz; RGBToXYZ(ratio, xyz);
 //            float p = xyz.y;   //max3(ratio);
-//            if (xsampler.random() > p) break;
+//            if (xsampler.random() > p) {break;}
 //            // Add the energy we 'lose'
 //            ratio *= 1.0f / p;
 //        }
         
         hitted = scene.hit(ray, hitRecord, FLT_MAX);
         
-    } while( (--depth) > 0 && hitted );
+    } while( (--depth) > 0 );
     
     return false;
 }
@@ -99,8 +94,8 @@ kernel void
 kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0)]],
                       texture2d<uint32_t, access::write>      outRNG [[texture(1)]],
                       
-                      texture2d<float, access::write>    depthNormal [[texture(2)]],
-                      texture2d<float, access::write>   motionVector [[texture(3)]],
+                      texture2d<float, access::write>        zNormal [[texture(2)]],
+                      texture2d<float, access::write>       motion2D [[texture(3)]],
              
                       uint2 thread_pos                  [[thread_position_in_grid]],
                       uint2 group_size                  [[threads_per_threadgroup]],
@@ -132,7 +127,6 @@ kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0
     pcg32_t rng = toRNG(rng_cache);
     
     //auto frame = complex->frame_count;
-        
     auto u = float(thread_pos.x)/inRNG.get_width();
     auto v = float(thread_pos.y)/inRNG.get_height();
     
@@ -141,33 +135,24 @@ kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0
     RandomSampler rs { &rng };
     auto ray = castRay(camera, u, v, &rs);
     
-    device auto& cr = cameraRecord[idx];
+    auto cr = cameraRecord[idx]; cr.valid = false;
     
-    float3 directLightToCamera = 0.0; float4 DN = 0;
+    float4 DN = 0;
     
-    bool hasCameraRecord = traceCameraRecord(8, ray, rs, DN,
-                                             cr, directLightToCamera,
+    bool hasCameraRecord = traceCameraRecord(8, ray, rs, DN, cr,
                                              packageEnv,
                                              packagePBR[1],
                                              primitives);
-    depthNormal.write(DN, thread_pos);
-    motionVector.write(float4(1, 1, 0, 1), thread_pos);
+    zNormal.write(DN, thread_pos);
+    motion2D.write(float4(1, 1, 0, 1), thread_pos);
     
     if (hasCameraRecord) {
-        //cameraRecord[idx] = cr;
         cameraAABB[idx] = {cr.position, cr.position};
-        
     } else {
-        
-        cr.ratio = 1;
-        cr.position = 0;
-        cr.direction = 0;
-        
-        cr.valid = false;
-        
         cameraAABB[idx] = {FLT_MAX, -FLT_MAX};
-        cameraRecord[idx].flux = directLightToCamera;
     }
+    
+    cameraRecord[idx] = cr;
     
     rng_cache = exRNG(rng);
     outRNG.write(rng_cache, thread_pos);
@@ -236,9 +221,9 @@ void tracePhotonRecord(thread Ray& ray, thread XSampler& xsampler,
     HitRecord hitRecord;
     BxRecord scatRecord;
     
+    Scene scene { primitives };
     Spectrum ratio = Spectrum(1.0);
     
-    Scene scene { primitives };
     bool hitted = scene.hit(ray, hitRecord, FLT_MAX);
     
     constant auto& material = packageEnv.materials[hitRecord.material];
@@ -248,8 +233,6 @@ void tracePhotonRecord(thread Ray& ray, thread XSampler& xsampler,
         return;
     }
     
-        float2 uu = xsampler.sample2D();
-        
         float3 nx, ny;
         CoordinateSystem(hitRecord.sn, nx, ny);
         float3x3 stw = { nx, ny, hitRecord.sn };
@@ -259,7 +242,7 @@ void tracePhotonRecord(thread Ray& ray, thread XSampler& xsampler,
         float3 wi; float bxPDF;
         float3 wo = wts * (-ray.direction);
         
-        //uu = xsampler.sample2D();
+        float2 uu = xsampler.sample2D();
         scatRecord.attenuation = material.S_F(wo, wi, hitRecord.uv, uu, bxPDF);
         scatRecord.bxPDF = bxPDF;
     
@@ -281,10 +264,10 @@ void tracePhotonRecord(thread Ray& ray, thread XSampler& xsampler,
             ratio *= 1.0f / p;
         }
     
-        auto pn = copysign(hitRecord.sn, wi.z);
+        auto pn = hitRecord.sn * copysign(1, wi.z);
     
         photonRecord.position = offset_ray(hitRecord.p, pn);
-        photonRecord.normal = hitRecord.sn;
+        photonRecord.normal = pn;
         photonRecord.direction = stw * wi;
         photonRecord.flux *= ratio;
         photonRecord.step += 1;
@@ -371,7 +354,7 @@ kernelPhotonParams(device Complex* x [[buffer(0)]],
     x->photonBoxSize = x->photonBox.maxi - x->photonBox.mini;
     
     x->photonInitialRadius = dot(x->photonBoxSize, float3(1.0/3.0));
-    x->photonInitialRadius *= 3.0 / 2048;
+    x->photonInitialRadius *= 3.0 / 4096;
     
     x->photonBox.mini -= float3(x->photonInitialRadius);
     x->photonBox.maxi += float3(x->photonInitialRadius);
@@ -399,7 +382,7 @@ kernelPhotonHashing(constant Complex*              complex [[buffer(1)]],
                     
                     uint2 thread_pos         [[thread_position_in_grid]],
                     uint2 group_size         [[threads_per_threadgroup]],
-                    uint2 grid_size                 [[threads_per_grid]] )
+                    uint2 grid_size                 [[threads_per_grid]])
 {
     size_t thread_idx = thread_pos.y * grid_size.x + thread_pos.x;
     float3 position = photonRecord[thread_idx].position;
@@ -408,8 +391,8 @@ kernelPhotonHashing(constant Complex*              complex [[buffer(1)]],
     
     float3 HashIndex = floor((position - complex->photonBox.mini) * HashScale);
     
-    auto hashed = hash( HashIndex, HashScale, 512 * 512);
-    float2 pos2DHashedGrid = convert1Dto2D(hashed, 512);
+    auto hashed = hash( HashIndex, HashScale, complex->photonHashN );
+    float2 pos2DHashedGrid = convert1Dto2D(hashed, complex->photonHashN);
     //float2 pos2D = as_type<float2>(thread_pos);
     float2 pos2D = (float2)(thread_pos);
     
@@ -427,17 +410,20 @@ struct PhotonMarkVSData
 vertex PhotonMarkVSData
 PhotonMarkVS(const uint vertexID [[ vertex_id ]],
              constant float4* vertices [[ buffer(0) ]],
-             constant PhotonRecord* photonRecord [[buffer(1)]])
+             constant PhotonRecord* photonRecord [[buffer(1)]],
+             constant Complex*      complex [[buffer(2)]] )
 {
     PhotonMarkVSData out;
+    
+    float hashN = complex->photonHashN;
     
     auto element = vertices[vertexID]; //
     auto photonPosition2DHashedGrid = element.zw;
     
     auto z = photonRecord[vertexID].active ? 0.5 : -1.0; // visible or not
     
-    photonPosition2DHashedGrid.y = 512 - photonPosition2DHashedGrid.y;
-    photonPosition2DHashedGrid = photonPosition2DHashedGrid * 2.0/512.0 - 1.0;
+    photonPosition2DHashedGrid.y = hashN - photonPosition2DHashedGrid.y;
+    photonPosition2DHashedGrid = photonPosition2DHashedGrid * 2.0/hashN - 1.0;
     
     out.position = float4(photonPosition2DHashedGrid, z, 1.0);
     //out.position.xyz = float3(0.5);
@@ -479,6 +465,9 @@ kernelPhotonSumming(device Complex*                 _complex         [[buffer(0)
     
     for (uint i = 0; i < 512; i+=1) {
         float count = _countHashGrid.read(uint2(local_idx, i)).x;
+        count += _countHashGrid.read(uint2(local_idx, i+512)).x;
+        count += _countHashGrid.read(uint2(local_idx+512, i)).x;
+        count += _countHashGrid.read(uint2(local_idx+512, i+512)).x;
         //float count = _countHashGrid.read(uint2(i, local_idx)).x;
         shared_memory[local_idx] += count;
     }
@@ -495,37 +484,38 @@ kernelPhotonSumming(device Complex*                 _complex         [[buffer(0)
 }
 
 kernel void
-kernelPhotonRefine(constant Complex*                _complex       [[buffer(0)]],
-                   device   CameraRecord*           _cameraRecords [[buffer(1)]],
-                   constant PhotonRecord*           _photonRecords [[buffer(2)]],
+kernelPhotonRefine(constant Complex*                 _complex       [[buffer(0)]],
+                   constant PhotonRecord*            _photonRecords [[buffer(1)]],
+                   device   CameraRecord*            _cameraRecords [[buffer(2)]],
                    
-                   texture2d<float, access::read>  _marksHashGrid [[texture(0)]],
-                   texture2d<float, access::read>  _countHashGrid [[texture(1)]],
+                   texture2d<float, access::sample> _marksHashGrid [[texture(0)]],
+                   texture2d<float, access::sample> _countHashGrid [[texture(1)]],
                    
-                   texture2d<float, access::read>       inTexture [[texture(2)]],
-                   texture2d<float, access::write>     outTexture [[texture(3)]],
+                   texture2d<float, access::read>        inTexture [[texture(2)]],
+                   texture2d<float, access::write>      outTexture [[texture(3)]],
                    
-                   texture2d<float, access::write>  _colorTexture [[texture(4)]],
+                   texture2d<float, access::write>      sourceSVGF [[texture(4)]],
                    
-                   uint2 thread_pos                  [[thread_position_in_grid]],
-                   uint2 group_size                  [[threads_per_threadgroup]],
-                   uint2 grid_size                   [[threads_per_grid]])
+                   uint2 thread_pos                   [[thread_position_in_grid]],
+                   uint2 group_size                   [[threads_per_threadgroup]],
+                   uint2 grid_size                    [[threads_per_grid]])
 {
     size_t thread_idx = thread_pos.y * grid_size.x + thread_pos.x;
     
     if (!_cameraRecords[thread_idx].valid) {
         
-        auto color = _cameraRecords[thread_idx].flux;
+        auto color = _cameraRecords[thread_idx].alternative;
         auto cache = inTexture.read(thread_pos).xyz;
         auto frame = _complex->frame_count - 1u;
         
         auto result = (cache*frame + color) / (frame + 1);
         outTexture.write(float4(result, 1.0), thread_pos);
-        
-        _colorTexture.write(float4(result, 1.0), thread_pos);
+        sourceSVGF.write(float4(result, 1.0), thread_pos);
         
         return;
     }
+    
+    float hashN = _complex->photonHashN;
 
     float3 QueryPosition = _cameraRecords[thread_idx].position;
     float3 QueryDirection = _cameraRecords[thread_idx].direction;
@@ -552,11 +542,13 @@ for (int iz = int(RangeMin.z); iz <= int(RangeMax.z); iz++)
         {
             
 float3 hashIndex = float3(ix, iy, iz);
-float hashed = hash(hashIndex, HashScale, 512 * 512);
-float2 HashedPhotonIndex2D = convert1Dto2D(hashed, 512);
-            HashedPhotonIndex2D -= 1.0;
+float hashed = hash(hashIndex, HashScale, hashN);
+float2 HashedPhotonIndex2D = convert1Dto2D(hashed, hashN);
+       HashedPhotonIndex2D -= 1.0;
+            
 float2 PhotonIndex2D = _marksHashGrid.read((uint2)(HashedPhotonIndex2D)).xy;
-uint PhotonIndex1D = (uint)PhotonIndex2D.y * 512 + (uint)(PhotonIndex2D.x);
+        //_marksHashGrid.sample(photonSampler, HashedPhotonIndex2D/1024).xy;
+uint PhotonIndex1D = (uint)PhotonIndex2D.y * hashN + (uint)(PhotonIndex2D.x);
             
             if (PhotonIndex1D == 0){
                 continue;
@@ -584,6 +576,7 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
     if ((d < QueryRadius) && (-dot(QueryDirection, PhotonDirection) > 0.001))
     {
         float Correction = _countHashGrid.read((uint2)HashedPhotonIndex2D).x;
+        //_countHashGrid.sample(photonSampler, HashedPhotonIndex2D/1024).x;
         
         _Flux += PhotonFlux * Correction;
         _PhotonCount += Correction;
@@ -620,5 +613,5 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
     float3 result = (cache*frame + color) / (frame+1);
     outTexture.write(float4(result, 1.0), thread_pos);
     
-    _colorTexture.write(float4(result, 1.0), thread_pos);
+    sourceSVGF.write(float4(result, 1.0), thread_pos);
 }

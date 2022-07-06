@@ -206,7 +206,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     materials.emplace_back(white);
     
     auto smaller = MakeCube(float3{0, 0, 0},
-                            float3{1, 1, 1}, white_index);
+                            float3{1, 1, 1}, 19);
     
     scale = scale4x4(165, 165, 165);
     translate = translation4x4(130, 1, 65);
@@ -271,7 +271,7 @@ void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materia
     auto white_index = (uint32_t)materials.size();
     materials.emplace_back(white);
     
-    auto lightSource = MakeSquare(0, float2{400, 555}, 2, float2{200, 355}, 1, 550);
+    auto lightSource = MakeSquare(0, float2{400, 555}, 2, float2{200, 355}, 1, 555-0.1);
     lightSource.material = light_index;
 
     auto right = MakeSquare(1, float2{0, 555}, 2, float2{0, 555}, 0, 800); //flip

@@ -30,14 +30,14 @@ struct Complex {
     float running_time;
     uint32_t frame_count;
     
+    uint32_t photonHashN = 1024;
+    
     AABB   photonBox;
     float3 photonBoxSize;
     
     float photonInitialRadius;
     
     float photonHashScale;
-    float photonHashNumber;
-    
     uint32_t photonSum = 0;
 };
 
