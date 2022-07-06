@@ -2,9 +2,11 @@
 This is simply a repository for my **Ray Tracing** code.
 
 # Requirement
-RT_Metal requires `MTLArgumentBuffersTier2` device, typically any AMD GPU woking on macOS. **`Not tested on M1.`**
+RT_Metal requires `MTLArgumentBuffersTier2` device, typically any AMD GPU woking on macOS. 
 
-It may work on Catalina and Mojave. For compatibility, I am avoiding using new APIs added since macOS 11.
+**`Not tested on M1.`**
+
+It may work on macOS 10.15. For compatibility, I am avoiding using new APIs added since macOS 11.
 
 ![](Captures/capture_s.jpg)
 
@@ -20,11 +22,15 @@ It may work on Catalina and Mojave. For compatibility, I am avoiding using new A
 ### Features:
 - [ ] [Metal Kernel](https://developer.apple.com/documentation/metal)
     - [ ] MPSRayIntersector & MPSSVGF
-    - [ ] AMD FidelityFX Super Resolution 2
+    - [ ] FidelityFX Super Resolution 2.0
     - [x] GPUSPPM by Toshiya Hachisuka
+        - [x] Parallel Reduction
+        - [x] Spatial Hash Grids
     - [x] Stackless BVH traversal on GPU
     - [x] Bindless resources
+    - [x] ACES tone, Auto exposure
     - [x] pcg-random
+    - [ ] Blue noise
 - [ ] [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
     - [x] A Fast and Robust Method for Avoiding Self-Intersection
 - [ ] [**Physically Based Rendering,** __*Third Edition*__](http://www.pbr-book.org/)
@@ -39,6 +45,7 @@ It may work on Catalina and Mojave. For compatibility, I am avoiding using new A
     - [ ] IEEE 754 float rounding error
     - [x] Multiple importance sampling
     - [ ] Ray Differential
+    - [ ] Infinite Area Lights
     - [ ] Volume Rendering
         - [x] Homogeneous Medium
         - [x] Heterogeneous Medium
