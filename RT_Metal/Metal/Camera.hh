@@ -28,9 +28,7 @@ struct Complex {
     float2 tex_size;
     float2 view_size;
     float running_time;
-    uint32_t frame_count;
-    
-    uint32_t photonHashN = 1024;
+    uint32_t frame_count=0;
     
     AABB   photonBox;
     float3 photonBoxSize;
@@ -38,7 +36,13 @@ struct Complex {
     float photonInitialRadius;
     
     float photonHashScale;
+    
+#ifdef __METAL_VERSION__
+    volatile atomic_uint photonSum {0};
+#else
     uint32_t photonSum = 0;
+#endif
+    uint32_t pSUM = 0;
 };
 
 #ifdef __METAL_VERSION__
