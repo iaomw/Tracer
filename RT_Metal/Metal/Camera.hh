@@ -38,11 +38,11 @@ struct Complex {
     float photonHashScale;
     
 #ifdef __METAL_VERSION__
-    volatile atomic_uint photonSum {0};
+    volatile atomic_uint framePhotonSum {0};
 #else
-    uint32_t photonSum = 0;
+    uint32_t framePhotonSum = 0;
 #endif
-    uint32_t pSUM = 0;
+    float totalPhotonSum = 0;
 };
 
 #ifdef __METAL_VERSION__

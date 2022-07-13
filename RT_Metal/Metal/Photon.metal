@@ -457,17 +457,19 @@ kernelPhotonSumming(device Complex*                _complex         [[buffer(0)]
                     uint2 batch_size                       [[ threads_per_grid ]],
                     uint2 group_size                [[ threads_per_threadgroup ]])
 {
-    threadgroup float shared_memory[64]; uint bound = 64 >> 1;
-    
-//    if(thread_pos.x == 0 && thread_pos.y == 0) {
-//        atomic_store_explicit(&_complex->photonSum, 0, memory_order_relaxed);
-//    }
+    threadgroup uint shared_memory[64]; uint bound = 64 >> 1;
     
     uint local_i = local_pos.y * group_size.x + local_pos.x;
-    auto count = _countHashGrid.read(thread_pos).x;
+    float count = _countHashGrid.read(thread_pos).x;
+    //count = round(count);
     
-    shared_memory[local_i] = count;
+    if (count > 0) {
+        shared_memory[local_i] = max(1u, (uint)count);
+    } else {
+        shared_memory[local_i] = 0;
+    }
     
+    //shared_memory[local_i] = max(1u, (uint)count);
     threadgroup_barrier(mem_flags::mem_threadgroup);
     
     while(bound > 0) {
@@ -475,47 +477,12 @@ kernelPhotonSumming(device Complex*                _complex         [[buffer(0)]
         if (local_i < bound) {
             shared_memory[local_i] += shared_memory[local_i+bound];
         }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
         bound = bound >> 1;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
     }
     
     if (0 == local_i) {
-        atomic_fetch_add_explicit(&_complex->photonSum, (uint)shared_memory[0], memory_order_relaxed);
-        //if(thread_pos.x == 0 && thread_pos.y == 0) { _complex->frame_count += 1; }
-    }
-}
-
-kernel void
-kernelPhotonSumming2(device Complex*                _complex         [[buffer(0)]],
-                    texture2d<float, access::read>  _countHashGrid  [[texture(0)]],
-                    
-                    uint thread_idx                  [[ thread_position_in_grid ]],
-                    uint group_idx              [[ threadgroup_position_in_grid ]],
-                    uint local_idx            [[ thread_position_in_threadgroup ]],
-                      
-                    uint batch_size                          [[ threads_per_grid ]],
-                    uint group_size                  [[ threads_per_threadgroup ]])
-{
-    threadgroup float shared_memory[512];
-    shared_memory[local_idx] = 0.0;
-    
-    for (uint i = 0; i < 512; i+=1) {
-        float count = _countHashGrid.read(uint2(local_idx, i)).x;
-        count += _countHashGrid.read(uint2(local_idx, i+512)).x;
-        count += _countHashGrid.read(uint2(local_idx+512, i)).x;
-        count += _countHashGrid.read(uint2(local_idx+512, i+512)).x;
-        //float count = _countHashGrid.read(uint2(i, local_idx)).x;
-        shared_memory[local_idx] += count;
-    }
-    
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    
-    if (0 == local_idx) {
-        for (uint i = 1; i < 512; i+=1) {
-            shared_memory[0] += shared_memory[i];
-        }
-        _complex->pSUM += shared_memory[0];
-        //_complex->frame_count += 1;
+        atomic_fetch_add_explicit(&_complex->framePhotonSum, shared_memory[0], memory_order_relaxed);
     }
 }
 
@@ -632,7 +599,8 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
     _cameraRecords[thread_idx].photonCount = QueryPhotonCount;
     
     //uint32_t TotalPhotonNum = _complex->photonSum;
-    auto TotalPhotonNum = atomic_load_explicit(&_complex->photonSum, memory_order_relaxed);
+    float TotalPhotonNum = _complex->totalPhotonSum;
+    TotalPhotonNum += atomic_load_explicit(&_complex->framePhotonSum, memory_order_relaxed);
     
     float3 color = float3(QueryFlux / (QueryRadius * QueryRadius * 3.141592 * TotalPhotonNum));
     //color = CETone(color, 1.0);

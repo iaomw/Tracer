@@ -102,8 +102,6 @@ uint32_t photonHashN = PHOTON_HASHN;
         id<MTLComputePipelineState> _pipelineStatePhotonRecording;
         id<MTLComputePipelineState> _pipelineStatePhotonHashing;
         id<MTLComputePipelineState> _pipelineStatePhotonSumming;
-        id<MTLComputePipelineState> _pipelineStatePhotonSumming2;
-    
         id<MTLComputePipelineState> _pipelineStatePhotonRefine;
     
     MPSSVGF* objectSVGF;
@@ -752,9 +750,6 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             let _kernelPhotonSumming = [defaultLibrary newFunctionWithName:@"kernelPhotonSumming"];
             _pipelineStatePhotonSumming = [_device newComputePipelineStateWithFunction:_kernelPhotonSumming error:&ERROR];
         
-        let _kernelPhotonSumming2 = [defaultLibrary newFunctionWithName:@"kernelPhotonSumming2"];
-        _pipelineStatePhotonSumming2 = [_device newComputePipelineStateWithFunction:_kernelPhotonSumming2 error:&ERROR];
-        
             let _kernelPhotonRefine = [defaultLibrary newFunctionWithName:@"kernelPhotonRefine"];
             _pipelineStatePhotonRefine = [_device newComputePipelineStateWithFunction:_kernelPhotonRefine error:&ERROR];
         
@@ -1011,11 +1006,6 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder dispatchThreads:{photonHashN, photonHashN, 1} threadsPerThreadgroup:{8, 8, 1}];
     //newTextureViewWithPixelFormat // write into mipmap
     
-    [computeEncoder setComputePipelineState:_pipelineStatePhotonSumming2];
-    [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:0];
-    [computeEncoder setTexture:_texturePhotonCount atIndex:0];
-    [computeEncoder dispatchThreads:{512, 1, 1} threadsPerThreadgroup:{512, 1, 1}];
-    
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRefine];
     [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:0];
     [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:1];
@@ -1036,18 +1026,19 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [blit generateMipmapsForTexture:_textureB];
     [blit endEncoding];
     
-    auto dumm = (Complex*)(_complex_buffer.contents);
-    dumm->frame_count += 1;
     if(self->_complex.frame_count > 0) {
         //[self processAppleSVGF:commandBuffer];
         [self photonPrepare:nil commandBuffer:commandBuffer];
     }
     
-    if (dumm->photonSum != dumm->pSUM) {
-        NSLog(@"********************* %d %d", dumm->photonSum, dumm->pSUM);
-    }
+    auto dumm = (Complex*)(_complex_buffer.contents);
     
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
+        
+        dumm->totalPhotonSum += dumm->framePhotonSum;
+        dumm->framePhotonSum = 0;
+        dumm->frame_count += 1;
+        
         // not on main thread
         if (self->_dragging) {
             self->_complex.frame_count = 0;
