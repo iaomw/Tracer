@@ -1,7 +1,7 @@
 #ifndef Common_h
 #define Common_h
 
-    #define PHOTON_HASHN 1024
+    #define PHOTON_HASHN 512
 
     #ifdef __METAL_VERSION__
 

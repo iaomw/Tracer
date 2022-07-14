@@ -288,63 +288,58 @@ uint32_t photonHashN = PHOTON_HASHN;
 NSLog(@"Processing RNG");
 _time_s = [[NSDate date] timeIntervalSince1970];
         
-        uint32_t pixel_count = _width * _height * 4;
-        uint32_t* pixel_seed = (uint32_t*)malloc(pixel_count*sizeof(uint32_t));
-        
-        typedef struct pcg_state_setseq_64 pcg32_t;
-        
-        var thread_count = (uint32_t) [[NSProcessInfo processInfo] activeProcessorCount];
-        var thread_quota = pixel_count / thread_count;
-        var thread_remai = pixel_count % thread_count;
-        
-        dispatch_apply(thread_count, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(size_t idx){
-            
-            pcg32_t seed;
-            //seed.state = uint64_t(arc4random()) << 32 | arc4random();
-            //seed.inc = uint64_t(arc4random()) << 32 | arc4random();
-            seed = { arc4random(), arc4random() };
-            //seed = { pcg32_random(), pcg32_random() };
-            let offset = idx * thread_quota;
-            
-            for (int i=0; i<thread_quota; i++) {
-                pixel_seed[offset + i] = pcg32_random_r(&seed); //pcg32_random();
-            }
-        });
-        
-        for (int i=0; i<thread_remai; i++) {
-            pixel_seed[pixel_count-1-i] = pcg32_random();
-        }
-        //for (int i = 0; i < count; i++) { seeds[i] = arc4random(); }
-        
-        let _sourceBuffer = [_device newBufferWithBytes: pixel_seed
-                                                 length: sizeof(UInt32)*4*_width*_height
-                                                options: MTLResourceStorageModeShared];
-        free(pixel_seed);
-        
         let commandBuffer = [_commandQueue commandBuffer];
-        let blitCommandEncoder = [commandBuffer blitCommandEncoder];
+        var thread_count = (uint32_t) [[NSProcessInfo processInfo] activeProcessorCount];
         
-        [blitCommandEncoder copyFromBuffer: _sourceBuffer
-                              sourceOffset: 0
-                         sourceBytesPerRow: sizeof(UInt32)*4 * _width
-                       sourceBytesPerImage: sizeof(UInt32)*4 * _width * _height
-                                sourceSize: { _width, _height, 1 }
-                                 toTexture: _textureCanvasRNG
-                          destinationSlice: 0
-                          destinationLevel: 0
-                         destinationOrigin: {0,0,0}];
+        auto fillRNG = [&](id<MTLTexture> theTexture) {
+            
+            size_t rng_count = theTexture.width * theTexture.height * 4;
+            uint32_t* pixel_seed = (uint32_t*)malloc(rng_count*sizeof(uint32_t));
+            
+            var thread_quota = rng_count / thread_count;
+            var thread_remai = rng_count % thread_count;
+            
+            typedef struct pcg_state_setseq_64 pcg32_t;
+            
+            dispatch_apply(thread_count, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(size_t idx){
+                
+                pcg32_t seed;
+                //seed.state = uint64_t(arc4random()) << 32 | arc4random();
+                //seed.inc = uint64_t(arc4random()) << 32 | arc4random();
+                seed = { arc4random(), arc4random() };
+                //seed = { pcg32_random(), pcg32_random() };
+                let offset = idx * thread_quota;
+                
+                for (int i=0; i<thread_quota; i++) {
+                    pixel_seed[offset + i] = pcg32_random_r(&seed); //pcg32_random();
+                }
+            });
+            
+            for (int i=0; i<thread_remai; i++) {
+                pixel_seed[rng_count-1-i] = pcg32_random();
+            }
         
-        [blitCommandEncoder copyFromBuffer: _sourceBuffer
-                              sourceOffset: 0
-                         sourceBytesPerRow: sizeof(UInt32)*4 * photonHashN
-                       sourceBytesPerImage: sizeof(UInt32)*4 * photonHashN * photonHashN
-                                sourceSize: { photonHashN, photonHashN, 1 }
-                                 toTexture: _texturePhotonRNG
-                          destinationSlice: 0
-                          destinationLevel: 0
-                         destinationOrigin: {0,0,0}];
+            let _sourceBuffer = [_device newBufferWithBytes: pixel_seed
+                                                     length: sizeof(UInt32) * rng_count
+                                                    options: MTLResourceStorageModeShared];
+            free(pixel_seed);
+            
+            let blitCommandEncoder = [commandBuffer blitCommandEncoder];
+            
+            [blitCommandEncoder copyFromBuffer: _sourceBuffer
+                                  sourceOffset: 0
+                             sourceBytesPerRow: sizeof(UInt32)*4 * theTexture.width
+                           sourceBytesPerImage: sizeof(UInt32) * rng_count
+                                    sourceSize: { theTexture.width, theTexture.height, 1 }
+                                     toTexture: theTexture
+                              destinationSlice: 0
+                              destinationLevel: 0
+                             destinationOrigin: {0,0,0}];
+            [blitCommandEncoder endEncoding];
+        };
         
-        [blitCommandEncoder endEncoding];
+        fillRNG(_textureCanvasRNG);
+        fillRNG(_texturePhotonRNG);
         
 _time_e = [[NSDate date] timeIntervalSince1970];
 NSLog(@"Done  %fs", _time_e - _time_s);
@@ -537,8 +532,8 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                 auto tr_count = (uint)(index_count/3);
                 //thread_count = 8;
                 
-                thread_quota = tr_count / thread_count;
-                thread_remai = tr_count % thread_count;
+                auto thread_quota = tr_count / thread_count;
+                auto thread_remai = tr_count % thread_count;
                 
                 auto old_size = (uint)bvh_list.size();
                 bvh_list.reserve(old_size + tr_count);
@@ -1022,9 +1017,11 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder dispatchThreads:{_width, _height, 1} threadsPerThreadgroup:{8, 8, 1}];
     [computeEncoder endEncoding];
     
-    let blit = [commandBuffer blitCommandEncoder];
-    [blit generateMipmapsForTexture:_textureB];
-    [blit endEncoding];
+    {
+        let blit = [commandBuffer blitCommandEncoder];
+        [blit generateMipmapsForTexture:_textureB];
+        [blit endEncoding];
+    }
     
     if(self->_complex.frame_count > 0) {
         //[self processAppleSVGF:commandBuffer];
@@ -1043,12 +1040,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         if (self->_dragging) {
             self->_complex.frame_count = 0;
         } else {
-            let fcount = self->_complex.frame_count;
-            self->_complex.frame_count = fcount + 1;
+            self->_complex.frame_count += 1;
         }
-        //dumm->frame_count = self->_complex.frame_count;
-        //NSLog(@"Done  %d", _complex.frame_count);
-        
+        dumm->frame_count = self->_complex.frame_count;
         //[self drag:simd_make_float2(1, 0) state:NO];
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
             #if TARGET_OS_OSX

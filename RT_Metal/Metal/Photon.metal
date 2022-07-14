@@ -12,6 +12,8 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
     HitRecord hitRecord;
     BxRecord scatRecord;
     
+    cr.valid = false;
+    
     Scene scene { primitives };
     Spectrum ratio = Spectrum(1.0);
     
@@ -127,7 +129,7 @@ kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0
     auto rng_cache = inRNG.read(thread_pos);
     pcg32_t rng = toRNG(rng_cache);
     
-    //auto frame = complex->frame_count;
+    auto frame = complex->frame_count;
     auto u = float(thread_pos.x)/inRNG.get_width();
     auto v = float(thread_pos.y)/inRNG.get_height();
     
@@ -137,7 +139,12 @@ kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0
     
     RandomSampler rs { &rng };
     auto ray = castRay(camera, u, v, &rs);
-    auto cr = cameraRecord[idx]; cr.valid = false;
+    
+    auto cr = cameraRecord[idx];
+    
+    if (frame == 0) {
+        cr.reset();
+    }
     
     bool hasCameraRecord = traceCameraRecord(8, ray, rs, zN, cr,
                                              packageEnv,
