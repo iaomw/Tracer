@@ -953,6 +953,11 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 - (void)photonWork:(MTKView *)view
 {
     auto commandBuffer = [_commandQueue commandBuffer]; //commandBuffer.label = @"name";
+    
+    if(self->_complex.frame_count > 0) {
+        [self photonPrepare:nil commandBuffer:commandBuffer];
+    }
+    
     auto computeEncoder = [commandBuffer computeCommandEncoder];
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRecording];
@@ -1023,10 +1028,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         [blit endEncoding];
     }
     
-    if(self->_complex.frame_count > 0) {
-        //[self processAppleSVGF:commandBuffer];
-        [self photonPrepare:nil commandBuffer:commandBuffer];
-    }
+    [self processAppleSVGF:commandBuffer];
     
     auto dumm = (Complex*)(_complex_buffer.contents);
     
