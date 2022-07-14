@@ -3,7 +3,7 @@
 template <typename XSampler>
 bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
                        
-                       thread float4& DN, thread CameraRecord& cr,
+                       thread float4& zN, thread CameraRecord& cr,
                 
                        constant PackageEnv& packageEnv,
                        constant PackagePBR& packagePBR,
@@ -12,14 +12,16 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
     HitRecord hitRecord;
     BxRecord scatRecord;
     
+    cr.valid = false;
+    
     Scene scene { primitives };
     Spectrum ratio = Spectrum(1.0);
     
     bool hitted = scene.hit(ray, hitRecord, FLT_MAX);
     
     if (hitted) {
-        DN.r = hitRecord.t;
-        DN.gba = hitRecord.sn;
+        zN.r = hitRecord.t;
+        zN.gba = hitRecord.sn;
     }
     
     do { // each ray
@@ -85,6 +87,7 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
         
     } while( (--depth) > 0 );
     
+    cr.alternative = 0;
     return false;
 }
 
@@ -126,24 +129,28 @@ kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0
     auto rng_cache = inRNG.read(thread_pos);
     pcg32_t rng = toRNG(rng_cache);
     
-    //auto frame = complex->frame_count;
+    auto frame = complex->frame_count;
     auto u = float(thread_pos.x)/inRNG.get_width();
     auto v = float(thread_pos.y)/inRNG.get_height();
     
     auto idx = thread_pos.x + thread_pos.y * grid_size.x;
     
+    float4 zN = 0;
+    
     RandomSampler rs { &rng };
     auto ray = castRay(camera, u, v, &rs);
     
-    auto cr = cameraRecord[idx]; cr.valid = false;
+    auto cr = cameraRecord[idx];
     
-    float4 DN = 0;
+    if (frame == 0) {
+        cr.reset();
+    }
     
-    bool hasCameraRecord = traceCameraRecord(8, ray, rs, DN, cr,
+    bool hasCameraRecord = traceCameraRecord(8, ray, rs, zN, cr,
                                              packageEnv,
                                              packagePBR[1],
                                              primitives);
-    zNormal.write(DN, thread_pos);
+    zNormal.write(zN, thread_pos);
     motion2D.write(float4(1, 1, 0, 1), thread_pos);
     
     if (hasCameraRecord) {
@@ -191,7 +198,7 @@ kernelCameraReducing(constant Camera*           camera [[buffer(0)]],
     
     threadgroup_barrier(mem_flags::mem_none);
     // reduction in shared memory
-    for (uint stride = group_size / 2; stride > 0; stride >>= 1) {
+    for (ushort stride = group_size / 2; stride > 0; stride >>= 1) {
         
         if (local_idx < stride) {
             
@@ -279,9 +286,9 @@ kernel void
 kernelPhotonRecording(texture2d<uint32_t, access::read>       inRNG [[texture(0)]],
                       texture2d<uint32_t, access::write>     outRNG [[texture(1)]],
              
-                      uint2 thread_pos         [[thread_position_in_grid]],
-                      uint2 group_size         [[threads_per_threadgroup]],
-                      uint2 grid_size                 [[threads_per_grid]],
+                      uint2 thread_pos       [[thread_position_in_grid]],
+                      uint2 group_size       [[threads_per_threadgroup]],
+                      uint2 grid_size               [[threads_per_grid]],
              
                       constant Camera*              camera [[buffer(0)]],
                       constant Complex*            complex [[buffer(1)]],
@@ -375,7 +382,7 @@ kernelPhotonRadius(constant Complex*              complex [[buffer(0)]],
 }
 
 kernel void
-kernelPhotonHashing(constant Complex*              complex [[buffer(1)]],
+kernelPhotonHashing(device Complex*              complex [[buffer(1)]],
                     constant PhotonRecord*    photonRecord [[buffer(2)]],
                     
                     device float4*            photonHashed [[buffer(3)]],
@@ -391,53 +398,50 @@ kernelPhotonHashing(constant Complex*              complex [[buffer(1)]],
     
     float3 HashIndex = floor((position - complex->photonBox.mini) * HashScale);
     
-    auto hashed = hash( HashIndex, HashScale, complex->photonHashN );
-    float2 pos2DHashedGrid = convert1Dto2D(hashed, complex->photonHashN);
+    auto hashed = hash( HashIndex, HashScale, photonHashN );
+    float2 pos2DHashedGrid = convert1Dto2D(hashed, photonHashN);
     //float2 pos2D = as_type<float2>(thread_pos);
     float2 pos2D = (float2)(thread_pos);
     
     photonHashed[thread_idx] = float4(pos2D, pos2DHashedGrid);
 }
 
-// Vertex shader outputs and fragment shader inputs for simple pipeline
 struct PhotonMarkVSData
 {
     float4 position [[position]];
     float4 PhotonMark;
 };
-
-// Vertex shader which passes position and color through to rasterizer.
 vertex PhotonMarkVSData
 PhotonMarkVS(const uint vertexID [[ vertex_id ]],
              constant float4* vertices [[ buffer(0) ]],
-             constant PhotonRecord* photonRecord [[buffer(1)]],
-             constant Complex*      complex [[buffer(2)]] )
+             constant PhotonRecord* photonRecord [[buffer(1)]])
 {
     PhotonMarkVSData out;
-    
-    float hashN = complex->photonHashN;
     
     auto element = vertices[vertexID]; //
     auto photonPosition2DHashedGrid = element.zw;
     
     auto z = photonRecord[vertexID].active ? 0.5 : -1.0; // visible or not
     
-    photonPosition2DHashedGrid.y = hashN - photonPosition2DHashedGrid.y;
-    photonPosition2DHashedGrid = photonPosition2DHashedGrid * 2.0/hashN - 1.0;
+    photonPosition2DHashedGrid.y = photonHashN - photonPosition2DHashedGrid.y;
+    photonPosition2DHashedGrid = photonPosition2DHashedGrid * 2.0/photonHashN - 1.0;
     
     out.position = float4(photonPosition2DHashedGrid, z, 1.0);
-    //out.position.xyz = float3(0.5);
     out.PhotonMark = element - float4(0, 0, 1, 1);
+    
+//    uint y = vertexID / photonHashN;
+//    uint x = vertexID % photonHashN;
+//
+//    out.position.xy = (float2(x, y)+0.5) * 2.0 / photonHashN - 1.0;
+//    out.position.zw = float2(0.5, 1.0);
 
     return out;
-}
+};
 
 struct PhotonMarkFSData {
     float4 PhotonMark [[color(0)]];
     float count [[color(1)]];
 };
-
-// Fragment shader that just outputs color passed from rasterizer.
 fragment PhotonMarkFSData
 PhotonMarkFS(PhotonMarkVSData in [[stage_in]])
 {
@@ -450,41 +454,47 @@ PhotonMarkFS(PhotonMarkVSData in [[stage_in]])
 }
 
 kernel void
-kernelPhotonSumming(device Complex*                 _complex         [[buffer(0)]],
-                    texture2d<float, access::read>  _countHashGrid  [[texture(0)]],
+kernelPhotonSumming(device Complex*                _complex         [[buffer(0)]],
+                    texture2d<float, access::read> _countHashGrid  [[texture(0)]],
                     
-                    uint thread_idx                  [[ thread_position_in_grid ]],
-                    uint group_idx              [[ threadgroup_position_in_grid ]],
-                    uint local_idx            [[ thread_position_in_threadgroup ]],
+                    uint2 thread_pos                [[ thread_position_in_grid ]],
+                    uint2 group_pos            [[ threadgroup_position_in_grid ]],
+                    uint2 local_pos          [[ thread_position_in_threadgroup ]],
                       
-                    uint batch_size                          [[ threads_per_grid ]],
-                    uint group_size                  [[ threads_per_threadgroup ]])
+                    uint2 batch_size                       [[ threads_per_grid ]],
+                    uint2 group_size                [[ threads_per_threadgroup ]])
 {
-    threadgroup float shared_memory[512];
-    shared_memory[local_idx] = 0.0;
+    threadgroup uint shared_memory[64]; uint bound = 64 >> 1;
     
-    for (uint i = 0; i < 512; i+=1) {
-        float count = _countHashGrid.read(uint2(local_idx, i)).x;
-        count += _countHashGrid.read(uint2(local_idx, i+512)).x;
-        count += _countHashGrid.read(uint2(local_idx+512, i)).x;
-        count += _countHashGrid.read(uint2(local_idx+512, i+512)).x;
-        //float count = _countHashGrid.read(uint2(i, local_idx)).x;
-        shared_memory[local_idx] += count;
+    uint local_i = local_pos.y * group_size.x + local_pos.x;
+    float count = _countHashGrid.read(thread_pos).x;
+    //count = round(count);
+    
+    if (count > 0) {
+        shared_memory[local_i] = max(1u, (uint)count);
+    } else {
+        shared_memory[local_i] = 0;
     }
     
+    //shared_memory[local_i] = max(1u, (uint)count);
     threadgroup_barrier(mem_flags::mem_threadgroup);
     
-    if (0 == local_idx) {
-        for (uint i = 1; i < 512; i+=1) {
-            shared_memory[0] += shared_memory[i];
+    while(bound > 0) {
+        
+        if (local_i < bound) {
+            shared_memory[local_i] += shared_memory[local_i+bound];
         }
-        _complex->photonSum += shared_memory[0];
-        _complex->frame_count += 1;
+        bound = bound >> 1;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    
+    if (0 == local_i) {
+        atomic_fetch_add_explicit(&_complex->framePhotonSum, shared_memory[0], memory_order_relaxed);
     }
 }
 
 kernel void
-kernelPhotonRefine(constant Complex*                 _complex       [[buffer(0)]],
+kernelPhotonRefine(const device Complex*             _complex       [[buffer(0)]],
                    constant PhotonRecord*            _photonRecords [[buffer(1)]],
                    device   CameraRecord*            _cameraRecords [[buffer(2)]],
                    
@@ -501,12 +511,12 @@ kernelPhotonRefine(constant Complex*                 _complex       [[buffer(0)]
                    uint2 grid_size                    [[threads_per_grid]])
 {
     size_t thread_idx = thread_pos.y * grid_size.x + thread_pos.x;
+    size_t frame = _complex->frame_count;
     
     if (!_cameraRecords[thread_idx].valid) {
         
         auto color = _cameraRecords[thread_idx].alternative;
         auto cache = inTexture.read(thread_pos).xyz;
-        auto frame = _complex->frame_count - 1u;
         
         auto result = (cache*frame + color) / (frame + 1);
         outTexture.write(float4(result, 1.0), thread_pos);
@@ -515,8 +525,6 @@ kernelPhotonRefine(constant Complex*                 _complex       [[buffer(0)]
         return;
     }
     
-    float hashN = _complex->photonHashN;
-
     float3 QueryPosition = _cameraRecords[thread_idx].position;
     float3 QueryDirection = _cameraRecords[thread_idx].direction;
 
@@ -542,26 +550,20 @@ for (int iz = int(RangeMin.z); iz <= int(RangeMax.z); iz++)
         {
             
 float3 hashIndex = float3(ix, iy, iz);
-float hashed = hash(hashIndex, HashScale, hashN);
-float2 HashedPhotonIndex2D = convert1Dto2D(hashed, hashN);
+float hashed = hash(hashIndex, HashScale, photonHashN);
+float2 HashedPhotonIndex2D = convert1Dto2D(hashed, photonHashN);
        HashedPhotonIndex2D -= 1.0;
             
 float2 PhotonIndex2D = _marksHashGrid.read((uint2)(HashedPhotonIndex2D)).xy;
         //_marksHashGrid.sample(photonSampler, HashedPhotonIndex2D/1024).xy;
-uint PhotonIndex1D = (uint)PhotonIndex2D.y * hashN + (uint)(PhotonIndex2D.x);
+            if (PhotonIndex2D.x < 0){continue;}
             
-            if (PhotonIndex1D == 0){
-                continue;
-            }
+uint PhotonIndex1D = (uint)PhotonIndex2D.y * photonHashN + (uint)(PhotonIndex2D.x);
             
 // accumulate photon
 float3 PhotonFlux = _photonRecords[PhotonIndex1D].flux;
 float3 PhotonPosition = _photonRecords[PhotonIndex1D].position;
 float3 PhotonDirection = _photonRecords[PhotonIndex1D].direction;
-            
-            if (!_photonRecords[PhotonIndex1D].active) {
-                continue;
-            }
 
 // make sure that the photon is actually in the given grid cell
 float3 _RangeMin = hashIndex / HashScale + BBoxMin;
@@ -603,12 +605,13 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
     _cameraRecords[thread_idx].radius = QueryRadius;
     _cameraRecords[thread_idx].photonCount = QueryPhotonCount;
     
-    auto TotalPhotonNum = _complex->photonSum;
-        
+    //uint32_t TotalPhotonNum = _complex->photonSum;
+    float TotalPhotonNum = _complex->totalPhotonSum;
+    TotalPhotonNum += atomic_load_explicit(&_complex->framePhotonSum, memory_order_relaxed);
+    
     float3 color = float3(QueryFlux / (QueryRadius * QueryRadius * 3.141592 * TotalPhotonNum));
     //color = CETone(color, 1.0);
     auto cache = inTexture.read(thread_pos).xyz;
-    auto frame = _complex->frame_count - 1u;
     
     float3 result = (cache*frame + color) / (frame+1);
     outTexture.write(float4(result, 1.0), thread_pos);

@@ -31,6 +31,11 @@ const VertexWithUV canvas[] =
     { 1,  1, 1, 0}
 };
 
+uint _width = 1920;
+uint _height = 1080;
+
+uint32_t photonHashN = PHOTON_HASHN;
+
 // The main class performing the rendering.
 @implementation AAPLRenderer
 {
@@ -81,10 +86,9 @@ const VertexWithUV canvas[] =
         
         id<MTLBuffer> _photonRecordBuffer;
         id<MTLBuffer> _photonHashedBuffer;
-    
+     
         id<MTLTexture>              _texturePhotonMark;
         id<MTLTexture>              _texturePhotonCount;
-        
         MTLRenderPassDescriptor*    _renderPhotonCountPassDescriptor;
         id<MTLRenderPipelineState>  _renderPhotonCountPipelineState;
         id<MTLRenderPipelineState>  _renderPhotonScatePipelineState;
@@ -98,14 +102,13 @@ const VertexWithUV canvas[] =
         id<MTLComputePipelineState> _pipelineStatePhotonRecording;
         id<MTLComputePipelineState> _pipelineStatePhotonHashing;
         id<MTLComputePipelineState> _pipelineStatePhotonSumming;
-    
         id<MTLComputePipelineState> _pipelineStatePhotonRefine;
     
     MPSSVGF* objectSVGF;
     MPSSVGFDenoiser* denoiserSVGF;
     MPSSVGFDefaultTextureAllocator* textureAllocatorSVGF;
     
-        id<MTLTexture> _sourceSVGF, _depthNormalSVGF, _motionSVGF;
+        id<MTLTexture> _sourceSVGF, _zNormalSVGF, _motion2DSVGF;
         id<MTLTexture> _resultSVGF;
     
     id<MTLTexture> _textureA;
@@ -188,14 +191,11 @@ const VertexWithUV canvas[] =
         
         _canvas_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: _commonStorageMode];
         
-        uint width = 1920;
-        uint height = 1080;
-        
         _complex.frame_count = 0;
         _complex.running_time = 0;
         
-        _complex.tex_size = float2 {static_cast<float>(width), static_cast<float>(height)};
-        _complex.view_size = float2 {static_cast<float>(width), static_cast<float>(height)};
+        _complex.tex_size = float2 {static_cast<float>(_width), static_cast<float>(_height)};
+        _complex.view_size = float2 {static_cast<float>(_width), static_cast<float>(_height)};
         
         _complex_buffer = [_device newBufferWithBytes: &_complex
                                                length: sizeof(Complex)
@@ -255,14 +255,14 @@ const VertexWithUV canvas[] =
         
         _pipelineStatePostprocessing = [_device newRenderPipelineStateWithDescriptor:drawablePipelineDescriptor error:&ERROR];
         
-        uint widthLevels = ceil(log2(width)), heightLevels = ceil(log2(height));
+        uint widthLevels = ceil(log2(_width)), heightLevels = ceil(log2(_height));
         uint mipCount = (heightLevels > widthLevels) ? heightLevels : widthLevels;
         
         let td = [[MTLTextureDescriptor alloc] init];
         td.textureType = MTLTextureType2D;
         td.pixelFormat = MTLPixelFormatRGBA32Float;
-        td.width = width;
-        td.height = height;
+        td.width = _width;
+        td.height = _height;
         td.mipmapLevelCount = mipCount;
         td.storageMode = MTLStorageModePrivate;
         
@@ -274,79 +274,72 @@ const VertexWithUV canvas[] =
         let tdr = [[MTLTextureDescriptor alloc] init];
         tdr.textureType = MTLTextureType2D;
         tdr.pixelFormat = MTLPixelFormatRGBA32Uint;
-        tdr.width = width;
-        tdr.height = height;
+        tdr.width = _width;
+        tdr.height = _height;
         tdr.storageMode = MTLStorageModePrivate;
         
         tdr.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
         
         _textureCanvasRNG = [_device newTextureWithDescriptor:tdr];
         
-        auto hashN = _complex.photonHashN;
-        
-        tdr.width = hashN; tdr.height = hashN;
+        tdr.width = photonHashN; tdr.height = photonHashN;
         _texturePhotonRNG = [_device newTextureWithDescriptor:tdr];
         
 NSLog(@"Processing RNG");
 _time_s = [[NSDate date] timeIntervalSince1970];
         
-        uint32_t pixel_count = width * height * 4;
-        uint32_t* pixel_seed = (uint32_t*)malloc(pixel_count*sizeof(uint32_t));
-        
-        typedef struct pcg_state_setseq_64 pcg32_t;
-        
-        var thread_count = (uint32_t) [[NSProcessInfo processInfo] activeProcessorCount];
-        var thread_quota = pixel_count / thread_count;
-        var thread_remai = pixel_count % thread_count;
-        
-        dispatch_apply(thread_count, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(size_t idx){
-            
-            pcg32_t seed;
-            seed.state = uint64_t(arc4random()) << 32 | arc4random();
-            seed.inc = uint64_t(arc4random()) << 32 | arc4random();
-            //seed = { arc4random(), arc4random() };
-            //seed = { pcg32_random(), pcg32_random() };
-            let offset = idx * thread_quota;
-            
-            for (int i=0; i<thread_quota; i++) {
-                pixel_seed[offset + i] = pcg32_random_r(&seed); //pcg32_random();
-            }
-        });
-        
-        for (int i=0; i<thread_remai; i++) {
-            pixel_seed[pixel_count-1-i] = pcg32_random();
-        }
-        //for (int i = 0; i < count; i++) { seeds[i] = arc4random(); }
-        
-        let _sourceBuffer = [_device newBufferWithBytes: pixel_seed
-                                                 length: sizeof(UInt32)*4*width*height
-                                                options: MTLResourceStorageModeShared];
-        free(pixel_seed);
-        
         let commandBuffer = [_commandQueue commandBuffer];
-        let blitCommandEncoder = [commandBuffer blitCommandEncoder];
+        var thread_count = (uint32_t) [[NSProcessInfo processInfo] activeProcessorCount];
         
-        [blitCommandEncoder copyFromBuffer: _sourceBuffer
-                              sourceOffset: 0
-                         sourceBytesPerRow: sizeof(UInt32)*4 * width
-                       sourceBytesPerImage: sizeof(UInt32)*4 * width * height
-                                sourceSize: { width, height, 1 }
-                                 toTexture: _textureCanvasRNG
-                          destinationSlice: 0
-                          destinationLevel: 0
-                         destinationOrigin: {0,0,0}];
+        auto fillRNG = [&](id<MTLTexture> theTexture) {
+            
+            size_t rng_count = theTexture.width * theTexture.height * 4;
+            uint32_t* pixel_seed = (uint32_t*)malloc(rng_count*sizeof(uint32_t));
+            
+            var thread_quota = rng_count / thread_count;
+            var thread_remai = rng_count % thread_count;
+            
+            typedef struct pcg_state_setseq_64 pcg32_t;
+            
+            dispatch_apply(thread_count, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(size_t idx){
+                
+                pcg32_t seed;
+                //seed.state = uint64_t(arc4random()) << 32 | arc4random();
+                //seed.inc = uint64_t(arc4random()) << 32 | arc4random();
+                seed = { arc4random(), arc4random() };
+                //seed = { pcg32_random(), pcg32_random() };
+                let offset = idx * thread_quota;
+                
+                for (int i=0; i<thread_quota; i++) {
+                    pixel_seed[offset + i] = pcg32_random_r(&seed); //pcg32_random();
+                }
+            });
+            
+            for (int i=0; i<thread_remai; i++) {
+                pixel_seed[rng_count-1-i] = pcg32_random();
+            }
         
-        [blitCommandEncoder copyFromBuffer: _sourceBuffer
-                              sourceOffset: 0
-                         sourceBytesPerRow: sizeof(UInt32)*4 * hashN
-                       sourceBytesPerImage: sizeof(UInt32)*4 * hashN * hashN
-                                sourceSize: { hashN, hashN, 1 }
-                                 toTexture: _texturePhotonRNG
-                          destinationSlice: 0
-                          destinationLevel: 0
-                         destinationOrigin: {0,0,0}];
+            let _sourceBuffer = [_device newBufferWithBytes: pixel_seed
+                                                     length: sizeof(UInt32) * rng_count
+                                                    options: MTLResourceStorageModeShared];
+            free(pixel_seed);
+            
+            let blitCommandEncoder = [commandBuffer blitCommandEncoder];
+            
+            [blitCommandEncoder copyFromBuffer: _sourceBuffer
+                                  sourceOffset: 0
+                             sourceBytesPerRow: sizeof(UInt32)*4 * theTexture.width
+                           sourceBytesPerImage: sizeof(UInt32) * rng_count
+                                    sourceSize: { theTexture.width, theTexture.height, 1 }
+                                     toTexture: theTexture
+                              destinationSlice: 0
+                              destinationLevel: 0
+                             destinationOrigin: {0,0,0}];
+            [blitCommandEncoder endEncoding];
+        };
         
-        [blitCommandEncoder endEncoding];
+        fillRNG(_textureCanvasRNG);
+        fillRNG(_texturePhotonRNG);
         
 _time_e = [[NSDate date] timeIntervalSince1970];
 NSLog(@"Done  %fs", _time_e - _time_s);
@@ -539,8 +532,8 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                 auto tr_count = (uint)(index_count/3);
                 //thread_count = 8;
                 
-                thread_quota = tr_count / thread_count;
-                thread_remai = tr_count % thread_count;
+                auto thread_quota = tr_count / thread_count;
+                auto thread_remai = tr_count % thread_count;
                 
                 auto old_size = (uint)bvh_list.size();
                 bvh_list.reserve(old_size + tr_count);
@@ -755,28 +748,28 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             let _kernelPhotonRefine = [defaultLibrary newFunctionWithName:@"kernelPhotonRefine"];
             _pipelineStatePhotonRefine = [_device newComputePipelineStateWithFunction:_kernelPhotonRefine error:&ERROR];
         
-            _cameraRecordBuffer = [_device newBufferWithLength:sizeof(CameraRecord) * 1920 * 1080
+            _cameraRecordBuffer = [_device newBufferWithLength:sizeof(CameraRecord) * _width * _height
                                                        options:_commonStorageMode];
             [_cameraRecordBuffer setLabel:@"_cameraRecordBuffer"];
         
-            _cameraBoundsBuffer = [_device newBufferWithLength:sizeof(AABB) * 1920 * 1080
+            _cameraBoundsBuffer = [_device newBufferWithLength:sizeof(AABB) * _width * _height
                                                        options:_commonStorageMode];
             _aremacBoundsBuffer = [_device newBufferWithLength:sizeof(AABB) * 4096
                                                        options:_commonStorageMode];
         
-            _photonRecordBuffer = [_device newBufferWithLength:sizeof(PhotonRecord) * hashN * hashN
+            _photonRecordBuffer = [_device newBufferWithLength:sizeof(PhotonRecord) * photonHashN * photonHashN
                                                        options:_commonStorageMode];
             [_photonRecordBuffer setLabel:@"_photonRecordBuffer"];
         
-            _photonHashedBuffer = [_device newBufferWithLength:sizeof(float4) * hashN * hashN
+            _photonHashedBuffer = [_device newBufferWithLength:sizeof(float4) * photonHashN * photonHashN
                                                        options:_commonStorageMode];
             [_photonHashedBuffer setLabel:@"_photonHashedBuffer"];
         
             // Set up a texture for rendering to and sampling from
             auto photonMarkDescription = [[MTLTextureDescriptor alloc] init];
             photonMarkDescription.textureType = MTLTextureType2D;
-            photonMarkDescription.width = hashN;
-            photonMarkDescription.height = hashN;
+            photonMarkDescription.width = photonHashN;
+            photonMarkDescription.height = photonHashN;
             photonMarkDescription.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
             
             photonMarkDescription.pixelFormat = MTLPixelFormatRGBA32Float;
@@ -788,7 +781,7 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             _renderPhotonCountPassDescriptor = [[MTLRenderPassDescriptor alloc] init];
             _renderPhotonCountPassDescriptor.colorAttachments[0].texture = _texturePhotonMark;
             _renderPhotonCountPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
-            _renderPhotonCountPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+            _renderPhotonCountPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(-1, -1, -1, -1);
             _renderPhotonCountPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
             _renderPhotonCountPassDescriptor.colorAttachments[1].texture = _texturePhotonCount;
             _renderPhotonCountPassDescriptor.colorAttachments[1].loadAction = MTLLoadActionClear;
@@ -796,9 +789,7 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             _renderPhotonCountPassDescriptor.colorAttachments[1].storeAction = MTLStoreActionStore;
 
             auto photonMarkPipelineDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
-            
-            // Set up pipeline for rendering to the offscreen texture. Reuse the
-            // descriptor and change properties that differ.
+        
             photonMarkPipelineDescriptor.label = @"Photon Count Pipeline";
             photonMarkPipelineDescriptor.sampleCount = 1;
             photonMarkPipelineDescriptor.vertexFunction = [defaultLibrary newFunctionWithName:@"PhotonMarkVS"];
@@ -829,7 +820,6 @@ NSLog(@"Done  %fs", _time_e - _time_s);
 
 - (void)setupAppleSVGF:(nonnull id<MTLDevice>)device {
     
-    let _size = CGSizeMake(1920, 1080);
     // Allocate the denoising kernels
     objectSVGF = [[MPSSVGF alloc] initWithDevice:device];
     // Configure SVGF properties
@@ -842,9 +832,9 @@ NSLog(@"Done  %fs", _time_e - _time_s);
     // Create the denoiser object
     denoiserSVGF = [[MPSSVGFDenoiser alloc] initWithSVGF:objectSVGF textureAllocator:textureAllocatorSVGF];
     
-    _sourceSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
-    _depthNormalSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
-    _motionSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRG16Float width:_size.width height:_size.height];
+    _sourceSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_width height:_height];
+    _zNormalSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_width height:_height];
+    _motion2DSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRG16Float width:_width height:_height];
     
     //colorTexture_ = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
     //depthNormalTexture_ = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
@@ -856,9 +846,9 @@ NSLog(@"Done  %fs", _time_e - _time_s);
 {
     _resultSVGF = [denoiserSVGF encodeToCommandBuffer:_commandBuffer
                                             sourceTexture:_sourceSVGF
-                                      motionVectorTexture:_motionSVGF
-                                       depthNormalTexture:_depthNormalSVGF
-                               previousDepthNormalTexture:_depthNormalSVGF];
+                                      motionVectorTexture:_motion2DSVGF
+                                       depthNormalTexture:_zNormalSVGF
+                               previousDepthNormalTexture:_zNormalSVGF];
     //std::swap(depthNormalTexture_, _depthNormalTexture);
 }
 
@@ -882,8 +872,8 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setTexture:_textureCanvasRNG atIndex:0];
     [computeEncoder setTexture:_textureCanvasRNG atIndex:1];
     
-    [computeEncoder setTexture:_depthNormalSVGF atIndex:2];
-    [computeEncoder setTexture:_motionSVGF atIndex:3];
+    [computeEncoder setTexture:_zNormalSVGF atIndex:2];
+    [computeEncoder setTexture:_motion2DSVGF atIndex:3];
     
     if (view != nil) {
         memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
@@ -903,7 +893,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setBuffer:_argumentBufferPBR  offset:0 atIndex:9];
     
     let _threadGroupSize = MTLSize {8, 8, 1};
-    let _threadBatchSize = MTLSize {1920, 1080, 1};
+    let _threadBatchSize = MTLSize {_width, _height, 1};
     
     [computeEncoder dispatchThreads:_threadBatchSize threadsPerThreadgroup:_threadGroupSize];
     
@@ -954,7 +944,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRadius];
     [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:0];
     [computeEncoder setBuffer:_cameraRecordBuffer offset:0 atIndex:1];
-    [computeEncoder dispatchThreads:{1920, 1080, 1} threadsPerThreadgroup:{8, 8 ,1}];
+    [computeEncoder dispatchThreads:{_width, _height, 1} threadsPerThreadgroup:{8, 8 ,1}];
     
     [computeEncoder endEncoding];
     [commandBuffer commit];
@@ -963,6 +953,11 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 - (void)photonWork:(MTKView *)view
 {
     auto commandBuffer = [_commandQueue commandBuffer]; //commandBuffer.label = @"name";
+    
+    if(self->_complex.frame_count > 0) {
+        [self photonPrepare:nil commandBuffer:commandBuffer];
+    }
+    
     auto computeEncoder = [commandBuffer computeCommandEncoder];
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRecording];
@@ -979,16 +974,14 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setBuffer:_argumentBufferEnv offset:0 atIndex:8];
     [computeEncoder setBuffer:_argumentBufferPBR offset:0 atIndex:9];
     
-    auto hashN = _complex.photonHashN;
-    
-    [computeEncoder dispatchThreads:{hashN, hashN, 1} threadsPerThreadgroup:{8, 8, 1}];
+    [computeEncoder dispatchThreads:{photonHashN, photonHashN, 1} threadsPerThreadgroup:{8, 8, 1}];
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonHashing];
     [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:1];
     [computeEncoder setBuffer:_photonRecordBuffer offset:0 atIndex:2];
     [computeEncoder setBuffer:_photonHashedBuffer offset:0 atIndex:3];
     
-    [computeEncoder dispatchThreads:{hashN, hashN, 1} threadsPerThreadgroup:{8, 8, 1}];
+    [computeEncoder dispatchThreads:{photonHashN, photonHashN, 1} threadsPerThreadgroup:{8, 8, 1}];
     [computeEncoder endEncoding];
     
     //[commandBuffer commit];
@@ -998,13 +991,11 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     auto _photonCountRenderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:_renderPhotonCountPassDescriptor];
     _photonCountRenderEncoder.label = @"PhotonCount Render Pass";
     [_photonCountRenderEncoder setRenderPipelineState:_renderPhotonCountPipelineState];
-    
     [_photonCountRenderEncoder setVertexBuffer:_photonHashedBuffer offset:0 atIndex:0];
     [_photonCountRenderEncoder setVertexBuffer:_photonRecordBuffer offset:0 atIndex:1];
-    [_photonCountRenderEncoder setVertexBuffer:_complex_buffer offset:0 atIndex:2];
-    
+      
     [_photonCountRenderEncoder drawPrimitives:MTLPrimitiveTypePoint
-                                  vertexStart:0 vertexCount:hashN*hashN];
+                                  vertexStart:0 vertexCount:photonHashN*photonHashN];
     [_photonCountRenderEncoder endEncoding];
     
     computeEncoder = [commandBuffer computeCommandEncoder];
@@ -1012,7 +1003,8 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setComputePipelineState:_pipelineStatePhotonSumming];
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:0];
     [computeEncoder setTexture:_texturePhotonCount atIndex:0];
-    [computeEncoder dispatchThreads:{512, 1, 1} threadsPerThreadgroup:{512, 1, 1}];
+    [computeEncoder dispatchThreads:{photonHashN, photonHashN, 1} threadsPerThreadgroup:{8, 8, 1}];
+    //newTextureViewWithPixelFormat // write into mipmap
     
     [computeEncoder setComputePipelineState:_pipelineStatePhotonRefine];
     [computeEncoder setBuffer:_complex_buffer     offset:0 atIndex:0];
@@ -1027,27 +1019,32 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setTexture:_textureB atIndex:3];
     [computeEncoder setTexture:_sourceSVGF atIndex:4];
     
-    [computeEncoder dispatchThreads:{1920, 1080, 1} threadsPerThreadgroup:{8, 8, 1}];
+    [computeEncoder dispatchThreads:{_width, _height, 1} threadsPerThreadgroup:{8, 8, 1}];
     [computeEncoder endEncoding];
     
-    let blit = [commandBuffer blitCommandEncoder];
-    [blit generateMipmapsForTexture:_textureB];
-    [blit endEncoding];
-    
-    if(self->_complex.frame_count > 0) {
-        
-        [self photonPrepare:nil commandBuffer:commandBuffer];
-        [self processAppleSVGF:commandBuffer];
+    {
+        let blit = [commandBuffer blitCommandEncoder];
+        [blit generateMipmapsForTexture:_textureB];
+        [blit endEncoding];
     }
     
+    [self processAppleSVGF:commandBuffer];
+    
+    auto dumm = (Complex*)(_complex_buffer.contents);
+    
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
+        
+        dumm->totalPhotonSum += dumm->framePhotonSum;
+        dumm->framePhotonSum = 0;
+        dumm->frame_count += 1;
+        
         // not on main thread
         if (self->_dragging) {
             self->_complex.frame_count = 0;
         } else {
-            let fcount = self->_complex.frame_count;
-            self->_complex.frame_count = fcount + 1;
+            self->_complex.frame_count += 1;
         }
+        dumm->frame_count = self->_complex.frame_count;
         //[self drag:simd_make_float2(1, 0) state:NO];
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
             #if TARGET_OS_OSX

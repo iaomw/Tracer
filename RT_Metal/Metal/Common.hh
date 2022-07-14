@@ -1,6 +1,8 @@
 #ifndef Common_h
 #define Common_h
 
+    #define PHOTON_HASHN 512
+
     #ifdef __METAL_VERSION__
 
         #include <metal_stdlib>
@@ -8,6 +10,8 @@
 
         constexpr sampler textureSampler (mag_filter::linear, min_filter::linear, mip_filter::linear);
         constexpr sampler photonSampler (mag_filter::nearest, min_filter::nearest, mip_filter::nearest);
+
+        constant uint32_t photonHashN = PHOTON_HASHN;
         
     #else
 
