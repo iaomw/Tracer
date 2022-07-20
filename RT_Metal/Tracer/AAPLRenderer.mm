@@ -67,6 +67,7 @@ uint32_t photonHashN = PHOTON_HASHN;
     id<MTLHeap> _heap;
    
     Camera _camera;
+    float3 _camera_offset;
     float2 _camera_rotation;
     id<MTLBuffer> _camera_buffer;
     
@@ -203,7 +204,7 @@ uint32_t photonHashN = PHOTON_HASHN;
         
         _camera_rotation = simd_make_float2(0, 0);
         
-        prepareCamera(&_camera, _complex.tex_size, _camera_rotation);
+        prepareCamera(&_camera, _complex.tex_size, _camera_rotation, _camera_offset);
         _camera_buffer = [_device newBufferWithBytes: &_camera
                                               length: sizeof(Camera)
                                              options: MTLResourceStorageModeShared];
@@ -824,8 +825,8 @@ NSLog(@"Done  %fs", _time_e - _time_s);
     objectSVGF = [[MPSSVGF alloc] initWithDevice:device];
     // Configure SVGF properties
     objectSVGF.channelCount = 3;
-    //objectSVGF.temporalWeighting = MPSTemporalWeightingAverage;
-    //objectSVGF.temporalReprojectionBlendFactor = 0.1f;
+    objectSVGF.temporalWeighting = MPSTemporalWeightingAverage;
+    objectSVGF.temporalReprojectionBlendFactor = 0.1f;
     
     // Create a custom texture allocator or use the default allocator
     textureAllocatorSVGF = [[MPSSVGFDefaultTextureAllocator alloc] initWithDevice:device];
@@ -835,11 +836,6 @@ NSLog(@"Done  %fs", _time_e - _time_s);
     _sourceSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_width height:_height];
     _zNormalSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_width height:_height];
     _motion2DSVGF = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRG16Float width:_width height:_height];
-    
-    //colorTexture_ = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
-    //depthNormalTexture_ = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRGBA16Float width:_size.width height:_size.height];
-    //motionVectorTexture_ = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatRG16Float width:_size.width height:_size.height];
-    //id <MTLTexture> depthTexture = [textureAllocatorSVGF textureWithPixelFormat:MTLPixelFormatDepth32Float width:_size.width height:_size.height];
 }
 
 - (void)processAppleSVGF:(id<MTLCommandBuffer>)_commandBuffer
@@ -849,7 +845,7 @@ NSLog(@"Done  %fs", _time_e - _time_s);
                                       motionVectorTexture:_motion2DSVGF
                                        depthNormalTexture:_zNormalSVGF
                                previousDepthNormalTexture:_zNormalSVGF];
-    //std::swap(depthNormalTexture_, _depthNormalTexture);
+    //std::swap(_zNormalSVGF, depthNormalTexture_);
 }
 
 static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3, 2} };
@@ -954,7 +950,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 {
     auto commandBuffer = [_commandQueue commandBuffer]; //commandBuffer.label = @"name";
     
-    if(self->_complex.frame_count > 0) {
+    if(self->_complex.frame_count % 2) {
         [self photonPrepare:nil commandBuffer:commandBuffer];
     }
     
@@ -1115,7 +1111,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     }
 }
 
-- (void)drag:(float2)delta state:(BOOL)ended;
+- (void)pin:(float2)delta state:(BOOL)ended
 {
     _dragging = !ended;
     
@@ -1126,7 +1122,18 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     self->_complex.frame_count = 0;
     self->_complex.running_time = 0;
     
-    prepareCamera(&_camera, _complex.tex_size, _camera_rotation);
+    prepareCamera(&_camera, _complex.tex_size, _camera_rotation, _camera_offset);
+}
+
+- (void)drag:(float3)delta state:(BOOL)ended
+{
+    _dragging = !ended;
+    _camera_offset += delta;
+    
+    self->_complex.frame_count = 0;
+    self->_complex.running_time = 0;
+    
+    prepareCamera(&_camera, _complex.tex_size, _camera_rotation, _camera_offset);
 }
 
 - (void)render:(MTKView *)view

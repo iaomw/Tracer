@@ -20,7 +20,7 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
     bool hitted = scene.hit(ray, hitRecord, FLT_MAX);
     
     if (hitted) {
-        zN.r = hitRecord.t;
+        zN.r = hitRecord.t / 1024;
         zN.gba = hitRecord.sn;
     }
     
@@ -150,8 +150,11 @@ kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0
                                              packageEnv,
                                              packagePBR[1],
                                              primitives);
+    
     zNormal.write(zN, thread_pos);
-    motion2D.write(float4(1, 1, 0, 1), thread_pos);
+    
+    auto mm = float4(10, 0, 0, 1);
+    motion2D.write(mm, thread_pos);
     
     if (hasCameraRecord) {
         cameraAABB[idx] = {cr.position, cr.position};
@@ -258,7 +261,7 @@ void tracePhotonRecord(thread Ray& ray, thread XSampler& xsampler,
             return;
         }
         
-        ratio *= scatRecord.attenuation / max(FLT_EPSILON, scatRecord.bxPDF);
+    ratio *= scatRecord.attenuation / max(FLT_EPSILON, scatRecord.bxPDF);
         
         { // Russian Roulette
             float3 xyz; RGBToXYZ(ratio, xyz);
@@ -361,12 +364,13 @@ kernelPhotonParams(device Complex* x [[buffer(0)]],
     x->photonBoxSize = x->photonBox.maxi - x->photonBox.mini;
     
     x->photonInitialRadius = dot(x->photonBoxSize, float3(1.0/3.0));
-    x->photonInitialRadius *= 3.0 / 4096;
+    x->photonInitialRadius *= 2.5 / (1 << 12);
     
     x->photonBox.mini -= float3(x->photonInitialRadius);
     x->photonBox.maxi += float3(x->photonInitialRadius);
     
     x->photonHashScale = 1.0f / (x->photonInitialRadius * 1.5);
+    //x->photonHashScale = 0.5f / x->photonInitialRadius;
 }
 
 kernel void
@@ -579,7 +583,6 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
     {
         float Correction = _countHashGrid.read((uint2)HashedPhotonIndex2D).x;
         //_countHashGrid.sample(photonSampler, HashedPhotonIndex2D/1024).x;
-        
         _Flux += PhotonFlux * Correction;
         _PhotonCount += Correction;
     }

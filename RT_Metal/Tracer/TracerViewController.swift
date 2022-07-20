@@ -40,21 +40,20 @@ class TracerViewController: NSViewController {
     override func mouseUp(with event: NSEvent) {
         //print("mouseUp \(event)")
         let delta = simd_float2(0, 0)
-        metalRender?.drag(delta, state: true)
+        metalRender?.pin(delta, state: true)
     }
 
     override func mouseDown(with event: NSEvent) {
         //print("mouseDown \(event)")
         let delta = simd_float2(0, 0)
-        metalRender?.drag(delta, state: false)
+        metalRender?.pin(delta, state: false)
     }
 
     override func mouseDragged(with event: NSEvent) {
         //print("mouseDragged \(event)")
         let delta = simd_float2(Float(event.deltaX), Float(event.deltaY))
-        metalRender?.drag(delta, state: false)
+        metalRender?.pin(delta, state: false)
     }
-    
     
     let kRightArrowKeyCode: UInt16  = 124
     let kLeftArrowKeyCode:  UInt16  = 123
@@ -62,20 +61,35 @@ class TracerViewController: NSViewController {
     let kUpArrowKeyCode:    UInt16  = 126
     let kSpaceKeyCode:      UInt16  = 049
     
+    let kWKeyCode: UInt16 = 13
+    let kAKeyCode: UInt16 = 0
+    let kSKeyCode: UInt16 = 1
+    let kDKeyCode: UInt16 = 2
+    
     override func keyDown(with event: NSEvent) {
         
         switch event.keyCode {
 
         case kLeftArrowKeyCode:
-            metalRender?.drag(simd_float2( 1,  0), state: false)
+            metalRender?.pin(simd_float2( 1,  0), state: false)
         case kRightArrowKeyCode:
-            metalRender?.drag(simd_float2(-1,  0), state: false)
+            metalRender?.pin(simd_float2(-1,  0), state: false)
         case kDownArrowKeyCode:
-            metalRender?.drag(simd_float2( 0,  1), state: false)
+            metalRender?.pin(simd_float2( 0,  1), state: false)
         case kUpArrowKeyCode:
-            metalRender?.drag(simd_float2( 0, -1), state: false)
+            metalRender?.pin(simd_float2( 0, -1), state: false)
         case kSpaceKeyCode:
-            metalRender?.drag(simd_float2( 0,  0), state: false)
+            metalRender?.pin(simd_float2( 0,  0), state: false)
+            
+        case kWKeyCode:
+            metalRender?.drag(simd_float3(0, 2, 0), state: false)
+        case kSKeyCode:
+            metalRender?.drag(simd_float3(0, -2, 0), state: false)
+        case kAKeyCode:
+            metalRender?.drag(simd_float3(-2, 0, 0), state: false)
+        case kDKeyCode:
+            metalRender?.drag(simd_float3(2, 0, 0), state: false)
+        
         default:
             break
         }
@@ -85,7 +99,7 @@ class TracerViewController: NSViewController {
         
         switch event.keyCode {
         case kSpaceKeyCode:
-            metalRender?.drag(simd_float2( 0,  0), state: true)
+            metalRender?.pin(simd_float2( 0,  0), state: true)
         default:
             break
         }

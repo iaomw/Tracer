@@ -72,7 +72,8 @@ inline float hash(const float3 idx, const float HashScale, const float BufInfo)
 {
     const float HashNum = BufInfo * BufInfo;
     // use the same procedure as GPURnd
-    float4 n = float4(idx, idx.x + idx.y + idx.z) * 4194304.0 / HashScale;
+    float4 n = float4(idx, idx.x + idx.y - idx.z) * 4194304.0 / HashScale;
+    //float4 n = float4(idx, HashScale * 0.5) * 4194304.0 / HashScale;
 
     const float4 q = float4(   1225.0,    1585.0,    2457.0,    2098.0);
     const float4 r = float4(   1112.0,     367.0,      92.0,     265.0);

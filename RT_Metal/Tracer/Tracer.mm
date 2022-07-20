@@ -368,7 +368,7 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     }
 }
 
-void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
+void prepareCamera(Camera* camera, float2 viewSize, float2 rotate, float3 wasd) {
     
     auto aspect = viewSize.x/viewSize.y;
     
@@ -377,12 +377,14 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     auto viewUp = float3{0, 1, 0};
     
     auto dist_focus = 10;
-    auto aperture = 0.01;
+    auto aperture = 0.00;
     
     auto vfov = 45 * (M_PI/180);
     auto hfov = 2 * atan(tan(vfov * 0.5) * aspect);
     
     auto offset = lookFrom - lookAt;
+    auto forward = -simd::normalize(offset);
+    auto left = -simd::cross(viewUp, forward);
     
 //    let rotH = rotation4x4(rotate.x * hfov * 10, viewUp);
 //    let rotV = rotation4x4(rotate.y * vfov * 10, float3{1, 0, 0});
@@ -398,6 +400,12 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     
     lookFrom = lookAt + offset;
     viewUp = simd_act(rot, viewUp);
+    
+    float3 lookOffset = forward * wasd.y;
+    lookOffset += left * wasd.x;
+    
+    lookFrom += lookOffset;
+    lookAt += lookOffset;
     
     MakeCamera(camera, lookFrom, lookAt, viewUp, aperture, aspect, vfov, dist_focus);
 }

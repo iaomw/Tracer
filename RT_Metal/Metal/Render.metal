@@ -63,9 +63,9 @@ fragmentShader(RasterizerData input [[stage_in]],
     
     auto tex_color = thisTexture.sample(textureSampler, scaled);
     
-    if (scaled.x > 0.5) {
+    //if (scaled.x > 0.5) {
         tex_color = denoised.sample(textureSampler, scaled);
-    }
+    //}
     
     float mapped = clamp(CETone(this_luma, 1.), 0., 0.9999);
     float expose = 1.0 - mapped;
