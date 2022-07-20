@@ -2,12 +2,13 @@
 This is simply a repository for my **Ray Tracing** code.
 
 # Requirement
-RT_Metal requires `MTLArgumentBuffersTier2` device, typically any AMD GPU woking on macOS. 
+RT_Metal requires `MTLArgumentBuffersTier2` device, for example AMD dGPU & eGPU. 
 
-**`Not tested on M1.`**
+*`Not tested on Apple Silicon.`*
 
 It may work on macOS 10.15. For compatibility, I am avoiding using new APIs added since macOS 11.
 
+![](Captures/capture_t.jpg)
 ![](Captures/capture_s.jpg)
 
 |                             |                             |
