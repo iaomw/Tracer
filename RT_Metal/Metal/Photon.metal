@@ -1,9 +1,9 @@
 #include "Photon.hh"
 
 template <typename XSampler>
-bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
+bool traceCameraRecord(half depth, thread Ray& ray, thread XSampler& xsampler,
                        
-                       thread float4& zN, thread CameraRecord& cr,
+                       thread half4& zN, thread CameraRecord& cr,
                 
                        constant PackageEnv& packageEnv,
                        constant PackagePBR& packagePBR,
@@ -21,7 +21,7 @@ bool traceCameraRecord(float depth, thread Ray& ray, thread XSampler& xsampler,
     
     if (hitted) {
         zN.r = hitRecord.t / 1024;
-        zN.gba = hitRecord.sn;
+        zN.gba = half3(hitRecord.sn);
     }
     
     do { // each ray
@@ -97,8 +97,8 @@ kernel void
 kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0)]],
                       texture2d<uint32_t, access::write>      outRNG [[texture(1)]],
                       
-                      texture2d<float, access::write>        zNormal [[texture(2)]],
-                      texture2d<float, access::write>       motion2D [[texture(3)]],
+                      texture2d<half, access::write>        zNormal [[texture(2)]],
+                      texture2d<half, access::write>       motion2D [[texture(3)]],
              
                       uint2 thread_pos                  [[thread_position_in_grid]],
                       uint2 group_size                  [[threads_per_threadgroup]],
@@ -135,26 +135,24 @@ kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0
     
     auto idx = thread_pos.x + thread_pos.y * grid_size.x;
     
-    float4 zN = 0;
-    
     RandomSampler rs { &rng };
     auto ray = castRay(camera, u, v, &rs);
     
     auto cr = cameraRecord[idx];
     
+    half depth = 8;
     if (frame == 0) {
         cr.reset();
+        depth = 3;
     }
     
-    bool hasCameraRecord = traceCameraRecord(8, ray, rs, zN, cr,
+    half4 zN = 0;
+    bool hasCameraRecord = traceCameraRecord(depth, ray, rs, zN, cr,
                                              packageEnv,
                                              packagePBR[1],
                                              primitives);
-    
     zNormal.write(zN, thread_pos);
-    
-    auto mm = float4(10, 0, 0, 1);
-    motion2D.write(mm, thread_pos);
+    motion2D.write(10.0h, thread_pos);
     
     if (hasCameraRecord) {
         cameraAABB[idx] = {cr.position, cr.position};
@@ -617,7 +615,9 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
     auto cache = inTexture.read(thread_pos).xyz;
     
     float3 result = (cache*frame + color) / (frame+1);
-    outTexture.write(float4(result, 1.0), thread_pos);
     
+    if (any(isnan(result))) {result = 0;}
+    
+    outTexture.write(float4(result, 1.0), thread_pos);
     sourceSVGF.write(float4(result, 1.0), thread_pos);
 }

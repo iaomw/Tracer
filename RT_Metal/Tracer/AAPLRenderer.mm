@@ -71,7 +71,7 @@ uint32_t photonHashN = PHOTON_HASHN;
     float2 _camera_rotation;
     id<MTLBuffer> _camera_buffer;
     
-    Complex _complex;
+    Complex* _complex;
     id<MTLBuffer> _complex_buffer;
     
     MTLVertexDescriptor *_defaultVertexDescriptor;
@@ -192,19 +192,20 @@ uint32_t photonHashN = PHOTON_HASHN;
         
         _canvas_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: _commonStorageMode];
         
-        _complex.frame_count = 0;
-        _complex.running_time = 0;
-        
-        _complex.tex_size = float2 {static_cast<float>(_width), static_cast<float>(_height)};
-        _complex.view_size = float2 {static_cast<float>(_width), static_cast<float>(_height)};
-        
         _complex_buffer = [_device newBufferWithBytes: &_complex
                                                length: sizeof(Complex)
                                               options: MTLResourceStorageModeShared];
         
+        _complex = (Complex*)(_complex_buffer.contents);
+        _complex->frame_count = 0;
+        _complex->running_time = 0;
+        
+        _complex->tex_size = float2 {static_cast<float>(_width), static_cast<float>(_height)};
+        _complex->view_size = float2 {static_cast<float>(_width), static_cast<float>(_height)};
+        
         _camera_rotation = simd_make_float2(0, 0);
         
-        prepareCamera(&_camera, _complex.tex_size, _camera_rotation, _camera_offset);
+        prepareCamera(&_camera, _complex->tex_size, _camera_rotation, _camera_offset);
         _camera_buffer = [_device newBufferWithBytes: &_camera
                                               length: sizeof(Camera)
                                              options: MTLResourceStorageModeShared];
@@ -853,8 +854,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 #pragma mark - MetalKit View Delegate
 - (void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size
 {
-    //_scene_meta.frame_count = 0;
-    _complex.view_size = simd_make_float2(size.width, size.height);
+    self->_complex->view_size = simd_make_float2(size.width, size.height);
 }
 
 - (void)photonPrepare:(MTKView *)view commandBuffer:(id<MTLCommandBuffer>)commandBuffer
@@ -873,9 +873,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     
     if (view != nil) {
         memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
-        if (self->_complex.frame_count > 3 || self->_complex.frame_count < 1) {
-            memcpy(_complex_buffer.contents, &_complex, sizeof(Complex));
-        }
+        //if (self->_complex.frame_count > 3 || self->_complex.frame_count < 1) {
+            //memcpy(_complex_buffer.contents, &_complex, sizeof(Complex));
+        //}
     }
     
     [computeEncoder setBuffer:_camera_buffer      offset:0 atIndex:0];
@@ -950,7 +950,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 {
     auto commandBuffer = [_commandQueue commandBuffer]; //commandBuffer.label = @"name";
     
-    if(self->_complex.frame_count % 2) {
+    if(self->_complex->frame_count % 2) {
         [self photonPrepare:nil commandBuffer:commandBuffer];
     }
     
@@ -1036,11 +1036,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         
         // not on main thread
         if (self->_dragging) {
-            self->_complex.frame_count = 0;
-        } else {
-            self->_complex.frame_count += 1;
+            _complex->reset();
         }
-        dumm->frame_count = self->_complex.frame_count;
+        
         //[self drag:simd_make_float2(1, 0) state:NO];
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
             #if TARGET_OS_OSX
@@ -1054,7 +1052,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
     
-    let viewsize = _complex.view_size;
+    let viewsize = _complex->view_size;
     
     MTLViewport viewport {0, 0, viewsize.x, viewsize.y, 0, 1.0};
     
@@ -1079,9 +1077,9 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 - (void)photon:(MTKView *)view
 {
     let time = [[NSDate date] timeIntervalSince1970];
-    _complex.running_time = time - launchTime;
+    _complex->running_time = time - launchTime;
     
-    if (_complex.frame_count == 0) {
+    if (_complex->frame_count == 0) {
         [self photonPrepare:view commandBuffer:nil];
     }
     [self photonWork:view];
@@ -1114,15 +1112,13 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
 - (void)pin:(float2)delta state:(BOOL)ended
 {
     _dragging = !ended;
-    
-    let ratio = delta / _complex.view_size;
+    let ratio = delta / _complex->view_size;
     
     _camera_rotation += ratio;
     
-    self->_complex.frame_count = 0;
-    self->_complex.running_time = 0;
+    _complex->reset();
     
-    prepareCamera(&_camera, _complex.tex_size, _camera_rotation, _camera_offset);
+    prepareCamera(&_camera, _complex->tex_size, _camera_rotation, _camera_offset);
 }
 
 - (void)drag:(float3)delta state:(BOOL)ended
@@ -1130,17 +1126,16 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     _dragging = !ended;
     _camera_offset += delta;
     
-    self->_complex.frame_count = 0;
-    self->_complex.running_time = 0;
+    _complex->reset();
     
-    prepareCamera(&_camera, _complex.tex_size, _camera_rotation, _camera_offset);
+    prepareCamera(&_camera, _complex->tex_size, _camera_rotation, _camera_offset);
 }
 
 - (void)render:(MTKView *)view
 {
     let commandBuffer = [_commandQueue commandBuffer];
     let time = [[NSDate date] timeIntervalSince1970];
-    _complex.running_time = time - launchTime;
+    _complex->running_time = time - launchTime;
     
         {
             let blit = [commandBuffer blitCommandEncoder];
@@ -1153,10 +1148,10 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
         // not on main thread
         if (self->_dragging) {
-            self->_complex.frame_count = 0;
+            self->_complex->frame_count = 0;
         } else {
-            let fcount = self->_complex.frame_count;
-            self->_complex.frame_count = fcount + 1;
+            let fcount = self->_complex->frame_count;
+            self->_complex->frame_count = fcount + 1;
         }
         
         //[self drag:simd_make_float2(1, 0) state:NO];
@@ -1172,7 +1167,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     let computeEncoder = [commandBuffer computeCommandEncoder];
     [computeEncoder setComputePipelineState:_pipelineStatePathTracing];
  
-    let tex_index = predefined_index[_complex.frame_count % 2];
+    let tex_index = predefined_index[_complex->frame_count % 2];
     
     [computeEncoder setTexture:_textureA atIndex: tex_index[0]];
     [computeEncoder setTexture:_textureB atIndex: tex_index[1]];
@@ -1180,7 +1175,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setTexture:_textureCanvasRNG atIndex: tex_index[2]];
     [computeEncoder setTexture:_textureCanvasRNG atIndex: tex_index[3]];
     
-    if (self->_complex.frame_count > 3 || self->_complex.frame_count < 1) {
+    if (self->_complex->frame_count > 3 || self->_complex->frame_count < 1) {
         memcpy(_complex_buffer.contents, &_complex, sizeof(Complex));
     }
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
@@ -1214,7 +1209,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     let renderPassDescriptor = _view.currentRenderPassDescriptor;
     let renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
     
-    let& viewsize = _complex.view_size;
+    let& viewsize = _complex->view_size;
     
     MTLViewport viewport {0, 0, viewsize.x, viewsize.y, 0, 1.0};
     

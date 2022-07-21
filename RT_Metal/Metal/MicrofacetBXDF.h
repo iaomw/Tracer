@@ -4,8 +4,6 @@
 #include "BXDF.hh"
 #include "Math.hh"
 
-#include <metal_raytracing>
-
 template <typename DistType, typename FrType>
 class MicrofacetReflection {
     
@@ -439,7 +437,7 @@ typedef MicrofacetReflection <TrowbridgeReitz, FresnelConductor> MetalMaterial;
 
 inline MetalMaterial createMetalMaterial() {
     
-    float2 uv_rough = {0.001, 0.001};
+    float2 uv_rough = {0.01, 0.02};
     
     //uv_rough[0] = TrowbridgeReitz::RoughnessToAlpha(0.1);
     //uv_rough[1] = TrowbridgeReitz::RoughnessToAlpha(0.2);
