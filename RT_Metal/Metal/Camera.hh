@@ -2,6 +2,7 @@
 #define Camera_h
 
 #include "Ray.hh"
+#include "AABB.hh"
 #include "Common.hh"
 
 struct Camera {
@@ -23,6 +24,36 @@ struct Transform {
     float4x4 m, w;
 };
 
+struct Complex {
+    float2 tex_size;
+    float2 view_size;
+    float running_time;
+    uint32_t frame_count=0;
+    
+    AABB   photonBox;
+    float3 photonBoxSize;
+    
+    float photonInitialRadius;
+    
+    float photonHashScale;
+    
+    float totalPhotonSum = 0;
+    
+#ifdef __METAL_VERSION__
+    volatile atomic_uint framePhotonSum {0};
+#else
+    uint32_t framePhotonSum = 0;
+    
+    void reset() {
+        frame_count = 0;
+        running_time = 0;
+        framePhotonSum = 0;
+        totalPhotonSum = 0;
+    }
+    
+#endif
+};
+
 #ifdef __METAL_VERSION__
 
 template <typename XSampler>
@@ -30,9 +61,7 @@ Ray castRay(constant Camera* camera, float s, float t, thread XSampler* xsampler
 {
     auto rd = camera->lenRadius * xsampler->sampleUnitInDisk();
     auto offset = camera->u*rd.x + camera->v*rd.y;
-    auto origin = camera->lookFrom + offset ;
-    
-    //thread uint *bits = reinterpret_cast<thread uint*>(&s);
+    auto origin = camera->lookFrom + offset;
     
     auto sample = camera->cornerLowLeft + camera->horizontal*s + camera->vertical*t;
     //Ray ray = Ray(float3(s * 1920, t * 1080, -1000), float3(FLT_MIN, FLT_MIN, 1));

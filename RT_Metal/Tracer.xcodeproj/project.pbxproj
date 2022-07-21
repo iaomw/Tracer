@@ -63,6 +63,8 @@
 		5795B58226E12F9600A09B05 /* minipbrt.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5795B58126E12F9600A09B05 /* minipbrt.cpp */; };
 		5795B58426E130E100A09B05 /* cloud in Resources */ = {isa = PBXBuildFile; fileRef = 5795B58326E130E100A09B05 /* cloud */; };
 		5795B58526E1345500A09B05 /* cloud in Resources */ = {isa = PBXBuildFile; fileRef = 5795B58326E130E100A09B05 /* cloud */; };
+		57B72C7D286E18E000958364 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57B72C7C286E18E000958364 /* MetalKit.framework */; };
+		57B72C7F286E18E600958364 /* MetalPerformanceShaders.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57B72C7E286E18E600958364 /* MetalPerformanceShaders.framework */; };
 		57C64C7824E149BD0054AB8C /* coatball in Resources */ = {isa = PBXBuildFile; fileRef = 57C64C7724E149BD0054AB8C /* coatball */; };
 		57C64C7924E14B920054AB8C /* coatball in Resources */ = {isa = PBXBuildFile; fileRef = 57C64C7724E149BD0054AB8C /* coatball */; };
 		57C64C7C24E1549B0054AB8C /* AAPLMesh.m in Sources */ = {isa = PBXBuildFile; fileRef = 57C64C7B24E1549B0054AB8C /* AAPLMesh.m */; };
@@ -74,6 +76,8 @@
 		57DD356C241EEC110094632B /* TracerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD356B241EEC110094632B /* TracerViewController.swift */; };
 		57DD356E241EEC140094632B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356D241EEC140094632B /* Assets.xcassets */; };
 		57DD3571241EEC140094632B /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356F241EEC140094632B /* Main.storyboard */; };
+		57DF236127A126DD0074A139 /* Photon.metal in Sources */ = {isa = PBXBuildFile; fileRef = 57DF236027A126160074A139 /* Photon.metal */; };
+		57DF236227A126DD0074A139 /* Photon.metal in Sources */ = {isa = PBXBuildFile; fileRef = 57DF236027A126160074A139 /* Photon.metal */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -92,6 +96,7 @@
 		57483ED524FEC232002F7ECA /* scuffed */ = {isa = PBXFileReference; lastKnownFileType = folder; path = scuffed; sourceTree = "<group>"; };
 		5749BCA22435005B002B60E4 /* Scatter.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Scatter.metal; sourceTree = "<group>"; };
 		5749BCA624362BDE002B60E4 /* Random.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Random.hh; sourceTree = "<group>"; };
+		57562F3927656C850078F4E8 /* Photon.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Photon.hh; sourceTree = "<group>"; };
 		5759E67124DB3EB900C8A2D7 /* Scatter.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Scatter.hh; sourceTree = "<group>"; };
 		5759E67224DB483D00C8A2D7 /* Ray.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Ray.hh; sourceTree = "<group>"; };
 		5759E67324DB492500C8A2D7 /* Camera.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Camera.hh; sourceTree = "<group>"; };
@@ -131,6 +136,8 @@
 		57981F5A267A10770009FB22 /* Light.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Light.hh; sourceTree = "<group>"; };
 		57981F5D267B52080009FB22 /* Sampling.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Sampling.hh; sourceTree = "<group>"; };
 		5798730D2677B2FD007FB08D /* Spectrum.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Spectrum.hh; sourceTree = "<group>"; };
+		57B72C7C286E18E000958364 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		57B72C7E286E18E600958364 /* MetalPerformanceShaders.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalPerformanceShaders.framework; path = System/Library/Frameworks/MetalPerformanceShaders.framework; sourceTree = SDKROOT; };
 		57C64C7724E149BD0054AB8C /* coatball */ = {isa = PBXFileReference; lastKnownFileType = folder; path = coatball; sourceTree = "<group>"; };
 		57C64C7A24E1549A0054AB8C /* AAPLMesh.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = AAPLMesh.h; sourceTree = "<group>"; };
 		57C64C7B24E1549B0054AB8C /* AAPLMesh.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AAPLMesh.m; sourceTree = "<group>"; };
@@ -149,6 +156,7 @@
 		57DE334626974D4700B1D4CF /* SpecularBXDF.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = SpecularBXDF.hh; sourceTree = "<group>"; };
 		57DE33492697504100B1D4CF /* MicrofacetBXDF.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MicrofacetBXDF.h; sourceTree = "<group>"; };
 		57DE334C26975B1800B1D4CF /* MatteBXDF.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MatteBXDF.hh; sourceTree = "<group>"; };
+		57DF236027A126160074A139 /* Photon.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Photon.metal; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -163,6 +171,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				57B72C7F286E18E600958364 /* MetalPerformanceShaders.framework in Frameworks */,
+				57B72C7D286E18E000958364 /* MetalKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -172,6 +182,8 @@
 		5701CE7524E591CE008F68BB /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				57B72C7E286E18E600958364 /* MetalPerformanceShaders.framework */,
+				57B72C7C286E18E000958364 /* MetalKit.framework */,
 				5701CE7624E591CE008F68BB /* SceneKit.framework */,
 			);
 			name = Frameworks;
@@ -216,6 +228,8 @@
 				5759E68324DCAC1E00C8A2D7 /* Noise.metal */,
 				573DD10A24335D6D00B09B0A /* Render.hh */,
 				573DD1082432B9D900B09B0A /* Render.metal */,
+				57562F3927656C850078F4E8 /* Photon.hh */,
+				57DF236027A126160074A139 /* Photon.metal */,
 				57C9D46226A6C86400C681AA /* Medium.hh */,
 			);
 			path = Metal;
@@ -266,8 +280,8 @@
 			children = (
 				5795B58026E12F9600A09B05 /* minipbrt.h */,
 				5795B58126E12F9600A09B05 /* minipbrt.cpp */,
-				57D89BF7273FF57100110E10 /* pcg_basic.c */,
 				57D89BF8273FF57200110E10 /* pcg_basic.h */,
+				57D89BF7273FF57100110E10 /* pcg_basic.c */,
 				573DD10B2433793800B09B0A /* Tracer-Bridging.h */,
 				571C09612439269400DA0BAC /* Tracer.hh */,
 				571C095F2439267700DA0BAC /* Tracer.mm */,
@@ -430,6 +444,7 @@
 				57874FD024DDF70800080AB7 /* Tracer.mm in Sources */,
 				57D89BFA273FF57200110E10 /* pcg_basic.c in Sources */,
 				57874FD124DDF70800080AB7 /* AAPLRenderer.hh in Sources */,
+				57DF236227A126DD0074A139 /* Photon.metal in Sources */,
 				57874FD224DDF70800080AB7 /* AAPLRenderer.mm in Sources */,
 				57874FC224DDF37100080AB7 /* ViewController.swift in Sources */,
 				57874FBE24DDF37100080AB7 /* AppDelegate.swift in Sources */,
@@ -448,6 +463,7 @@
 				575F7DBB242469C300DA5F33 /* TracerWindowController.swift in Sources */,
 				573DD1122433AA9900B09B0A /* Random.metal in Sources */,
 				57D7F39B266925F90063AF0A /* Triangle.hh in Sources */,
+				57DF236127A126DD0074A139 /* Photon.metal in Sources */,
 				5759E68024DB723D00C8A2D7 /* HitRecord.metal in Sources */,
 				571C09602439267700DA0BAC /* Tracer.mm in Sources */,
 				5749BCA32435005B002B60E4 /* Scatter.metal in Sources */,
@@ -675,7 +691,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_UNROLL_LOOPS = NO;
 				INFOPLIST_FILE = Tracer/Info.plist;
@@ -712,7 +728,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_UNROLL_LOOPS = NO;
 				INFOPLIST_FILE = Tracer/Info.plist;

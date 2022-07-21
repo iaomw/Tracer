@@ -1,20 +1,26 @@
 #ifndef Common_h
 #define Common_h
 
+    #define PHOTON_HASHN 512
+
     #ifdef __METAL_VERSION__
 
         #include <metal_stdlib>
         using namespace metal;
 
         constexpr sampler textureSampler (mag_filter::linear, min_filter::linear, mip_filter::linear);
+        constexpr sampler photonSampler (mag_filter::nearest, min_filter::nearest, mip_filter::nearest);
+
+        constant uint32_t photonHashN = PHOTON_HASHN;
         
     #else
 
         #define let __auto_type const
         #define var __auto_type
 
-        #include <MetalKit/MetalKit.h>
-        #include <simd/simd.h>
+        #import <simd/simd.h>
+        #import <Metal/Metal.h>
+        #import <MetalKit/MetalKit.h>
 
         typedef simd_float4x4 float4x4;
         typedef simd_float3x3 float3x3;
@@ -23,7 +29,7 @@
         typedef simd_float3 float3;
         typedef simd_float2 float2;
         
-        struct MeshStrut {
+        struct MeshElement {
             float vx, vy, vz;
             float nx, ny, nz;
             float2 uv;
@@ -51,7 +57,6 @@
                 }
             };
         #endif // __cplusplus
-
     #endif // __METAL_VERSION__
 
 #endif /* Common_h */

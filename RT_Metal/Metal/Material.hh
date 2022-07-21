@@ -24,11 +24,14 @@ public:
     enum MaterialType type;
     enum MediumType medium;
     
+    bool specular = false;
+    
     float eta;
+    float roughness = 1.0;
     
 //    float specularProb;
 //    float specularRoughness;
-//    float3  specularColor;1
+//    float3  specularColor;
 //    
 //    float refractionProb;
 //    float refractionRoughness;
@@ -63,7 +66,6 @@ public:
     float3 S_F(BxType bx, const thread float3 &wo, thread float3 &wi, const thread float2 &uv, const thread float2 &uu, thread float &pdf) constant {
         
         auto color = textureInfo.value(nullptr, uv, float3(0));
-        
         return color * bx.S_F(wo, wi, uu, pdf);
     }
     
@@ -144,7 +146,6 @@ inline float3 Material::S_F(const thread float3 &wo, thread float3 &wi, const th
 }
 
 #endif
-
 
 float schlick(float cosine, float ref_idx);
 

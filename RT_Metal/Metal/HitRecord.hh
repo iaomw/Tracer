@@ -55,6 +55,7 @@ inline float HenyeyGreenstein::p(const thread float3 &wo, const thread float3 &w
     //ProfilePhase _(Prof::PhaseFuncEvaluation);
     return PhaseHG(dot(wo, wi), g);
 }
+
 inline float HenyeyGreenstein::Sample_p(const thread float3 &wo, thread float3 &wi, const thread float2 &uu) const {
     // Compute $\cos \theta$ for Henyey--Greenstein sample
     float cosTheta;

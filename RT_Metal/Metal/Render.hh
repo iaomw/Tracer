@@ -3,8 +3,9 @@
 
 #include "Common.hh"
 #include "Random.hh"
+#include "Camera.hh"
 
-#include "SobolSampler.hh"
+//#include "SobolSampler.hh"
 #include "RandomSampler.hh"
 
 #include "BVH.hh"
@@ -37,6 +38,86 @@ struct PackagePBR {
     texture2d<float>  texMetallic [[id(3)]];
     texture2d<float> texRoughness [[id(4)]];
 };
+
+inline float2 SampleSphericalMap(float3 v)
+{
+    float2 uv = float2(atan2(v.z, v.x), asin(v.y));
+    float2 invAtan = float2(0.1591, 0.3183);
+    uv *= invAtan; uv += 0.5;
+    return uv;
+}
+
+inline float3 LessThan(float3 f, float value)
+{
+    return float3(
+        (f.x < value) ? 1.0f : 0.0f,
+        (f.y < value) ? 1.0f : 0.0f,
+        (f.z < value) ? 1.0f : 0.0f);
+}
+ 
+inline float3 LinearToSRGB(float3 rgb)
+{
+    rgb = clamp(rgb, 0.0f, 1.0f);
+    return mix(
+        pow(rgb, float3(1.0f / 2.4f)) * 1.055f - 0.055f,
+        rgb * 12.92f,
+        LessThan(rgb, 0.0031308f)
+    );
+}
+ 
+inline float3 SRGBToLinear(float3 rgb)
+{
+    rgb = clamp(rgb, 0.0f, 1.0f);
+    return mix(
+        pow(((rgb + 0.055f) / 1.055f), float3(2.4f)),
+        rgb / 12.92f,
+        LessThan(rgb, 0.04045f)
+    );
+}
+
+inline float3 ACESTone(float3 color, float adapted_lum)
+{
+    const float A = 2.51f;
+    const float B = 0.03f;
+    const float C = 2.43f;
+    const float D = 0.59f;
+    const float E = 0.14f;
+
+    color *= adapted_lum;
+    return (color * (A * color + B)) / (color * (C * color + D) + E);
+}
+
+template <typename F>
+inline F CETone(F color, float adapted_lum)
+{
+    return 1 - exp(-adapted_lum * color);
+}
+
+inline pcg32_t toRNG(thread vec<uint32_t, 4> &rng_cache) {
+    //return as_type<pcg32_t>(rng_cache);
+    
+    uint32_t rr = rng_cache.r;
+    uint32_t gg = rng_cache.g;
+    uint32_t bb = rng_cache.b;
+    uint32_t aa = rng_cache.a;
+    
+    uint64_t rng_state = (uint64_t(rr) << 32) | gg;
+    uint64_t rng_inc = (uint64_t(bb) << 32) | aa;
+    return pcg32_t { rng_inc, rng_state };
+}
+
+inline vec<uint32_t, 4> exRNG(thread pcg32_t &rng) {
+    //return as_type<vec<uint32_t, 4>>(rng);
+    
+    vec<uint32_t, 4> rng_cache;
+    
+    rng_cache.r = rng.state >> 32;
+    rng_cache.g = rng.state;
+    rng_cache.b = rng.inc >> 32;
+    rng_cache.a = rng.inc;
+    
+    return rng_cache;
+}
 
 struct Primitive {
     constant Sphere*   sphereList [[id(0)]];
@@ -92,18 +173,17 @@ struct Scene {
                     
                     selected_index = (t_left < t_right)? left_index : right_index;
                     
-                    if (nullptr != edge) {
-                        
-                        if (t_left < t_right) {
-                            auto done = primitives.bvhList[left_index].bBOX.hit_edge(ray, range_t, t_left, stack_level);
-                            if (done) {*edge = true; return false;}
-                            
-                        } else {
-                            auto done = primitives.bvhList[right_index].bBOX.hit_edge(ray, range_t, t_right, stack_level);
-                            if (done) { *edge = true; return false;}
-                        }
-                    }
-                    
+//                    if (nullptr != edge) {
+//
+//                        if (t_left < t_right) {
+//                            auto done = primitives.bvhList[left_index].bBOX.hit_edge(ray, range_t, t_left, stack_level);
+//                            if (done) {*edge = true; return false;}
+//
+//                        } else {
+//                            auto done = primitives.bvhList[right_index].bBOX.hit_edge(ray, range_t, t_right, stack_level);
+//                            if (done) { *edge = true; return false;}
+//                        }
+//                    }
                 } // came from parent
                 
                 else { // came from child

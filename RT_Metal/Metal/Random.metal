@@ -1,7 +1,5 @@
 #include "Random.hh"
 
-//static pcg32_t pcg32_global = PCG32_INITIALIZER;
-
 void pcg32_srandom_r(thread pcg32_t* rng, uint64_t initstate, uint64_t initseq)
 {
     rng->state = 0U;
@@ -10,11 +8,6 @@ void pcg32_srandom_r(thread pcg32_t* rng, uint64_t initstate, uint64_t initseq)
     rng->state += initstate;
     pcg32_random_r(rng);
 }
-
-//void pcg32_srandom(uint64_t seed, uint64_t seq)
-//{
-//    pcg32_srandom_r(&pcg32_global, seed, seq);
-//}
 
 uint32_t pcg32_random_r(thread pcg32_t* rng)
 {

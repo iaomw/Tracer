@@ -177,6 +177,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     
     metal.textureInfo.type = TextureType::Constant;
     metal.textureInfo.albedo = float3{0.8, 0.85, 0.88};
+    metal.specular = true;
     
     auto metal_index = (uint32_t)materials.size();
     materials.emplace_back(metal);
@@ -205,7 +206,7 @@ void prepareCubeList(std::vector<Cube>& list, std::vector<Material>& materials) 
     materials.emplace_back(white);
     
     auto smaller = MakeCube(float3{0, 0, 0},
-                            float3{1, 1, 1}, white_index);
+                            float3{1, 1, 1}, 19);
     
     scale = scale4x4(165, 165, 165);
     translate = translation4x4(130, 1, 65);
@@ -270,7 +271,7 @@ void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materia
     auto white_index = (uint32_t)materials.size();
     materials.emplace_back(white);
     
-    auto lightSource = MakeSquare(0, float2{400, 555}, 2, float2{200, 355}, 1, 550);
+    auto lightSource = MakeSquare(0, float2{400, 555}, 2, float2{200, 355}, 1, 555-0.1);
     lightSource.material = light_index;
 
     auto right = MakeSquare(1, float2{0, 555}, 2, float2{0, 555}, 0, 800); //flip
@@ -297,7 +298,7 @@ void prepareCornellBox(std::vector<Square>& list, std::vector<Material>& materia
     
     list.emplace_back(lightSource);
     
-    auto little = MakeSquare(1, float2{200, 300}, 2, float2{200, 300}, 0, -200);
+    auto little = MakeSquare(1, float2{200, 300}, 2, float2{200, 300}, 0, -300);
     little.material = light_index;
     list.emplace_back(little);
 }
@@ -367,7 +368,7 @@ void prepareSphereList(std::vector<Sphere>& list, std::vector<Material>& materia
     }
 }
 
-void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
+void prepareCamera(Camera* camera, float2 viewSize, float2 rotate, float3 wasd) {
     
     auto aspect = viewSize.x/viewSize.y;
     
@@ -376,12 +377,14 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     auto viewUp = float3{0, 1, 0};
     
     auto dist_focus = 10;
-    auto aperture = 0.01;
+    auto aperture = 0.00;
     
     auto vfov = 45 * (M_PI/180);
     auto hfov = 2 * atan(tan(vfov * 0.5) * aspect);
     
     auto offset = lookFrom - lookAt;
+    auto forward = -simd::normalize(offset);
+    auto left = -simd::cross(viewUp, forward);
     
 //    let rotH = rotation4x4(rotate.x * hfov * 10, viewUp);
 //    let rotV = rotation4x4(rotate.y * vfov * 10, float3{1, 0, 0});
@@ -397,6 +400,12 @@ void prepareCamera(struct Camera* camera, float2 viewSize, float2 rotate) {
     
     lookFrom = lookAt + offset;
     viewUp = simd_act(rot, viewUp);
+    
+    float3 lookOffset = forward * wasd.y;
+    lookOffset += left * wasd.x;
+    
+    lookFrom += lookOffset;
+    lookAt += lookOffset;
     
     MakeCamera(camera, lookFrom, lookAt, viewUp, aperture, aspect, vfov, dist_focus);
 }

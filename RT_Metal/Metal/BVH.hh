@@ -3,10 +3,6 @@
 
 #include "AABB.hh"
 
-#ifdef __cplusplus
-    //#include <iostream>
-#endif
-
 enum struct PrimitiveType {
     Sphere, Square, Cube, Triangle, BVH, UNKNOW
 };
@@ -26,9 +22,10 @@ struct BVH {
     AABB bBOX;
     
 #ifdef __METAL_VERSION__
-#else
     
-#include <iostream>
+    bool contains() { return false; }
+    
+#else
     
     static inline bool box_compare(const AABB& a, const AABB& b, int axis) {
 
