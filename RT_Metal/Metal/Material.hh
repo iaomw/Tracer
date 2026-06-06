@@ -24,7 +24,7 @@ public:
     enum MaterialType type;
     enum MediumType medium;
     
-    bool specular = false;
+    uint32_t specular = 0;
     
     float eta;
     float roughness = 1.0;

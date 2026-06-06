@@ -5,6 +5,8 @@
 
 #import <MetalPerformanceShaders/MetalPerformanceShaders.h>
 
+#include <cstring>
+
 #include "pcg_basic.h"
 #include "minipbrt.h"
 
@@ -192,13 +194,12 @@ uint32_t photonHashN = PHOTON_HASHN;
         
         _canvas_buffer = [_device newBufferWithBytes:canvas length:sizeof(VertexWithUV)*6 options: _commonStorageMode];
         
-        _complex_buffer = [_device newBufferWithBytes: &_complex
-                                               length: sizeof(Complex)
-                                              options: MTLResourceStorageModeShared];
+        _complex_buffer = [_device newBufferWithLength: sizeof(Complex)
+                                               options: MTLResourceStorageModeShared];
         
         _complex = (Complex*)(_complex_buffer.contents);
-        _complex->frame_count = 0;
-        _complex->running_time = 0;
+        std::memset(_complex, 0, sizeof(Complex));
+        _complex->reset();
         
         _complex->tex_size = float2 {static_cast<float>(_width), static_cast<float>(_height)};
         _complex->view_size = float2 {static_cast<float>(_width), static_cast<float>(_height)};
@@ -343,6 +344,32 @@ _time_s = [[NSDate date] timeIntervalSince1970];
         fillRNG(_textureCanvasRNG);
         fillRNG(_texturePhotonRNG);
         
+        auto clearTexture = [&](id<MTLTexture> theTexture) {
+            size_t pixel_count = theTexture.width * theTexture.height;
+            size_t bytes_per_row = sizeof(float) * 4 * theTexture.width;
+            size_t bytes_count = bytes_per_row * theTexture.height;
+            std::vector<float> zero_pixels(pixel_count * 4, 0.0f);
+
+            let zeroBuffer = [_device newBufferWithBytes:zero_pixels.data()
+                                                  length:bytes_count
+                                                 options:MTLResourceStorageModeShared];
+
+            let blitCommandEncoder = [commandBuffer blitCommandEncoder];
+            [blitCommandEncoder copyFromBuffer: zeroBuffer
+                                  sourceOffset: 0
+                             sourceBytesPerRow: bytes_per_row
+                           sourceBytesPerImage: bytes_count
+                                    sourceSize: { theTexture.width, theTexture.height, 1 }
+                                     toTexture: theTexture
+                              destinationSlice: 0
+                              destinationLevel: 0
+                             destinationOrigin: {0,0,0}];
+            [blitCommandEncoder endEncoding];
+        };
+
+        clearTexture(_textureA);
+        clearTexture(_textureB);
+
 _time_e = [[NSDate date] timeIntervalSince1970];
 NSLog(@"Done  %fs", _time_e - _time_s);
         
@@ -359,7 +386,7 @@ _time_s = [[NSDate date] timeIntervalSince1970];
                     MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate),
                     MTKTextureLoaderOptionOrigin: MTKTextureLoaderOriginFlippedVertically };
         
-        auto cqueue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
+        auto cqueue = dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0);
         auto semaphore = dispatch_semaphore_create(1);
         auto wait_group = dispatch_group_create();
         
@@ -753,6 +780,10 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             _cameraRecordBuffer = [_device newBufferWithLength:sizeof(CameraRecord) * _width * _height
                                                        options:_commonStorageMode];
             [_cameraRecordBuffer setLabel:@"_cameraRecordBuffer"];
+            std::memset(_cameraRecordBuffer.contents, 0, _cameraRecordBuffer.length);
+            if (_cameraRecordBuffer.storageMode == MTLStorageModeManaged) {
+                [_cameraRecordBuffer didModifyRange:NSMakeRange(0, _cameraRecordBuffer.length)];
+            }
         
             _cameraBoundsBuffer = [_device newBufferWithLength:sizeof(AABB) * _width * _height
                                                        options:_commonStorageMode];
@@ -762,6 +793,10 @@ NSLog(@"Done  %fs", _time_e - _time_s);
             _photonRecordBuffer = [_device newBufferWithLength:sizeof(PhotonRecord) * photonHashN * photonHashN
                                                        options:_commonStorageMode];
             [_photonRecordBuffer setLabel:@"_photonRecordBuffer"];
+            std::memset(_photonRecordBuffer.contents, 0, _photonRecordBuffer.length);
+            if (_photonRecordBuffer.storageMode == MTLStorageModeManaged) {
+                [_photonRecordBuffer didModifyRange:NSMakeRange(0, _photonRecordBuffer.length)];
+            }
         
             _photonHashedBuffer = [_device newBufferWithLength:sizeof(float4) * photonHashN * photonHashN
                                                        options:_commonStorageMode];
@@ -1024,7 +1059,7 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
         [blit endEncoding];
     }
     
-    [self processAppleSVGF:commandBuffer];
+    //[self processAppleSVGF:commandBuffer];
     
     auto dumm = (Complex*)(_complex_buffer.contents);
     
@@ -1175,9 +1210,6 @@ static std::vector<std::vector<int>> predefined_index { { 0, 1, 2, 3 }, {1, 0, 3
     [computeEncoder setTexture:_textureCanvasRNG atIndex: tex_index[2]];
     [computeEncoder setTexture:_textureCanvasRNG atIndex: tex_index[3]];
     
-    if (self->_complex->frame_count > 3 || self->_complex->frame_count < 1) {
-        memcpy(_complex_buffer.contents, &_complex, sizeof(Complex));
-    }
     [computeEncoder setBuffer:_complex_buffer offset:0 atIndex:1];
     
     memcpy(_camera_buffer.contents, &_camera, sizeof(Camera));
