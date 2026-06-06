@@ -12,7 +12,7 @@ bool traceCameraRecord(half depth, thread Ray& ray, thread XSampler& xsampler,
     HitRecord hitRecord;
     BxRecord scatRecord;
     
-    cr.valid = false;
+    cr.valid = 0;
     
     Scene scene { primitives };
     Spectrum ratio = Spectrum(1.0);
@@ -45,7 +45,7 @@ bool traceCameraRecord(half depth, thread Ray& ray, thread XSampler& xsampler,
         
         if ( !material.specular ) {
             
-            cr.valid = true;
+            cr.valid = 1;
             cr.ratio = ratio;
             cr.position = hitRecord.p;
             cr.direction = ray.direction;
@@ -138,12 +138,13 @@ kernelCameraRecording(texture2d<uint32_t, access::read>        inRNG [[texture(0
     RandomSampler rs { &rng };
     auto ray = castRay(camera, u, v, &rs);
     
-    auto cr = cameraRecord[idx];
-    
     half depth = 8;
+    CameraRecord cr;
+    cr.reset();
     if (frame == 0) {
-        cr.reset();
         depth = 3;
+    } else {
+        cr = cameraRecord[idx];
     }
     
     half4 zN = 0;
@@ -197,7 +198,7 @@ kernelCameraReducing(constant Camera*           camera [[buffer(0)]],
         shared_memory[local_idx] = inAABB[thread_idx];
     }
     
-    threadgroup_barrier(mem_flags::mem_none);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
     // reduction in shared memory
     for (ushort stride = group_size / 2; stride > 0; stride >>= 1) {
         
@@ -209,7 +210,7 @@ kernelCameraReducing(constant Camera*           camera [[buffer(0)]],
             shared_memory[local_idx].mini = min(a.mini, b.mini);
             shared_memory[local_idx].maxi = max(a.maxi, b.maxi);
         }
-        threadgroup_barrier(mem_flags::mem_none);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
     }
     
     if (0 == local_idx) {
@@ -233,10 +234,15 @@ void tracePhotonRecord(thread Ray& ray, thread XSampler& xsampler,
     Spectrum ratio = Spectrum(1.0);
     
     bool hitted = scene.hit(ray, hitRecord, FLT_MAX);
-    
+
+    if (!hitted) {
+        photonRecord.reset();
+        return;
+    }
+
     constant auto& material = packageEnv.materials[hitRecord.material];
-    
-    if ( !hitted || material.type == MaterialType::Diffuse ) {
+
+    if (material.type == MaterialType::Diffuse) {
         photonRecord.reset();
         return;
     }
@@ -307,8 +313,12 @@ kernelPhotonRecording(texture2d<uint32_t, access::read>       inRNG [[texture(0)
     #endif
     
     uint idx = thread_pos.y * grid_size.x + thread_pos.x;
-    auto photon_cache = photonRecord[idx];
     auto frame = complex->frame_count;
+    PhotonRecord photon_cache;
+    photon_cache.reset();
+    if (frame != 0) {
+        photon_cache = photonRecord[idx];
+    }
     
     auto rng_cache = inRNG.read(thread_pos);
     pcg32_t rng = toRNG(rng_cache);
@@ -394,6 +404,12 @@ kernelPhotonHashing(device Complex*              complex [[buffer(1)]],
                     uint2 grid_size                 [[threads_per_grid]])
 {
     size_t thread_idx = thread_pos.y * grid_size.x + thread_pos.x;
+
+    if (photonRecord[thread_idx].active == 0) {
+        photonHashed[thread_idx] = float4((float2)(thread_pos), 0.0, 0.0);
+        return;
+    }
+
     float3 position = photonRecord[thread_idx].position;
     
     float HashScale = complex->photonHashScale;
@@ -411,6 +427,7 @@ kernelPhotonHashing(device Complex*              complex [[buffer(1)]],
 struct PhotonMarkVSData
 {
     float4 position [[position]];
+    float pointSize [[point_size]];
     float4 PhotonMark;
 };
 vertex PhotonMarkVSData
@@ -425,11 +442,13 @@ PhotonMarkVS(const uint vertexID [[ vertex_id ]],
     
     auto z = photonRecord[vertexID].active ? 0.5 : -1.0; // visible or not
     
-    photonPosition2DHashedGrid.y = photonHashN - photonPosition2DHashedGrid.y;
-    photonPosition2DHashedGrid = photonPosition2DHashedGrid * 2.0/photonHashN - 1.0;
+    photonPosition2DHashedGrid = float2(photonPosition2DHashedGrid.x + 0.5,
+                                        photonHashN - photonPosition2DHashedGrid.y - 0.5);
+    photonPosition2DHashedGrid = photonPosition2DHashedGrid * 2.0 / photonHashN - 1.0;
     
     out.position = float4(photonPosition2DHashedGrid, z, 1.0);
-    out.PhotonMark = element - float4(0, 0, 1, 1);
+    out.pointSize = 1.0;
+    out.PhotonMark = float4(element.xy, 0.0, 1.0);
     
 //    uint y = vertexID / photonHashN;
 //    uint x = vertexID % photonHashN;
@@ -554,11 +573,12 @@ for (int iz = int(RangeMin.z); iz <= int(RangeMax.z); iz++)
 float3 hashIndex = float3(ix, iy, iz);
 float hashed = hash(hashIndex, HashScale, photonHashN);
 float2 HashedPhotonIndex2D = convert1Dto2D(hashed, photonHashN);
-       HashedPhotonIndex2D -= 1.0;
+uint2 HashedPhotonCoord = uint2(HashedPhotonIndex2D);
             
-float2 PhotonIndex2D = _marksHashGrid.read((uint2)(HashedPhotonIndex2D)).xy;
+float2 PhotonIndex2D = _marksHashGrid.read(HashedPhotonCoord).xy;
         //_marksHashGrid.sample(photonSampler, HashedPhotonIndex2D/1024).xy;
             if (PhotonIndex2D.x < 0){continue;}
+            if (PhotonIndex2D.x >= photonHashN || PhotonIndex2D.y >= photonHashN) { continue; }
             
 uint PhotonIndex1D = (uint)PhotonIndex2D.y * photonHashN + (uint)(PhotonIndex2D.x);
             
@@ -579,10 +599,11 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
 
     if ((d < QueryRadius) && (-dot(QueryDirection, PhotonDirection) > 0.001))
     {
-        float Correction = _countHashGrid.read((uint2)HashedPhotonIndex2D).x;
+        float Correction = _countHashGrid.read(HashedPhotonCoord).x;
         //_countHashGrid.sample(photonSampler, HashedPhotonIndex2D/1024).x;
+        if (Correction <= 0) { continue; }
         _Flux += PhotonFlux * Correction;
-        _PhotonCount += Correction;
+        _PhotonCount += uint(Correction);
     }
 }
 //outTexture.write(float4(_Flux , 1.0), thread_pos);
@@ -595,12 +616,14 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
     //if (FullSpectrum) Flux = Spectrum2RGB(Wavelength) * Flux.r;
     
     // progressive refinement
-    const float alpha = 0.8;
-    float g = min((QueryPhotonCount + _PhotonCount * alpha ) / (QueryPhotonCount + _PhotonCount), 1.0);
-    QueryRadius = QueryRadius * sqrt(g);
-    
-    QueryPhotonCount = QueryPhotonCount + _PhotonCount * alpha;
-    QueryFlux = (QueryFlux + _Flux) * g;
+    if (_PhotonCount > 0) {
+        const float alpha = 0.8;
+        float g = min((QueryPhotonCount + _PhotonCount * alpha ) / (QueryPhotonCount + _PhotonCount), 1.0);
+        QueryRadius = QueryRadius * sqrt(g);
+
+        QueryPhotonCount = QueryPhotonCount + _PhotonCount * alpha;
+        QueryFlux = (QueryFlux + _Flux) * g;
+    }
     
     _cameraRecords[thread_idx].flux = QueryFlux;
     _cameraRecords[thread_idx].radius = QueryRadius;
@@ -609,14 +632,16 @@ if ((_RangeMin.x < PhotonPosition.x) && (PhotonPosition.x < _RangeMax.x)
     //uint32_t TotalPhotonNum = _complex->photonSum;
     float TotalPhotonNum = _complex->totalPhotonSum;
     TotalPhotonNum += atomic_load_explicit(&_complex->framePhotonSum, memory_order_relaxed);
+    TotalPhotonNum = max(TotalPhotonNum, 1.0);
     
-    float3 color = float3(QueryFlux / (QueryRadius * QueryRadius * 3.141592 * TotalPhotonNum));
+    float denom = max(QueryRadius * QueryRadius * 3.141592 * TotalPhotonNum, FLT_EPSILON);
+    float3 color = float3(QueryFlux / denom);
     //color = CETone(color, 1.0);
     auto cache = inTexture.read(thread_pos).xyz;
     
     float3 result = (cache*frame + color) / (frame+1);
     
-    if (any(isnan(result))) {result = 0;}
+    if (any(isnan(result)) || any(isinf(result))) {result = 0;}
     
     outTexture.write(float4(result, 1.0), thread_pos);
     sourceSVGF.write(float4(result, 1.0), thread_pos);

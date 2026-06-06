@@ -18,12 +18,15 @@ struct PhotonRecord {
     float3 direction;
     
     uint8_t step = 0;
-    bool active = false;
+    uint32_t active = 0;
     
     void reset() {
         flux = 1;
+        normal = 0;
+        position = 0;
+        direction = 0;
         step = 0;
-        active = false;
+        active = 0;
     }
 };
 
@@ -32,7 +35,7 @@ struct CameraRecord {
     float3 position = 0;
     float3 direction = 0;
     
-    bool valid = false;
+    uint32_t valid = 0;
     float3 alternative = 0;
 
     float3 flux = 0;
@@ -44,7 +47,8 @@ struct CameraRecord {
         position = 0;
         direction = 0;
         
-        valid = false;
+        valid = 0;
+        alternative = 0;
 
         flux = 0;
         radius = 0;
