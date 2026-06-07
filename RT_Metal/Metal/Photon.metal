@@ -556,10 +556,14 @@ kernelPhotonRefine(const device Complex*             _complex       [[buffer(0)]
     uint QueryPhotonCount = _cameraRecords[thread_idx].photonCount;
     
     float3 BBoxMin = _complex->photonBox.mini;
+    float3 BBoxMax = _complex->photonBox.maxi;
     float HashScale = _complex->photonHashScale;
 
-    float3 RangeMin = abs(QueryPosition - float3(QueryRadius) - BBoxMin) * HashScale;
-    float3 RangeMax = abs(QueryPosition + float3(QueryRadius) - BBoxMin) * HashScale;
+    float3 RangeMin = floor((QueryPosition - float3(QueryRadius) - BBoxMin) * HashScale);
+    float3 RangeMax = floor((QueryPosition + float3(QueryRadius) - BBoxMin) * HashScale);
+    float3 RangeBound = floor((BBoxMax - BBoxMin) * HashScale);
+    RangeMin = clamp(RangeMin, float3(0.0), RangeBound);
+    RangeMax = clamp(RangeMax, float3(0.0), RangeBound);
      
     float3 _Flux = 0; uint _PhotonCount = 0;
     
