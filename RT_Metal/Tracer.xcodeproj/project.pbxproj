@@ -76,8 +76,8 @@
 		57DD356C241EEC110094632B /* TracerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DD356B241EEC110094632B /* TracerViewController.swift */; };
 		57DD356E241EEC140094632B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356D241EEC140094632B /* Assets.xcassets */; };
 		57DD3571241EEC140094632B /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 57DD356F241EEC140094632B /* Main.storyboard */; };
-		57DF236127A126DD0074A139 /* Photon.metal in Sources */ = {isa = PBXBuildFile; fileRef = 57DF236027A126160074A139 /* Photon.metal */; };
-		57DF236227A126DD0074A139 /* Photon.metal in Sources */ = {isa = PBXBuildFile; fileRef = 57DF236027A126160074A139 /* Photon.metal */; };
+		57DF236127A126DD0074A139 /* Photon.metal in Sources */ = {isa = PBXBuildFile; fileRef = 57DF236027A126160074A139 /* Photon.metal */; settings = {COMPILER_FLAGS = "-fno-fast-math"; }; };
+		57DF236227A126DD0074A139 /* Photon.metal in Sources */ = {isa = PBXBuildFile; fileRef = 57DF236027A126160074A139 /* Photon.metal */; settings = {COMPILER_FLAGS = "-fno-fast-math"; }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
